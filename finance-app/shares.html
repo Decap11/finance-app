@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Shares - SACCO Finance</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- FontAwesome for Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="shares.css" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <!-- Sidebar Navigation -->
+      <div
+        class="sidebar-overlay"
+        id="sidebarOverlay"
+        onclick="toggleSidebar()"
+      ></div>
+      <aside class="sidebar">
+        <div class="logo-container">
+          <img
+            src="images/sacco logo.png"
+            alt="SACCO Logo"
+            onerror="
+              this.src = 'https://placehold.co/40x40/253b8e/ffffff?text=S'
+            "
+          />
+          <h2>SACCO</h2>
+        </div>
+
+        <ul class="nav-links">
+          <li>
+            <a href="dashboard.html">
+              <i class="fa-solid fa-house"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a href="savings.html">
+              <i class="fa-solid fa-wallet"></i>
+              <span>Savings</span>
+            </a>
+          </li>
+          <li>
+            <a href="loans.html">
+              <i class="fa-solid fa-hand-holding-dollar"></i>
+              <span>Loans</span>
+            </a>
+          </li>
+          <li>
+            <a href="shares.html" class="active">
+              <i class="fa-solid fa-chart-pie"></i>
+              <span>Shares</span>
+            </a>
+          </li>
+          <li>
+            <a href="members.html">
+              <i class="fa-solid fa-users"></i>
+              <span>Members</span>
+            </a>
+          </li>
+          <li>
+            <a href="settings.html">
+              <i class="fa-solid fa-gear"></i>
+              <span>Settings</span>
+            </a>
+          </li>
+        </ul>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Top Header -->
+        <header>
+          <div class="menu-toggle" onclick="toggleSidebar()">
+            <i class="fa-solid fa-bars"></i>
+          </div>
+          <div class="welcome-text">
+            <h1>My Pool Transactions</h1>
+            <p>
+              Detailed ledger of your individual contributions across SACCO
+              pools.
+            </p>
+          </div>
+
+          <div class="header-actions">
+            <div class="search-bar">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" placeholder="Search transactions..." />
+            </div>
+
+            <div class="notification-bell">
+              <i class="fa-regular fa-bell"></i>
+            </div>
+
+            <div class="user-profile" onclick="toggleProfileDropdown(event)">
+              <img src="https://i.pravatar.cc/150?img=11" alt="User Avatar" />
+              <div class="user-info">
+                <span class="name">Joseph S.</span>
+                <span class="role">Member</span>
+              </div>
+
+              <div class="profile-dropdown" id="profileDropdown">
+                <a href="settings.html" class="dropdown-item">
+                  <i class="fa-solid fa-user-gear"></i> Account Settings
+                </a>
+                <a href="#" class="dropdown-item">
+                  <i class="fa-solid fa-lock"></i> Privacy & Security
+                </a>
+                <div class="dropdown-divider"></div>
+                <a
+                  href="intro.html"
+                  class="dropdown-item"
+                  style="color: var(--danger)"
+                >
+                  <i
+                    class="fa-solid fa-arrow-right-from-bracket"
+                    style="color: var(--danger)"
+                  ></i>
+                  Sign Out
+                </a>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Dashboard Content Body -->
+        <div class="dashboard-body">
+          <!-- Summary Cards Row -->
+          <section class="summary-cards">
+            <!-- Pool 1 -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">My Shares Pool</span>
+                <div
+                  class="card-icon"
+                  style="
+                    color: #ff9800;
+                    background-color: rgba(255, 152, 0, 0.1);
+                  "
+                >
+                  <i class="fa-solid fa-chart-pie"></i>
+                </div>
+              </div>
+              <div class="card-amount">Shs 800,000</div>
+              <div class="card-change">
+                <i class="fa-solid fa-arrow-trend-up change-positive"></i>
+                <span class="change-positive">+10.5%</span>
+                <span>from last month</span>
+              </div>
+            </div>
+
+            <!-- Pool 2 -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">My Dev Fund</span>
+                <div
+                  class="card-icon"
+                  style="
+                    color: #10b981;
+                    background-color: rgba(16, 185, 129, 0.1);
+                  "
+                >
+                  <i class="fa-solid fa-seedling"></i>
+                </div>
+              </div>
+              <div class="card-amount">Shs 64,000</div>
+              <div class="card-change">
+                <i class="fa-solid fa-arrow-trend-up change-positive"></i>
+                <span class="change-positive">Consistent</span>
+                <span>weekly payments</span>
+              </div>
+            </div>
+
+            <!-- Pool 3 -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">My Social Fund</span>
+                <div
+                  class="card-icon"
+                  style="
+                    color: #ef4444;
+                    background-color: rgba(239, 68, 68, 0.1);
+                  "
+                >
+                  <i class="fa-solid fa-handshake-angle"></i>
+                </div>
+              </div>
+              <div class="card-amount">Shs 250,500</div>
+              <div class="card-change">
+                <span style="color: #8893a7">Voluntary contributions</span>
+              </div>
+            </div>
+
+            <!-- Total Lifetime -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Total Processed</span>
+                <div
+                  class="card-icon"
+                  style="color: #253b8e; background-color: #ebf0fe"
+                >
+                  <i class="fa-solid fa-money-check-dollar"></i>
+                </div>
+              </div>
+              <div class="card-amount">Shs 1,114,500</div>
+              <div class="card-change">
+                <span style="color: #8893a7"
+                  >Lifetime direct contributions</span
+                >
+              </div>
+            </div>
+          </section>
+
+          <!-- Main Dashboard Grid (Actions & Transactions) -->
+          <section class="dashboard-grid">
+            <div class="features-area">
+              <!-- Pool History Stats -->
+              <div class="quick-actions">
+                <div class="section-header">
+                  <h3 class="section-title">Contribution Habits</h3>
+                </div>
+                <div style="margin-top: 15px; padding-bottom: 5px">
+                  <h4
+                    style="
+                      font-size: 14px;
+                      color: var(--text-dark);
+                      margin-bottom: 8px;
+                    "
+                  >
+                    Shares Pool Consistency
+                    <span style="float: right; color: var(--success)"
+                      >100%</span
+                    >
+                  </h4>
+                  <div
+                    style="
+                      width: 100%;
+                      height: 8px;
+                      background-color: #f1f5f9;
+                      border-radius: 4px;
+                      overflow: hidden;
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <div
+                      style="
+                        width: 100%;
+                        height: 100%;
+                        background-color: var(--success);
+                      "
+                    ></div>
+                  </div>
+
+                  <h4
+                    style="
+                      font-size: 14px;
+                      color: var(--text-dark);
+                      margin-bottom: 8px;
+                    "
+                  >
+                    Dev Fund Obligations
+                    <span style="float: right; color: var(--success)">96%</span>
+                  </h4>
+                  <div
+                    style="
+                      width: 100%;
+                      height: 8px;
+                      background-color: #f1f5f9;
+                      border-radius: 4px;
+                      overflow: hidden;
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <div
+                      style="
+                        width: 96%;
+                        height: 100%;
+                        background-color: var(--success);
+                      "
+                    ></div>
+                  </div>
+
+                  <h4
+                    style="
+                      font-size: 14px;
+                      color: var(--text-dark);
+                      margin-bottom: 8px;
+                    "
+                  >
+                    Social Fund Activity
+                    <span style="float: right; color: #ff9800">45%</span>
+                  </h4>
+                  <div
+                    style="
+                      width: 100%;
+                      height: 8px;
+                      background-color: #f1f5f9;
+                      border-radius: 4px;
+                      overflow: hidden;
+                    "
+                  >
+                    <div
+                      style="
+                        width: 45%;
+                        height: 100%;
+                        background-color: #ff9800;
+                      "
+                    ></div>
+                  </div>
+                  <!-- Calendar Heatmap -->
+                  <div class="calendar-heatmap">
+                    <div class="heatmap-header">
+                      <div>
+                        <h4>Contribution Habit Tracker</h4>
+                        <p>Visualize your consistency over the year.</p>
+                      </div>
+                      <span>Green = contributed, Red = missed</span>
+                    </div>
+                    <div class="heatmap-months">
+                      <div class="heatmap-month">
+                        <span>Jan</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-3"
+                            title="Jan Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jan Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Jan Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-0"
+                            title="Jan Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jan Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Feb</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-2"
+                            title="Feb Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Feb Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Feb Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Feb Week 4 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Mar</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-1"
+                            title="Mar Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Mar Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Mar Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Mar Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Mar Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Apr</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-0"
+                            title="Apr Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Apr Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Apr Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Apr Week 4 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>May</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-2"
+                            title="May Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="May Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="May Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="May Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="May Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Jun</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-3"
+                            title="Jun Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jun Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-0"
+                            title="Jun Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jun Week 4 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Jul</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-3"
+                            title="Jul Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Jul Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jul Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Jul Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Jul Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Aug</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-2"
+                            title="Aug Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Aug Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Aug Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Aug Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Aug Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Sep</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-1"
+                            title="Sep Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Sep Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-0"
+                            title="Sep Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Sep Week 4 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Oct</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-2"
+                            title="Oct Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Oct Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Oct Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Oct Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Oct Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Nov</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-1"
+                            title="Nov Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Nov Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Nov Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-0"
+                            title="Nov Week 4 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="heatmap-month">
+                        <span>Dec</span>
+                        <div class="heatmap-weekdays">
+                          <div
+                            class="heatmap-day level-2"
+                            title="Dec Week 1 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Dec Week 2 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-3"
+                            title="Dec Week 3 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-2"
+                            title="Dec Week 4 Wednesday"
+                          ></div>
+                          <div
+                            class="heatmap-day level-1"
+                            title="Dec Week 5 Wednesday"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="heatmap-legend">
+                      <div class="heatmap-key">
+                        <span
+                          class="level-0"
+                          title="Missed Contribution"
+                        ></span>
+                        <span style="margin-right: 1.5rem">Missed</span>
+                        <span>Less</span>
+                        <span class="level-1"></span>
+                        <span class="level-2"></span>
+                        <span class="level-3"></span>
+                        <span>More</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Generate Statement -->
+              <div
+                class="promo-banner"
+                style="
+                  margin-top: 30px;
+                  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                  border-radius: 16px;
+                  padding: 30px;
+                  color: white;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+                "
+              >
+                <div>
+                  <h3 style="font-size: 20px; margin-bottom: 10px">
+                    Download Statement
+                  </h3>
+                  <p style="font-size: 14px; opacity: 0.9; margin-bottom: 15px">
+                    Get a detailed PDF of your personal pool history.
+                  </p>
+                  <button
+                    style="
+                      background: white;
+                      color: #059669;
+                      border: none;
+                      padding: 10px 20px;
+                      border-radius: 8px;
+                      font-weight: 600;
+                      cursor: pointer;
+                    "
+                  >
+                    <i class="fa-solid fa-download"></i> PDF Report
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Individual Ledger Transactions -->
+            <div class="recent-transactions">
+              <div class="section-header">
+                <h3 class="section-title">My Pool Transaction History</h3>
+                <div
+                  class="filter-dropdown"
+                  style="
+                    padding: 5px 12px;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    color: var(--text-dark);
+                  "
+                >
+                  All Pools
+                  <i
+                    class="fa-solid fa-chevron-down"
+                    style="font-size: 11px; margin-left: 5px"
+                  ></i>
+                </div>
+              </div>
+
+              <div class="transaction-list">
+                <!-- History 1 -->
+                <div class="transaction-item">
+                  <div class="tx-info">
+                    <div
+                      class="tx-icon"
+                      style="
+                        background-color: rgba(255, 152, 0, 0.1);
+                        color: #ff9800;
+                      "
+                    >
+                      <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div class="tx-details">
+                      <h4>Shares Pool Contribution</h4>
+                      <p>Week 2 • Wed 22nd Apr 2026 • 3 Shares Bought</p>
+                    </div>
+                  </div>
+                  <div class="tx-right">
+                    <div class="tx-amount positive">+ Shs 15,000</div>
+                    <div class="tx-status status-completed">Completed</div>
+                  </div>
+                </div>
+
+                <!-- History 2 -->
+                <div class="transaction-item">
+                  <div class="tx-info">
+                    <div
+                      class="tx-icon"
+                      style="
+                        background-color: rgba(16, 185, 129, 0.1);
+                        color: #10b981;
+                      "
+                    >
+                      <i class="fa-solid fa-seedling"></i>
+                    </div>
+                    <div class="tx-details">
+                      <h4>Development Fund</h4>
+                      <p>Week 2 • Wed 22nd Apr 2026 • Weekly Obligation</p>
+                    </div>
+                  </div>
+                  <div class="tx-right">
+                    <div class="tx-amount positive">+ Shs 1,000</div>
+                    <div class="tx-status status-completed">Completed</div>
+                  </div>
+                </div>
+
+                <!-- History 3 -->
+                <div class="transaction-item">
+                  <div class="tx-info">
+                    <div
+                      class="tx-icon"
+                      style="
+                        background-color: rgba(239, 68, 68, 0.1);
+                        color: #ef4444;
+                      "
+                    >
+                      <i class="fa-solid fa-handshake-angle"></i>
+                    </div>
+                    <div class="tx-details">
+                      <h4>Social Fund</h4>
+                      <p>Week 1 • Wed 15th Apr 2026 • Voluntary Send</p>
+                    </div>
+                  </div>
+                  <div class="tx-right">
+                    <div class="tx-amount positive">+ Shs 10,000</div>
+                    <div class="tx-status status-completed">Completed</div>
+                  </div>
+                </div>
+
+                <!-- History 4 -->
+                <div class="transaction-item">
+                  <div class="tx-info">
+                    <div
+                      class="tx-icon"
+                      style="
+                        background-color: rgba(255, 152, 0, 0.1);
+                        color: #ff9800;
+                      "
+                    >
+                      <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div class="tx-details">
+                      <h4>Shares Pool Contribution</h4>
+                      <p>Week 1 • Wed 15th Apr 2026 • 5 Shares Bought</p>
+                    </div>
+                  </div>
+                  <div class="tx-right">
+                    <div class="tx-amount positive">+ Shs 25,000</div>
+                    <div class="tx-status status-completed">Completed</div>
+                  </div>
+                </div>
+
+                <!-- History 5 -->
+                <div class="transaction-item">
+                  <div class="tx-info">
+                    <div
+                      class="tx-icon"
+                      style="
+                        background-color: rgba(16, 185, 129, 0.1);
+                        color: #10b981;
+                      "
+                    >
+                      <i class="fa-solid fa-seedling"></i>
+                    </div>
+                    <div class="tx-details">
+                      <h4>Development Fund</h4>
+                      <p>Week 1 • Wed 15th Apr 2026 • Weekly Obligation</p>
+                    </div>
+                  </div>
+                  <div class="tx-right">
+                    <div class="tx-amount positive">+ Shs 1,000</div>
+                    <div class="tx-status status-completed">Completed</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      function toggleSidebar() {
+        document.querySelector(".sidebar").classList.toggle("active");
+        document.getElementById("sidebarOverlay").classList.toggle("active");
+      }
+    </script>
+  </body>
+</html>

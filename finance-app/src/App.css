@@ -1,0 +1,404 @@
+/* Layout for Contribution Approvals and Features Area */
+.main-content-row {
+  display: flex;
+  width: 100%;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.contribution-approvals-area {
+  width: 60%;
+  min-width: 0;
+}
+
+.features-area {
+  width: 40%;
+  min-width: 0;
+}
+@import url("dashboard.css");
+html {
+  font-size: 62.5%;
+}
+
+/* admin-dashboard.css */
+/* Inherits base layout rules but introduces Admin-specific themes and table modifications */
+
+/* Admin Theme Override */
+:root {
+  --admin-primary: #1e293b; /* Slate 800 - distinct from user #253b8e */
+  --admin-sidebar-bg: #0f172a; /* Slate 900 */
+  --admin-sidebar-text: #94a3b8;
+  --admin-sidebar-hover: #1e293b;
+  --admin-sidebar-active: #3b82f6; /* Blue 500 for active state */
+}
+.app-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+  margin: 0;
+  text-align: center;
+  box-sizing: border-box;
+  background-color: transparent;
+}
+/* Main Content */
+.admin-main-content {
+  flex: 1;
+  min-width: 0;
+  width: auto !important;
+  height: auto;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+/*sidebar.css */
+.sidebar {
+  width: 28rem;
+  height: 100vh;
+  background-color: var(--white);
+  padding: 3rem 2.4rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0.1rem 0 2rem rgba(0, 0, 0, 0.02);
+  transition: all 0.3s ease;
+  z-index: 100;
+  border-right: none;
+}
+
+/* Sidebar overriding for Admin */
+.admin-sidebar {
+  background-color: var(--admin-sidebar-bg);
+  box-shadow: none;
+  position: sticky;
+}
+
+.admin-sidebar .logo-container h2 {
+  color: #ffffff;
+}
+
+.admin-sidebar .nav-links li a {
+  color: var(--admin-sidebar-text);
+}
+
+.admin-sidebar .nav-links li a:hover,
+.admin-sidebar .nav-links li a.active {
+  background-color: var(--admin-sidebar-hover);
+  color: #ffffff;
+  box-shadow: none;
+  border-left: 0.4rem solid var(--admin-sidebar-active);
+  border-radius: 0 1.2rem 1.2rem 0;
+  transform: translateX(0);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5rem;
+  padding: 0 1rem;
+}
+
+.logo-container img {
+  width: 3.5rem;
+  margin-right: 1.5rem;
+}
+
+.logo-container h2 {
+  color: var(--text-dark);
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.05rem;
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.nav-links li a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: 600;
+  padding: 1.6rem 2rem;
+  border-radius: 1.4rem;
+  transition: all 0.2s ease;
+  font-size: 1.5rem;
+}
+
+.nav-links li a i {
+  margin-right: 1.6rem;
+  font-size: 1.8rem;
+  width: 2.4rem;
+  text-align: center;
+}
+
+.nav-links li a:hover {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+  transform: translateX(0.4rem);
+}
+
+.nav-links li a.active {
+  background-color: var(--primary-color);
+  color: var(--white);
+  box-shadow: 0 0.8rem 1.6rem rgba(37, 59, 142, 0.25);
+}
+/* Status Badges specific for Admin Tables */
+.badge {
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.badge-pending {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.badge-approved {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.badge-rejected {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Action Buttons within Admin Tables */
+.table-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-sm {
+  padding: 0.8rem 1.2rem;
+  border-radius: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-approve {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-approve:hover {
+  background-color: #059669;
+}
+
+.btn-reject {
+  background-color: #f1f5f9;
+  color: #ef4444;
+}
+
+.btn-reject:hover {
+  background-color: #e2e8f0;
+}
+
+/* Form Styles for Admin Widget (e.g. Broadcast Message) */
+.admin-form-group {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-form-group label {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: var(--text-dark);
+}
+
+.admin-form-group input,
+.admin-form-group textarea {
+  padding: 1.2rem;
+  border: 0.1rem solid #e2e8f0;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.4rem;
+  transition: border-color 0.2s ease;
+}
+
+.admin-form-group input:focus,
+.admin-form-group textarea:focus {
+  outline: none;
+  border-color: var(--admin-sidebar-active);
+  box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.1);
+}
+
+.admin-btn-primary {
+  background-color: var(--admin-sidebar-active);
+  color: white;
+  padding: 1.2rem 2rem;
+  border: none;
+  border-radius: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.2s ease;
+}
+
+.admin-btn-primary:hover {
+  background-color: #2563eb;
+}
+
+/* Custom Table Layout */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 1.5rem;
+  font-size: 1.3rem;
+  color: var(--text-light);
+  border-bottom: 0.1rem solid #e2e8f0;
+  font-weight: 600;
+}
+
+.admin-table td {
+  padding: 1.5rem;
+  font-size: 1.4rem;
+  border-bottom: 0.1rem solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Mobile responsive adjustments follow standard practices */
+@media (max-width: 102.4rem) {
+  html {
+    font-size: 32.5%;
+  }
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Specific forms styling for Weekly Contributions */
+.contribution-card {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 25px;
+  margin-bottom: 20px;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+.contribution-card:hover {
+  box-shadow: 0 10px 25px rgba(37, 59, 142, 0.08);
+  border-color: #ebf0fe;
+}
+.fund-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.fund-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.fund-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 3px;
+}
+.fund-desc {
+  font-size: 13px;
+  color: var(--text-light);
+}
+.fund-input-area {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.number-input {
+  padding: 12px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  width: 140px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.number-input:focus {
+  border-color: var(--primary-color);
+}
+.calculated-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-color);
+  width: 120px;
+  text-align: right;
+}
+.btn-pay {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.btn-pay:hover {
+  background-color: #1a2a68;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .contribution-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .fund-input-area {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+.main-content-container {
+  flex: 1;
+
+  width: 60vw;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid blue;
+  padding: 2rem;
+}

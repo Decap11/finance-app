@@ -1,0 +1,319 @@
+html {
+  font-size: 62.5%;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr;
+  gap: 3rem;
+}
+
+/* loans.css */
+/* Specific styling for the Loans section */
+
+/* Loan Request Widget */
+.loan-request-widget {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 3rem;
+  box-shadow: var(--card-shadow);
+  margin-top: 3rem;
+}
+
+.loan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.form-group label {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper i {
+  position: absolute;
+  left: 1.5rem;
+  color: var(--text-light);
+  font-size: 1.6rem;
+}
+
+.input-wrapper input,
+.input-wrapper select {
+  width: 100%;
+  padding: 1.4rem 1.4rem 1.4rem 4.5rem;
+  border: 0.1rem solid #cbd5e1;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  appearance: none;
+  background-color: var(--white);
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.1);
+}
+
+.loan-details {
+  background-color: #f8fafc;
+  border-radius: 1.2rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  border: 0.1rem solid #e2e8f0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.4rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.detail-row .highlight {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.detail-row .bold {
+  font-size: 1.6rem;
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.detail-row .due-date {
+  color: var(--warning);
+}
+
+.btn-submit-loan {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  border-radius: 1rem;
+  padding: 1.6rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.btn-submit-loan:hover {
+  background-color: #1a2a68;
+  transform: translateY(-0.2rem);
+  box-shadow: 0 0.8rem 1.5rem rgba(37, 59, 142, 0.25);
+}
+
+/* Repayment Progress Visual */
+.repayment-progress-visual {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 2.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  border: 0.1rem solid #e2e8f0;
+  box-shadow: 0 0.4rem 1.5rem rgba(0, 0, 0, 0.02);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.label-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.dot {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.paid-dot {
+  background-color: var(--success);
+}
+
+.remaining-dot {
+  background-color: #e2e8f0;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 1.2rem;
+  background-color: #e2e8f0;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+  border-radius: 0.6rem;
+  transition: width 0.5s ease-in-out;
+}
+
+.progress-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.3rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.progress-footer span:last-child {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+.recent-transactions {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 3rem;
+  box-shadow: var(--card-shadow);
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.transaction-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.8rem 0;
+  border-bottom: 0.1rem solid #f1f5f9;
+  transition: background-color 0.2s ease;
+}
+.transaction-item:hover {
+  background-color: #f8fafc;
+  border-radius: 1.2rem;
+  padding: 1.8rem 1.5rem;
+  margin: 0 -1.5rem;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+.tx-info {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+}
+
+.tx-icon {
+  width: 4.8rem;
+  height: 4.8rem;
+  border-radius: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+}
+
+.tx-icon.deposit {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.tx-icon.withdraw {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.tx-icon.transfer {
+  background-color: rgba(37, 59, 142, 0.1);
+  color: var(--primary-color);
+}
+.tx-details h4 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.4rem;
+}
+
+.tx-details p {
+  font-size: 1.3rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.tx-right {
+  text-align: right;
+}
+
+.tx-amount {
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.tx-amount.positive {
+  color: var(--success);
+}
+
+.tx-amount.negative {
+  color: var(--text-dark);
+}
+
+.tx-status {
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: 0.6rem;
+  display: inline-block;
+}
+
+.status-completed {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.status-pending {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}

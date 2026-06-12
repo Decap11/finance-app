@@ -1,0 +1,58 @@
+/* Basic styles for Contribution Approvals table */
+.recent-transactions {
+  background: #fff;
+  height: 197%;
+  border-radius: 1.2rem;
+  box-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  font-size: 5rem;
+}
+.section-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.admin-table th,
+.admin-table td {
+  padding: 0.8rem 1.2rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+.admin-table th {
+  background: #f8fbff;
+  font-weight: 600;
+  color: #253b8e;
+}
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #fff;
+}
+.badge-shares-pool {
+  background: #6366f1;
+}
+.badge-dev-fund {
+  background: #f59e0b;
+}
+.badge-social-fund {
+  background: #10b981;
+}
+.table-actions {
+  display: flex;
+  gap: 0.5rem;
+}

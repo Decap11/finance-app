@@ -1,0 +1,161 @@
+html {
+  font-size: 62.5%;
+}
+
+:root {
+  --primary-color: #253b8e;
+  --secondary-color: #f7f9fc;
+  --bg-color: #f8fbff;
+  --white: #ffffff;
+  --text-dark: #1e293b;
+  --text-light: #64748b;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --card-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08); /* Sophisticated diffuse shadow */
+  --border-radius: 2rem; /* Highly rounded corners */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+}
+.contributions-section {
+  width: 100%;
+  margin-bottom: 3rem;
+}
+.quick-actions {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 3rem;
+  box-shadow: var(--card-shadow);
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+/* Specific forms styling for Weekly Contributions */
+.contribution-card {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 25px;
+  margin-bottom: 20px;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+/* Specific forms styling for Weekly Contributions */
+.contribution-card {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 25px;
+  margin-bottom: 20px;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+.contribution-card:hover {
+  box-shadow: 0 10px 25px rgba(37, 59, 142, 0.08);
+  border-color: #ebf0fe;
+}
+.fund-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.fund-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.fund-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 3px;
+}
+.fund-desc {
+  font-size: 13px;
+  color: var(--text-light);
+}
+.fund-input-area {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.number-input {
+  padding: 12px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  width: 140px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.number-input:focus {
+  border-color: var(--primary-color);
+}
+.calculated-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-color);
+  width: 120px;
+  text-align: right;
+}
+.btn-pay {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.btn-pay:hover {
+  background-color: #1a2a68;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .contribution-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .fund-input-area {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
