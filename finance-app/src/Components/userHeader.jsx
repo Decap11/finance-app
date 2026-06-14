@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useSidebar } from "../context/useSidebar";
+import Search from "./Search";
 import "../styles/userHeader.css";
 
 export default function UserHeader() {
@@ -31,10 +32,11 @@ export default function UserHeader() {
       </div>
 
       <div className="header-actions">
-        <div className="search-bar">
+        {/* <div className="search-bar">
           <i className="fa-solid fa-magnifying-glass" />
           <input type="text" placeholder="Search transactions, loans..." />
-        </div>
+        </div> */}
+        <Search />
 
         <div className="notification-bell">
           <i className="fa-regular fa-bell" />

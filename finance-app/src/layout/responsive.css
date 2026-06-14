@@ -15,7 +15,9 @@
   cursor: pointer;
   flex-shrink: 0;
   box-shadow: var(--card-shadow);
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .menu-toggle:hover {
@@ -41,6 +43,9 @@
 
 /* Tablet */
 @media (max-width: 102.4rem) {
+  html {
+    font-size: 100%;
+  }
   .dashboard-body,
   .loan-progress-section {
     padding-left: 2.4rem;
@@ -128,7 +133,9 @@
     z-index: 998;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
   }
 
   .sidebar-overlay.active {

@@ -23,6 +23,7 @@ export default function App() {
 
         <Route path="/savings" element={<MemberSavingsPage />} />
         <Route path="/dashboard" element={<MemberDashboardPage />} />
+
         <Route path="/loans" element={<MemberLoansPage />} />
         <Route path="/members" element={<GroupMembers />} />
         <Route path="/payments" element={<Payments />} />
