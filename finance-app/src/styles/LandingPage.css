@@ -8,9 +8,6 @@ html {
   html {
     font-size: 58%; /* Small Desktop / Large Tablet */
   }
-  .hero {
-    border: 10px solid red;
-  }
 }
 
 @media (max-width: 56rem) {
@@ -24,17 +21,19 @@ html {
     font-size: 47%; /* Mobile Screen */
   }
   .hero {
-    /* border: 10px solid rgb(255, 94, 0); */
-    padding: 8rem 2rem;
+    /* border: 5px solid rgb(255, 94, 0); */
+    padding: 8rem 1% !important;
     gap: 3rem;
+    margin: auto;
   }
-  .navbar {
-    padding: 2rem 4%;
-  }
-
   .hero-content {
     height: 90%;
   }
+  .navbar {
+    padding: 1.2rem 0.8rem !important;
+    gap: 0.2rem !important;
+  }
+
   .hero-title {
     font-size: 4rem;
   }
@@ -45,10 +44,27 @@ html {
 
 @media (max-width: 24rem) {
   html {
-    font-size: 46%; /* Extra Small Mobile Screen */
+    font-size: 44%; /* Extra Small Mobile Screen */
   }
   .hero {
-    border: 10px solid rgb(0, 229, 255);
+    margin: 0 !important;
+    /* border: 10px solid rgb(0, 229, 255); */
+    padding: 10rem 2.4% !important;
+  }
+  .hero-content {
+    width: 99%;
+    margin-left: -1rem;
+    padding: 0.8rem;
+  }
+  .hero-desc {
+    font-size: 1.5rem;
+  }
+  .logo-badge {
+    display: none;
+  }
+  .btn-primary {
+    margin-top: 1.4rem;
+    width: 80% !important;
   }
 }
 
@@ -177,7 +193,7 @@ body {
 
 .hero-content {
   animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid blue;
+  /* border: 1px solid blue; */
 }
 
 @keyframes fadeInLeft {
@@ -235,7 +251,6 @@ body {
   display: flex;
   gap: 2rem;
   align-items: center;
-  border: 2px solid red;
 }
 
 .btn-primary {
@@ -260,7 +275,7 @@ body {
   box-shadow: 0 1.5rem 3rem rgba(37, 59, 142, 0.3);
 }
 
-.btn-secondary {
+/* .btn-secondary {
   background: var(--white);
   color: var(--primary-color);
   font-size: 1.6rem;
@@ -280,7 +295,7 @@ body {
   border-color: var(--primary-color);
   background: rgba(37, 59, 142, 0.02);
   transform: translateY(-0.4rem);
-}
+} */
 
 /* --- Hero Image Visual --- */
 .hero-visual {

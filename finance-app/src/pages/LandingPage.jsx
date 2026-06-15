@@ -86,7 +86,7 @@ export default function LandingPage() {
           <div className="hero-visual">
             <div
               style={{
-                width: "100%",
+                width: "130%",
                 maxWidth: "48rem",
                 height: "35rem",
                 background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
@@ -463,7 +463,7 @@ export default function LandingPage() {
                 }}
               >
                 <img
-                  src="images/happy_member_market.png"
+                  src="/Images/happy_member_market.png"
                   alt="Happy Market Retailer"
                   style={{
                     width: "100%",
@@ -618,7 +618,7 @@ export default function LandingPage() {
                 }}
               >
                 <img
-                  src="images/happy_farmer_success.png"
+                  src="/Images/happy_farmer_success.png"
                   alt="Happy Farmer"
                   style={{
                     width: "100%",
