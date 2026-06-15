@@ -76,9 +76,9 @@ export default function LandingPage() {
               <button onClick={scrollToRegister} className="btn-primary">
                 Create Workspace <i className="fa-solid fa-circle-plus"></i>
               </button>
-              <a href="sacco-link.html" className="btn-secondary">
+              {/* <button href="sacco-link.html" className="btn-secondary">
                 Connect Workspace <i className="fa-solid fa-network-wired"></i>
-              </a>
+              </button> */}
             </div>
           </div>
 

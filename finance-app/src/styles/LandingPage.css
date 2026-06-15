@@ -8,6 +8,9 @@ html {
   html {
     font-size: 58%; /* Small Desktop / Large Tablet */
   }
+  .hero {
+    border: 10px solid red;
+  }
 }
 
 @media (max-width: 56rem) {
@@ -18,13 +21,34 @@ html {
 
 @media (max-width: 48rem) {
   html {
-    font-size: 50%; /* Mobile Screen */
+    font-size: 47%; /* Mobile Screen */
+  }
+  .hero {
+    /* border: 10px solid rgb(255, 94, 0); */
+    padding: 8rem 2rem;
+    gap: 3rem;
+  }
+  .navbar {
+    padding: 2rem 4%;
+  }
+
+  .hero-content {
+    height: 90%;
+  }
+  .hero-title {
+    font-size: 4rem;
+  }
+  .hero-btn-group {
+    font-size: 20rem;
   }
 }
 
 @media (max-width: 24rem) {
   html {
     font-size: 46%; /* Extra Small Mobile Screen */
+  }
+  .hero {
+    border: 10px solid rgb(0, 229, 255);
   }
 }
 
@@ -153,6 +177,7 @@ body {
 
 .hero-content {
   animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid blue;
 }
 
 @keyframes fadeInLeft {
@@ -198,8 +223,7 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-
-.hero-desc {
+. .hero-desc {
   font-size: 1.8rem;
   color: var(--text-light);
   margin-bottom: 4rem;
@@ -211,6 +235,7 @@ body {
   display: flex;
   gap: 2rem;
   align-items: center;
+  border: 2px solid red;
 }
 
 .btn-primary {
@@ -771,6 +796,7 @@ footer {
     padding-top: 14rem;
     text-align: center;
     gap: 4rem;
+    /* border: 12px solid rgb(128, 109, 0); */
   }
   .hero-desc {
     margin-left: auto;
@@ -790,20 +816,7 @@ footer {
   }
 }
 
-@media (max-width: 48rem) {
-  html {
-    font-size: 55%;
-  }
-  .navbar {
-    padding: 2rem 4%;
-  }
-  .hero {
-    padding-left: 4%;
-    padding-right: 4%;
-  }
-  .hero-title {
-    font-size: 4rem;
-  }
+/* @media (max-width: 48rem) {
   .features {
     padding-left: 4%;
     padding-right: 4%;
@@ -819,7 +832,7 @@ footer {
   .reg-form-side {
     padding: 4rem 2.5rem;
   }
-}
+} */
 
 /* --- Testimonials Styling --- */
 .testimonial-card:hover {
@@ -860,7 +873,6 @@ footer {
   }
 
   .hero-btn-group {
-    flex-direction: column;
     width: 100%;
   }
 
