@@ -13,7 +13,7 @@ export default function UserRecentTransactions() {
             style={{
               color: "var(--primary-color)",
               textDecoration: "none",
-              fontSize: "14px",
+              fontSize: "1.8rem",
               fontWeight: "600",
             }}
           >
@@ -27,63 +27,65 @@ export default function UserRecentTransactions() {
               <tr>
                 <th>Date</th>
                 <th>Type</th>
-                <th>Amount</th>
+                <th>Amount </th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>May 20, 2026</td>
+                <td>May 20</td>
                 <td>
-                  <span className="transaction-badge deposit">Deposit</span>
-                </td>
-                <td className="amount-cell">Shs 5,000</td>
-                <td>
-                  <span className="status-badge success">Completed</span>
-                </td>
-              </tr>
-              <tr>
-                <td>May 15, 2026</td>
-                <td>
-                  <span className="transaction-badge withdrawal">
-                    Withdrawal
-                  </span>
-                </td>
-                <td className="amount-cell">Shs 10,000</td>
-                <td>
-                  <span className="status-badge success">Completed</span>
-                </td>
-              </tr>
-              <tr>
-                <td>May 10, 2026</td>
-                <td>
-                  <span className="transaction-badge transfer">
+                  <span className="transaction-badge deposit">
                     Share Purchase
                   </span>
                 </td>
-                <td className="amount-cell">Shs 25,000</td>
+                <td className="amount-cell"> 5,000</td>
                 <td>
                   <span className="status-badge success">Completed</span>
                 </td>
               </tr>
               <tr>
-                <td>May 08, 2026</td>
+                <td>May 15</td>
                 <td>
-                  <span className="transaction-badge loan">
-                    Loan Disbursement
+                  <span className="transaction-badge withdrawal">
+                    Social Fund
                   </span>
                 </td>
-                <td className="amount-cell">Shs 50,000</td>
+                <td className="amount-cell"> 10,000</td>
+                <td>
+                  <span className="status-badge success">Completed</span>
+                </td>
+              </tr>
+              <tr>
+                <td>May 10</td>
+                <td>
+                  <span className="transaction-badge transfer">
+                    Development
+                  </span>
+                </td>
+                <td className="amount-cell"> 25,000</td>
+                <td>
+                  <span className="status-badge success">Completed</span>
+                </td>
+              </tr>
+              <tr>
+                <td>May 08</td>
+                <td>
+                  <span className="transaction-badge loan">Loan Request</span>
+                </td>
+                <td className="amount-cell"> 50,000</td>
                 <td>
                   <span className="status-badge pending">Pending</span>
                 </td>
               </tr>
               <tr>
-                <td>May 05, 2026</td>
+                <td>May 05</td>
                 <td>
-                  <span className="transaction-badge deposit">Dividend</span>
+                  <span className="transaction-badge deposit">
+                    Share Purchase
+                  </span>
                 </td>
-                <td className="amount-cell">Shs 2,500</td>
+                <td className="amount-cell"> 2,500</td>
                 <td>
                   <span className="status-badge success">Completed</span>
                 </td>

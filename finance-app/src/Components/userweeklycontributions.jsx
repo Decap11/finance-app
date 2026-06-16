@@ -19,11 +19,11 @@ export default function WeeklyContributions() {
           style={{
             marginBottom: "25px",
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent: "space-around",
             width: "100%",
           }}
         >
-          <h3 className="section-title">Mandatory Weekly Contributions</h3>
+          <h3 className="section-title">Weekly Contributions</h3>
           <span
             className="badge badge-pending"
             style={{
@@ -105,7 +105,7 @@ export default function WeeklyContributions() {
                 textAlign: "center",
               }}
             />
-            <div className="calculated-total">Shs 1,000</div>
+            <div className="calculated-total">Shs 1000</div>
             <button className="btn-pay">Contribute</button>
           </div>
         </div>

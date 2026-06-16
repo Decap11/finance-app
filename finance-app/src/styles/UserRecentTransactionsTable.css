@@ -101,3 +101,24 @@
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
+@media (max-width: 30.5rem) {
+  .recent-transactions-section .quick-actions {
+    padding: 1.6rem !important;
+  }
+}
+@media (max-width: 26.5rem) {
+  .recent-transactions-section .quick-actions {
+    padding: 1rem !important;
+  }
+  .transactions-table td {
+    padding: 1.3rem;
+  }
+}
+@media (max-width: 23rem) {
+  .recent-transactions-section .quick-actions {
+    padding: 0.6rem !important;
+  }
+  .transactions-table td {
+    padding: 1rem;
+  }
+}
