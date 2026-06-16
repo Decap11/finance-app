@@ -5,6 +5,7 @@
   padding: 2.5rem;
   box-shadow: var(--card-shadow);
   border: 0.1rem solid #f1f5f9;
+  margin-bottom: 2rem;
 }
 
 .progress-content {
