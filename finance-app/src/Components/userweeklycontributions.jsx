@@ -29,10 +29,10 @@ export default function WeeklyContributions() {
             style={{
               backgroundColor: "rgba(245, 158, 11, 0.1)",
               color: "#f59e0b",
-              padding: "6px 12px",
-              borderRadius: "20px",
+              padding: "0.6rem 1.2rem",
+              borderRadius: "2rem",
               fontWeight: 700,
-              fontSize: "12px",
+              fontSize: "1.2rem",
             }}
           >
             DUE THIS WEEK
