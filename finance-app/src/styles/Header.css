@@ -29,6 +29,7 @@
   padding: 0 4.2rem;
   background-color: transparent;
   z-index: 10;
+  border: 4px solid blue;
 }
 /* .welcome-text h1 {
   font-size: 2rem;
@@ -191,7 +192,6 @@
 
 @media (max-width: 38rem) {
   header {
-    border: 5px solid rgba(250, 95, 29, 0.841);
     padding: 3.2rem 0.8rem !important;
     flex-direction: column;
   }
@@ -211,9 +211,7 @@
   html {
     font-size: 20%;
   }
-  header {
-    border: 5px solid rgba(250, 231, 29, 0.841);
-  }
+
   .header-actions {
     align-self: flex-start;
     margin-left: 1rem;
@@ -232,9 +230,6 @@
   }
 }
 @media (max-width: 30.5rem) {
-  header {
-    border: 5px solid rgba(117, 250, 29, 0.841);
-  }
   .search-bar {
     width: 22rem;
   }

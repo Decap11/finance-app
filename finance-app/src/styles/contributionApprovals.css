@@ -1,7 +1,7 @@
 /* Basic styles for Contribution Approvals table */
 .recent-transactions {
   background: #fff;
-  height: 197%;
+  height: 100%;
   border-radius: 1.2rem;
   box-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
   padding: 2rem;

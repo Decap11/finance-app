@@ -136,7 +136,7 @@ body {
   color: white;
   border: none;
   padding: 1.2rem 2.4rem;
-  border-radius: 10px;
+  border-radius: 0.8rem;
   font-weight: 600;
 
   cursor: pointer;
@@ -165,7 +165,6 @@ body {
   }
   .contributions-section .quick-actions {
     padding: 1.6rem !important;
-    /* border: 1.2rem solid blue; */
   }
   .section-header {
     margin-bottom: 2.5rem;
@@ -175,7 +174,7 @@ body {
   }
   .section-title {
     align-self: flex-start;
-    border: 1px solid red;
+
     font-size: 1.4rem;
   }
 

@@ -29,6 +29,8 @@ header {
   padding: 3.2rem 4rem;
   background-color: rgb(248, 254, 253);
   z-index: 10;
+  /* position: fixed; */
+  /* width: 100%; */
   /* border: 4px solid green; */
   /* width: 100vw; */
 }
