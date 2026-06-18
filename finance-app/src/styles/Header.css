@@ -58,8 +58,7 @@
   border-radius: 10rem;
   box-shadow: var(--card-shadow);
   width: 40%;
-  height: 3.6rem;
-  /* border: 0.1rem solid #43a1ff; */
+  height: 4.4rem;
 }
 .search-bar i {
   color: var(--text-light);

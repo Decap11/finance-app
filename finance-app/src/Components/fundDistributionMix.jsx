@@ -1,4 +1,3 @@
-import PromoBanner from "../Components/PromoBanner";
 export default function FundDistributionMix() {
   return (
     <div className="features-area">
@@ -14,18 +13,18 @@ export default function FundDistributionMix() {
               justifyContent: "space-between",
               marginBottom: 8,
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: "1.6rem",
             }}
           >
-            <span style={{ color: "#ff9800" }}>Shares (65%)</span>
-            <span style={{ color: "#10b981" }}>Dev Fund (22%)</span>
-            <span style={{ color: "#ef4444" }}>Social (13%)</span>
+            <span style={{ color: "#ff9800" }}>Shares</span>
+            <span style={{ color: "#10b981" }}>Dev Fund</span>
+            <span style={{ color: "#ef4444" }}>Social</span>
           </div>
           {/* Distribution Bar */}
           <div
             style={{
               width: "100%",
-              height: 20,
+              height: "2rem",
               borderRadius: 20,
               display: "flex",
               overflow: "hidden",
@@ -51,7 +50,6 @@ export default function FundDistributionMix() {
           </p>
         </div>
       </div>
-      <PromoBanner />
     </div>
   );
 }

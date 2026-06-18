@@ -1,9 +1,10 @@
-.recent-transactions {
+/* .recent-transactions {
   background-color: var(--white);
   border-radius: var(--border-radius);
   padding: 3rem;
   box-shadow: var(--card-shadow);
-}
+  height: 100%;
+} */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -121,4 +122,6 @@
 .status-pending {
   background-color: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
+}
+@media (max-width: 34rem) {
 }

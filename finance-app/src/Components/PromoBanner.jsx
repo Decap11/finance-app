@@ -3,7 +3,7 @@ export default function PromoBanner() {
     <div
       className="promo-banner"
       style={{
-        marginTop: 30,
+        marginTop: "2.4rem",
         background: "linear-gradient(135deg, #253b8e 0%, #1a2a68 100%)",
         borderRadius: 16,
         padding: 30,
