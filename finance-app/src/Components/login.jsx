@@ -1,9 +1,12 @@
 import "../styles/login.css";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSaccoState } from "../context/useSaccoState";
 
 export default function Login() {
   const [memberId, setMemberId] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = (event) => {
     event.preventDefault();

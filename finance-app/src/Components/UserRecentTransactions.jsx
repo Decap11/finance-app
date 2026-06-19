@@ -1,4 +1,5 @@
 import "../styles/UserRecentTransactionsTable.css";
+
 export default function UserRecentTransactions() {
   return (
     <section className="recent-transactions-section">
