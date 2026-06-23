@@ -1,5 +1,6 @@
 import "../styles/LandingPage.css";
 import { useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function LandingPage() {
   const modalOverlayRef = useRef(null);
@@ -16,6 +17,8 @@ export default function LandingPage() {
     document.getElementById("register")?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const navigate = useNavigate();
+
   const handleRegistration = (event) => {
     event.preventDefault();
     if (modalOverlayRef.current) {
@@ -31,7 +34,7 @@ export default function LandingPage() {
   };
 
   const routeToWorkspace = () => {
-    window.location.href = "/dashboard";
+    navigate("/dashboard");
   };
 
   return (
@@ -978,7 +981,7 @@ export default function LandingPage() {
               <a href="#">Privacy Framework</a>
             </li>
             <li>
-              <a href="sacco-link.html">Link Dashboard</a>
+              <Link to="/dashboard">Link Dashboard</Link>
             </li>
           </ul>
           <p className="footer-copyright">

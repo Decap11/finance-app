@@ -12,15 +12,22 @@ export default function MemberDashboardPage() {
     <MemberLayout>
       <UserHeader />
       <div className="dashboard-body">
-        <UserSummaryCards />
+        <UserSummaryCards
+          title="My Shares Value"
+          icon="fa-solid fa-chart-pie"
+          info=" 2,450,000"
+          subInfo="Shares due last week"
+        />
+
         <WeeklyContributions />
         <UserRecentTransactions />
+
+        <section className="loan-progress-section">
+          <UserLoanEligibity />
+          <UserProgressTracker />
+          <CalendarHeatMap />
+        </section>
       </div>
-      <section className="loan-progress-section">
-        <UserLoanEligibity />
-        <UserProgressTracker />
-        <CalendarHeatMap />
-      </section>
     </MemberLayout>
   );
 }

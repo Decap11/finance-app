@@ -1,12 +1,15 @@
 import "../styles/signUp.css";
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
 export default function SignupForm() {
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState("Josh");
   const [phone, setPhone] = useState("");
   const [memberId, setMemberId] = useState("");
   const [groupId, setGroupId] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const navigate = useNavigate();
 
   function togglePassword(element, fieldId) {
     const inputField = document.getElementById(fieldId);
@@ -18,19 +21,41 @@ export default function SignupForm() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    // Handle form submission logic here
     if (!fullName || !phone || !memberId || !groupId || !password) return;
 
-    // For demonstration, we'll just log the form data
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
     const newMemberObject = {
-      fullName,
-      phone,
-      memberId,
-      groupId,
-      password,
-      termsAccepted,
+      id: memberId.trim().toUpperCase(),
+      name: fullName.trim(),
+      firstName: firstName,
+      lastName: lastName,
+      email: `${memberId.trim().toLowerCase()}@pewosa.com`,
+      phone: phone.trim(),
+      groupId: groupId.trim().toUpperCase(),
+      role: "Member",
+      tier: "Basic"
     };
-    console.log(newMemberObject);
+
+    if (window.SaccoState) {
+      window.SaccoState.addMember(newMemberObject);
+    } else {
+      // Fallback if not initialized
+      const members = JSON.parse(localStorage.getItem("members") || "[]");
+      members.unshift({
+        ...newMemberObject,
+        joinedDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short" }),
+        savings: 0,
+        shares: 0,
+        devFund: 0,
+        socialFund: 0,
+        avatarUrl: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
+      });
+      localStorage.setItem("members", JSON.stringify(members));
+    }
+
     // Reset form fields after submission
     setFullName("");
     setPhone("");
@@ -38,6 +63,9 @@ export default function SignupForm() {
     setGroupId("");
     setPassword("");
     setTermsAccepted(false);
+
+    // Redirect the user to the members page to see their addition
+    navigate("/members");
   }
 
   return (
@@ -173,9 +201,9 @@ export default function SignupForm() {
 
       <div className="auth-footer">
         Already have an account?{" "}
-        <a href="login.html" className="auth-link">
+        <Link to="/login" className="auth-link">
           Log in here
-        </a>
+        </Link>
       </div>
     </div>
   );

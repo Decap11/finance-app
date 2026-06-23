@@ -2,6 +2,25 @@ html {
   font-size: 62.5%;
   /* 1rem = 10px */
 }
+.step {
+  width: 5.4rem;
+  height: 5.4rem;
+  border-radius: 50%;
+  background-color: var(--inactive-color);
+  color: var(--white);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.2rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 0.4rem 1rem rgba(0, 0, 0, 0.05);
+}
+
+.step.active {
+  background-color: var(--primary-color);
+  box-shadow: 0 0.6rem 1.5rem rgba(37, 59, 142, 0.3);
+}
 
 :root {
   --primary-color: #253b8e;

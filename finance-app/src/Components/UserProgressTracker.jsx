@@ -18,7 +18,7 @@ export default function UserProgressTracker() {
             <div className="progress-bar">
               <div
                 className="progress-fill"
-                style={{ width: "60%", backgroundColor: "#f59e0b" }}
+                style={{ width: "60%", backgroundColor: "#253b8e" }}
               ></div>
             </div>
             <p className="progress-info">Shs 30,000 / Shs 50,000 target</p>

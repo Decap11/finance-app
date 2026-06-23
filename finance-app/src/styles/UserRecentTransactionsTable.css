@@ -86,7 +86,11 @@
   font-size: 1.2rem;
   font-weight: 600;
 }
-
+.period {
+  font-size: 1.2rem;
+  font-weight: 100;
+  margin: 1.6rem;
+}
 .status-badge.success {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--success);

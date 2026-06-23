@@ -1,21 +1,24 @@
 import "../styles/login.css";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSaccoState } from "../context/useSaccoState";
+import { Link, useNavigate } from "react-router-dom";
+
+// import { useSaccoState } from "../context/useSaccoState";
 
 export default function Login() {
   const [memberId, setMemberId] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [LogInpassword, setLogInPassword] = useState("");
+  // const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleLogin = (event) => {
-    event.preventDefault();
+  const handleLogin = (e) => {
+    e.preventDefault();
     // TODO: Add login logic here
     const loginData = {
       memberId,
-      password,
+      LogInpassword,
     };
     console.log(loginData);
+    navigate("/dashboard");
   };
 
   const togglePassword = () => {
@@ -66,9 +69,9 @@ export default function Login() {
         <div className="form-group">
           <label className="form-label">
             Password
-            <a href="#" className="forgot-link">
+            <button type="button" className="forgot-link">
               Forgot password?
-            </a>
+            </button>
           </label>
           <div className="form-input-container">
             <i className="fa-solid fa-lock form-icon"></i>
@@ -77,8 +80,8 @@ export default function Login() {
               id="password"
               className="form-input"
               placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={LogInpassword}
+              onChange={(e) => setLogInPassword(e.target.value)}
               required
             />
             <i
@@ -124,9 +127,9 @@ export default function Login() {
 
       <div className="auth-footer">
         Don't have an account?{" "}
-        <a href="signup.html" className="auth-link">
+        <Link to="/signup" className="auth-link">
           Sign up here
-        </a>
+        </Link>
       </div>
     </div>
   );

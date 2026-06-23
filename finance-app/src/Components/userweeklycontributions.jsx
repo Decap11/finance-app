@@ -2,6 +2,29 @@ import { useState } from "react";
 import "../styles/weeklyContributions.css";
 export default function WeeklyContributions() {
   const [shares, setShares] = useState(0);
+  //State to be lifted to parent component
+  //   const [weeklyContributions, setWeeklyContributions] = useState({
+
+  //    shares:{
+  //       quantity:0,
+  //       amount:0
+  //    },
+
+  //    developmentFund:{
+  //       amount:1000
+  //    },
+
+  //    socialFund:{
+  //       amount:0
+  //    },
+
+  //    totalWeeklyContribution:0,
+
+  //    completedContributions:0,
+
+  //    status:"due"
+
+  // });
   const sharePrice = 5000;
 
   const handleSharesChange = (e) => {
@@ -10,6 +33,15 @@ export default function WeeklyContributions() {
     if (val < 0) return;
     setShares(val);
   };
+  function handleSharesPush() {
+    alert("contributed a share");
+  }
+  function handleDevelopmentPush() {
+    alert("contributed a Development Fund");
+  }
+  function handleSocialPush() {
+    alert("Contributed a social fund");
+  }
 
   return (
     <section className="contributions-section">
@@ -44,8 +76,8 @@ export default function WeeklyContributions() {
             <div
               className="fund-icon"
               style={{
-                backgroundColor: "rgba(245, 158, 11, 0.1)",
-                color: "#f59e0b",
+                backgroundColor: "#ebf0fe",
+                color: "#253b8e",
               }}
             >
               <i className="fa-solid fa-chart-pie"></i>
@@ -71,7 +103,9 @@ export default function WeeklyContributions() {
             <div className="calculated-total" id="sharesTotal">
               Shs {shares ? shares * sharePrice : 0}
             </div>
-            <button className="btn-pay">Contribute</button>
+            <button className="btn-pay" onClick={handleSharesPush}>
+              Contribute
+            </button>
           </div>
         </div>
 
@@ -106,7 +140,9 @@ export default function WeeklyContributions() {
               }}
             />
             <div className="calculated-total">Shs 1000</div>
-            <button className="btn-pay">Contribute</button>
+            <button className="btn-pay" onClick={handleDevelopmentPush}>
+              Contribute
+            </button>
           </div>
         </div>
 
@@ -137,10 +173,55 @@ export default function WeeklyContributions() {
             <div className="calculated-total" style={{ visibility: "hidden" }}>
               -
             </div>
-            <button className="btn-pay">Contribute</button>
+            <button className="btn-pay" onClick={handleSocialPush}>
+              Contribute
+            </button>
           </div>
         </div>
       </div>
     </section>
   );
 }
+// function ContribtionCard(
+//   icon,
+//   color,
+//   backgroundColor,
+//   fundTitle,
+//   fundDesc,
+//   shares,
+//   sharePrice,
+// ) {
+//   <div className="contribution-card">
+//     <div className="fund-info">
+//       <div
+//         className="fund-icon"
+//         style={{
+//           backgroundColor: backgroundColor,
+//           color: color,
+//         }}
+//       >
+//         <i className={icon}></i>
+//       </div>
+//       <div>
+//         <h4 className="fund-title">{fundTitle}</h4>
+//         <p className="fund-desc">{fundDesc}</p>
+//       </div>
+//     </div>
+//     <div className="fund-input-area">
+//       <input
+//         type="number"
+//         id="sharesInput"
+//         className="number-input"
+//         min={1}
+//         max={10}
+//         placeholder="No. of Shares"
+//         value={shares || ""}
+//         onChange={handleSharesChange}
+//       />
+//       <div className="calculated-total" id="sharesTotal">
+//         Shs {shares ? shares * sharePrice : 0}
+//       </div>
+//       <button className="btn-pay">Contribute</button>
+//     </div>
+//   </div>;
+// }

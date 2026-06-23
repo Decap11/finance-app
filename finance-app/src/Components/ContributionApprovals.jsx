@@ -14,6 +14,20 @@ const contributionRequests = [
     amount: "Shs 1,000",
     date: "Week 2 • 22nd Apr",
   },
+  {
+    name: "Jane Smith",
+    id: "MZ-028",
+    type: "Dev Fund",
+    amount: "Shs 1,000",
+    date: "Week 2 • 22nd Apr",
+  },
+  {
+    name: "Jane Smith",
+    id: "MZ-028",
+    type: "Shares Pool",
+    amount: "Shs 1,000",
+    date: "Week 2 • 22nd Apr",
+  },
 ];
 
 // const requestTypes = [
@@ -30,43 +44,43 @@ export default function ContributionApprovals() {
       <MainHeader />
       <div className="admin-table-wrapper">
         <table className="admin-table">
-        <thead>
-          <TableColumnHeader />
-        </thead>
-        <tbody>
-          {contributionRequests.map((request) => (
-            <tr key={request.id}>
-              <td>
-                <strong>{request.id}</strong>
-              </td>
-              <td>
-                <strong>{request.name}</strong>
-              </td>
-              <td>
-                <span
-                  className={`badge badge-${request.type.toLowerCase().replace(" ", "-")}`}
-                >
-                  {request.type}
-                </span>
-              </td>
-              <td>
-                <strong>{request.amount}</strong>
-              </td>
-              <td>{request.date}</td>
-              <td>
-                <div className="table-actions">
-                  <button className="btn-sm btn-approve">
-                    <i className="fa-solid fa-check"></i>
-                  </button>
-                  <button className="btn-sm btn-reject">
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          <thead>
+            <TableColumnHeader />
+          </thead>
+          <tbody>
+            {contributionRequests.map((request) => (
+              <tr key={request.id}>
+                <td>
+                  <strong>{request.id}</strong>
+                </td>
+                <td>
+                  <strong>{request.name}</strong>
+                </td>
+                <td>
+                  <span
+                    className={`badge badge-${request.type.toLowerCase().replace(" ", "-")}`}
+                  >
+                    {request.type}
+                  </span>
+                </td>
+                <td>
+                  <strong>{request.amount}</strong>
+                </td>
+                <td>{request.date}</td>
+                <td>
+                  <div className="table-actions">
+                    <button className="btn-sm btn-approve">
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                    <button className="btn-sm btn-reject">
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

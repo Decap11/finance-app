@@ -1,6 +1,7 @@
 import Header from "../Components/Header.jsx";
 import ActionCards from "../Components/ActionCard.jsx";
 import ContributionApprovals from "../Components/ContributionApprovals.jsx";
+// import MemberLayout from "../layout/MemberLayout";
 import QuickMemberManagement from "../Components/QuickMemberManagement.jsx";
 import ManualContributionLog from "../Components/manualContributionlog.jsx";
 import BroadcastMessageWidget from "../Components/BroadcastMessageWidget.jsx";
@@ -20,53 +21,65 @@ const allMembers = [
   { name: "Anna Garcia", id: "MZ-018", phone: "0701234567" },
   { name: "John Doe", id: "MZ-001", phone: "0701234567" },
 ];
-
 const quickActionsCardsData = [
   {
     title: "Pending Approvals",
     color: "rgba(248, 113, 113, 0.25)",
+    info: "3 Requests",
     icon: "fa-solid fa-clock",
+    subInfo: "Requires Immediate Action",
   },
   {
     title: "Total SACCO Capital",
     color: "rgba(245, 158, 11, 0.25)",
+    info: "UgX 20,371,500",
     icon: "fa-solid fa-coins",
+    subInfo: "Shs 48,000 this Week",
   },
   {
     title: "Total Members",
     color: "rgba(16, 185, 129, 0.25)",
+    info: "29/30",
     icon: "fa-solid fa-users",
+    subInfo: "SACCO limit is 30 Members (1 Remaining)",
   },
   {
     title: "Active Loans issued",
     color: "rgba(59, 130, 246, 0.25)",
+    info: "Ugx 450,000",
     icon: "fa-solid fa-hand-holding-dollar",
+    subInfo: "In 4 Accounts",
   },
 ];
-
 export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       <Header />
-      <div className="summary-cards">
-        {quickActionsCardsData.map((card) => (
-          <ActionCards
-            key={card.title}
-            title={card.title}
-            color={card.color}
-            icon={card.icon}
-          />
-        ))}
-      </div>
-
-      <div className="main-content-row">
-        <div className="contribution-approvals-area">
-          <ContributionApprovals />
+      <div className="dashboard-body">
+        <div className="summary-cards">
+          {quickActionsCardsData.map((card) => (
+            <ActionCards
+              key={card.title}
+              title={card.title}
+              color={card.color}
+              icon={card.icon}
+              info={card.info}
+              subInfo={card.subInfo}
+            />
+          ))}
         </div>
-        <div className="features-area">
-          <QuickMemberManagement />
-          <ManualContributionLog allMembers={allMembers} />
-          <BroadcastMessageWidget />
+
+        {/* <ContributionApprovals /> */}
+
+        <div className="main-content-row">
+          <div className="contribution-approvals-area">
+            <ContributionApprovals />
+          </div>
+          <div className="features-area">
+            <QuickMemberManagement />
+            <ManualContributionLog allMembers={allMembers} />
+            <BroadcastMessageWidget />
+          </div>
         </div>
       </div>
     </AdminLayout>
