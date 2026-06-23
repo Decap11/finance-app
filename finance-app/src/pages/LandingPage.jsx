@@ -466,7 +466,7 @@ export default function LandingPage() {
                 }}
               >
                 <img
-                  src="/Images/happy_member_market.png"
+                  src="/images/happy_member_market.png"
                   alt="Happy Market Retailer"
                   style={{
                     width: "100%",
@@ -621,7 +621,7 @@ export default function LandingPage() {
                 }}
               >
                 <img
-                  src="/Images/happy_farmer_success.png"
+                  src="/images/happy_farmer_success.png"
                   alt="Happy Farmer"
                   style={{
                     width: "100%",
