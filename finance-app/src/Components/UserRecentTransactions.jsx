@@ -84,11 +84,11 @@ export default function UserRecentTransactions() {
               {/* 2. Map through the data array to render rows dynamically */}
               {transactionsData.map((transaction) => (
                 <tr key={transaction.id}>
-                  <div>
-                    <td>{transaction.date}</td>
+                  <td>
+                    {transaction.date}
                     <br></br>
                     <span className="period">{transaction.period}</span>
-                  </div>
+                  </td>
 
                   {/* Pass only the type; the component handles the styling */}
                   <TransactionTypeBadge type={transaction.type} />

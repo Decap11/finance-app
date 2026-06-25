@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function SignupForm() {
-  const [fullName, setFullName] = useState("Josh");
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [memberId, setMemberId] = useState("");
   const [groupId, setGroupId] = useState("");
@@ -36,7 +36,7 @@ export default function SignupForm() {
       phone: phone.trim(),
       groupId: groupId.trim().toUpperCase(),
       role: "Member",
-      tier: "Basic"
+      tier: "Basic",
     };
 
     if (window.SaccoState) {
@@ -46,12 +46,15 @@ export default function SignupForm() {
       const members = JSON.parse(localStorage.getItem("members") || "[]");
       members.unshift({
         ...newMemberObject,
-        joinedDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short" }),
+        joinedDate: new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+        }),
         savings: 0,
         shares: 0,
         devFund: 0,
         socialFund: 0,
-        avatarUrl: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
+        avatarUrl: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
       });
       localStorage.setItem("members", JSON.stringify(members));
     }

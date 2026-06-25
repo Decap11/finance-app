@@ -2,6 +2,8 @@ import { useState } from "react";
 import "../styles/weeklyContributions.css";
 export default function WeeklyContributions() {
   const [shares, setShares] = useState(0);
+  const [DevtFund, setDevtFund] = useState(0);
+  const [socialFund, setsocialFund] = useState(0);
   //State to be lifted to parent component
   //   const [weeklyContributions, setWeeklyContributions] = useState({
 
@@ -33,18 +35,28 @@ export default function WeeklyContributions() {
     if (val < 0) return;
     setShares(val);
   };
-  function handleSharesPush() {
-    alert("contributed a share");
-  }
-  function handleDevelopmentPush() {
-    alert("contributed a Development Fund");
-  }
-  function handleSocialPush() {
-    alert("Contributed a social fund");
+  // function handleSharesPush() {
+  //   alert("contributed a share");
+  // }
+  // function handleDevelopmentPush() {
+  //   alert("contributed a Development Fund");
+  // }
+  // function handleSocialPush() {
+  //   alert("Contributed a social fund");
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!shares || !DevtFund || !socialFund) return;
+    const sharesValue = sharePrice * shares;
+    console.log(shares, sharesValue, DevtFund, socialFund);
+
+    setShares(0);
+    setDevtFund(0);
+    setsocialFund(0);
   }
 
   return (
-    <section className="contributions-section">
+    <form className="contributions-section" onSubmit={handleSubmit}>
       <div className="quick-actions" style={{ padding: "30px" }}>
         <div
           className="section-header"
@@ -103,9 +115,7 @@ export default function WeeklyContributions() {
             <div className="calculated-total" id="sharesTotal">
               Shs {shares ? shares * sharePrice : 0}
             </div>
-            <button className="btn-pay" onClick={handleSharesPush}>
-              Contribute
-            </button>
+            {/* <button className="btn-pay">Contribute</button> */}
           </div>
         </div>
 
@@ -140,9 +150,7 @@ export default function WeeklyContributions() {
               }}
             />
             <div className="calculated-total">Shs 1000</div>
-            <button className="btn-pay" onClick={handleDevelopmentPush}>
-              Contribute
-            </button>
+            {/* <button className="btn-pay">Contribute</button> */}
           </div>
         </div>
 
@@ -173,13 +181,11 @@ export default function WeeklyContributions() {
             <div className="calculated-total" style={{ visibility: "hidden" }}>
               -
             </div>
-            <button className="btn-pay" onClick={handleSocialPush}>
-              Contribute
-            </button>
           </div>
         </div>
+        <button className="btn-pay">Contribute</button>
       </div>
-    </section>
+    </form>
   );
 }
 // function ContribtionCard(

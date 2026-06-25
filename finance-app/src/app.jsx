@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./utils/App-state.js";
 // import { useState } from "react";
 
-import SignupForm from "./Components/SignUp";
+import SignupForm from "./pages/SignUp.jsx";
 import Login from "./Components/login";
 import MemberSavingsPage from "./pages/memberSavingsPage";
 import MemberDashboardPage from "./pages/memberDashboardpage";

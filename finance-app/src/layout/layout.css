@@ -8,6 +8,7 @@ html {
   width: 98vw;
   overflow: hidden;
   background-color: var(--bg-color);
+  overflow-x: hidden;
   /* border: 2px solid yellow; */
 }
 
@@ -24,6 +25,7 @@ html {
 /* Dashboard Body */
 .dashboard-body {
   padding: 1rem 3rem;
+  overflow-x: hidden;
 }
 /* .loan-progress-section {
   display: grid;

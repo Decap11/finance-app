@@ -1,17 +1,28 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSidebar } from "../context/useSidebar";
+
 import Search from "./Search";
 import "../styles/userHeader.css";
 
 export default function UserHeader() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isOpen, toggleSidebar } = useSidebar();
+  // const { currentUser, logout } = useSaccoState();
+  const navigate = useNavigate();
 
   const toggleProfileDropdown = (event) => {
     event.stopPropagation();
     setShowDropdown((prev) => !prev);
   };
+
+  const handleLogout = (event) => {
+    event.preventDefault();
+    // logout();
+    navigate("/login");
+  };
+
+  // if (!currentUser) return null;
 
   return (
     <header>
@@ -27,7 +38,9 @@ export default function UserHeader() {
         </button>
         <div className="welcome-text">
           <h1>Member Overview</h1>
-          <p>Welcome back! Complete your mandatory weekly obligations.</p>
+          <p>
+            Welcome back, Joseph ! Complete your mandatory weekly obligations.
+          </p>
         </div>
       </div>
 
@@ -45,8 +58,8 @@ export default function UserHeader() {
         <div className="user-profile" onClick={toggleProfileDropdown}>
           <img src="https://i.pravatar.cc/150?img=11" alt="User Avatar" />
           <div className="user-info">
-            <span className="name">Joseph S.</span>
-            <span className="role">Member ID: 0042</span>
+            <span className="name"></span>
+            <span className="role">Member ID: </span>
           </div>
 
           <div
@@ -60,8 +73,9 @@ export default function UserHeader() {
               <i className="fa-solid fa-lock" /> Privacy & Security
             </a>
             <div className="dropdown-divider" />
-            <Link
-              to="/home"
+            <a
+              href="#"
+              onClick={handleLogout}
               className="dropdown-item"
               style={{ color: "var(--danger)" }}
             >
@@ -70,7 +84,7 @@ export default function UserHeader() {
                 style={{ color: "var(--danger)" }}
               />
               Sign Out
-            </Link>
+            </a>
           </div>
         </div>
       </div>
