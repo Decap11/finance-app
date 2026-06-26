@@ -38,7 +38,7 @@ export default function Login() {
     <div className="auth-container">
       <div className="auth-header">
         <img
-          src="images/sacco logo.png"
+          src="/images/sacco logo.png"
           alt="SACCO Logo"
           className="auth-logo"
           onError={handleImageError}
