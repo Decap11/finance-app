@@ -190,7 +190,7 @@ header {
 }
 @media (max-width: 27rem) {
   .notification-bell {
-    width: 22rem !important;
+    width: 18rem !important;
     height: 90% !important;
   }
   .header-actions {
