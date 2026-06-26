@@ -74,7 +74,7 @@ body {
 
 .auth-container {
   width: 100%;
-  max-width: 42rem;
+  max-width: 46rem;
   background-color: var(--white);
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);

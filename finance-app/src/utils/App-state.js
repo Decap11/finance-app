@@ -6,9 +6,10 @@
   // ----------------------------------------------------
   const defaultSaccos = [
     {
-      name: "Kampala Drivers Cooperative",
+      GroupName: "Kampala Drivers Cooperative",
+      GroupId: "PWS-814",
       acronym: "KAMPALA",
-      code: "UGX-KAMPALA-814",
+
       adminName: "Joseph Ssembatya",
       adminEmail: "admin@kampaladrivers.com",
       memberLimit: "30",
@@ -20,8 +21,7 @@
     {
       id: "MEM-0042",
       name: "Joseph Ssembatya",
-      firstName: "Joseph",
-      lastName: "Ssembatya",
+
       email: "joseph.s@example.com",
       phone: "700000000",
       joinedDate: "Jan 2024",
@@ -36,8 +36,7 @@
     {
       id: "MEM-0014",
       name: "Sarah Namubiru",
-      firstName: "Sarah",
-      lastName: "Namubiru",
+
       email: "sarah.n@example.com",
       phone: "701000000",
       joinedDate: "Nov 2023",
@@ -52,8 +51,7 @@
     {
       id: "MEM-0128",
       name: "David Kibirige",
-      firstName: "David",
-      lastName: "Kibirige",
+
       email: "david.k@example.com",
       phone: "702000000",
       joinedDate: "Mar 2024",
@@ -68,8 +66,7 @@
     {
       id: "MEM-0005",
       name: "Mary Nakato",
-      firstName: "Mary",
-      lastName: "Nakato",
+
       email: "mary.n@example.com",
       phone: "703000000",
       joinedDate: "Oct 2023",
@@ -84,8 +81,7 @@
     {
       id: "MEM-0021",
       name: "Peter Lwanga",
-      firstName: "Peter",
-      lastName: "Lwanga",
+
       email: "peter.l@example.com",
       phone: "704000000",
       joinedDate: "Feb 2024",
@@ -100,8 +96,7 @@
     {
       id: "MEM-0089",
       name: "Florence Alero",
-      firstName: "Florence",
-      lastName: "Alero",
+
       email: "florence.a@example.com",
       phone: "705000000",
       joinedDate: "Jan 2024",
@@ -116,8 +111,7 @@
     {
       id: "MEM-0255",
       name: "Paul Tumwesigye",
-      firstName: "Paul",
-      lastName: "Tumwesigye",
+
       email: "paul.t@example.com",
       phone: "706000000",
       joinedDate: "Mar 2024",
@@ -132,8 +126,7 @@
     {
       id: "MEM-0033",
       name: "Grace Mutesi",
-      firstName: "Grace",
-      lastName: "Mutesi",
+
       email: "grace.m@example.com",
       phone: "707000000",
       joinedDate: "Dec 2023",
@@ -149,130 +142,19 @@
 
   const defaultTransactions = [
     {
-      id: "tx-1",
+      GroupId: "PWS-815",
       memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "deposit",
-      pool: "Savings",
-      amount: 50000,
-      date: "2026-06-07T09:41:00Z",
+      memberName: "Ssembatya Joseph",
+      transactionId: "tx-101",
+      date: "2026-06-27T09:41:00Z",
+      week: "Week 5",
       status: "Completed",
-    },
-    {
-      id: "tx-2",
-      memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "withdrawal",
-      pool: "Savings",
-      amount: 120000,
-      date: "2026-06-06T14:15:00Z",
-      status: "Completed",
-    },
-    {
-      id: "tx-3",
-      memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "transfer",
-      pool: "Shares Pool",
-      amount: 25000,
-      date: "2026-06-05T11:30:00Z",
-      status: "Completed",
-    },
-    {
-      id: "tx-4",
-      memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "loan",
-      pool: "Loan Repayment",
-      amount: 120000,
-      date: "2026-06-04T10:00:00Z",
-      status: "Completed",
-    },
-    {
-      id: "tx-5",
-      memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "deposit",
-      pool: "Dividends Payout",
-      amount: 2500,
-      date: "2026-06-03T08:00:00Z",
-      status: "Completed",
-    },
-
-    {
-      id: "tx-6",
-      memberId: "MEM-0014",
-      name: "Sarah N.",
-      type: "deposit",
-      pool: "Shares Pool",
-      amount: 20000,
-      date: "2026-06-07T12:00:00Z",
-      status: "Completed",
-    },
-    {
-      id: "tx-7",
-      memberId: "MEM-0128",
-      name: "David K.",
-      type: "deposit",
-      pool: "Development Fund",
-      amount: 1000,
-      date: "2026-06-07T11:30:00Z",
-      status: "Completed",
-    },
-    {
-      id: "tx-8",
-      memberId: "MEM-0021",
-      name: "Peter L.",
-      type: "deposit",
-      pool: "Social Fund",
-      amount: 15000,
-      date: "2026-06-07T10:45:00Z",
-      status: "Completed",
-    },
-
-    {
-      id: "tx-pending-1",
-      memberId: "MEM-0042",
-      name: "Joseph S.",
-      type: "deposit",
-      pool: "Shares Pool",
-      amount: 25000,
-      date: "2026-06-07T12:22:00Z",
-      status: "Pending",
-      week: "Week 2 • Wed 22nd Apr 2026",
-    },
-    {
-      id: "tx-pending-2",
-      memberId: "MEM-0128",
-      name: "David K.",
-      type: "deposit",
-      pool: "Development Fund",
-      amount: 1000,
-      date: "2026-06-07T12:22:00Z",
-      status: "Pending",
-      week: "Week 2 • Wed 22nd Apr 2026",
-    },
-    {
-      id: "tx-pending-3",
-      memberId: "MEM-0033",
-      name: "Grace M.",
-      type: "deposit",
-      pool: "Social Fund",
-      amount: 5000,
-      date: "2026-06-07T12:22:00Z",
-      status: "Pending",
-      week: "Week 2 • Wed 22nd Apr 2026",
-    },
-    {
-      id: "tx-pending-4",
-      memberId: "MEM-0255",
-      name: "Paul T.",
-      type: "deposit",
-      pool: "Shares Pool",
-      amount: 50000,
-      date: "2026-06-07T12:22:00Z",
-      status: "Pending",
-      week: "Week 1 • Wed 15th Apr 2026",
+      contributions: {
+        shares: 40000,
+        devFund: 1000,
+        socialFund: 2000,
+      },
+      totalAmount: 43000,
     },
   ];
 

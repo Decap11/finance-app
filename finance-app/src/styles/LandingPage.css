@@ -759,7 +759,7 @@ body {
 footer {
   background: #0f172a;
   color: #94a3b8;
-  padding: 6rem 8% 4rem 8%;
+  padding: 6rem 0% 4rem 0%;
   text-align: center;
   border-top: 0.1rem solid rgba(255, 255, 255, 0.05);
 }
