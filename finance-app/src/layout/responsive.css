@@ -46,8 +46,7 @@
   html {
     font-size: 100%;
   }
-  .dashboard-body,
-  .loan-progress-section {
+  .dashboard-body {
     padding-left: 2.4rem;
     padding-right: 2.4rem;
   }
@@ -120,8 +119,7 @@
     font-size: 1.3rem;
   }
 
-  .dashboard-body,
-  .loan-progress-section {
+  .dashboard-body {
     padding: 1.6rem;
   }
 
