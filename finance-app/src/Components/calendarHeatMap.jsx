@@ -9,13 +9,13 @@ export default function CalendarHeatMap() {
       <div style={{ marginTop: "15px", paddingBottom: "5px" }}>
         <h4
           style={{
-            fontSize: "14px",
+            fontSize: "1.8rem",
             color: "var(--text-dark)",
-            marginBottom: "8px",
+            marginBottom: "1.2rem",
           }}
         >
           Shares Pool Consistency
-          <span style={{ float: "right", color: "var(--success)" }}>100%</span>
+          <span style={{ float: "right", color: "#253b8e" }}>100%</span>
         </h4>
         <div
           style={{
@@ -31,16 +31,16 @@ export default function CalendarHeatMap() {
             style={{
               width: "100%",
               height: "100%",
-              backgroundColor: "var(--success)",
+              backgroundColor: "#253b8e",
             }}
           ></div>
         </div>
 
         <h4
           style={{
-            fontSize: "14px",
+            fontSize: "1.8rem",
             color: "var(--text-dark)",
-            marginBottom: "8px",
+            marginBottom: "1.2rem",
           }}
         >
           Dev Fund Obligations
@@ -67,13 +67,13 @@ export default function CalendarHeatMap() {
 
         <h4
           style={{
-            fontSize: "14px",
+            fontSize: "1.8rem",
             color: "var(--text-dark)",
-            marginBottom: "8px",
+            marginBottom: "1.2rem",
           }}
         >
           Social Fund Activity
-          <span style={{ float: "right", color: "#ff9800" }}>45%</span>
+          <span style={{ float: "right", color: "#ef4444" }}>45%</span>
         </h4>
         <div
           style={{
@@ -88,7 +88,7 @@ export default function CalendarHeatMap() {
             style={{
               width: "45%",
               height: "100%",
-              backgroundColor: "#ff9800",
+              backgroundColor: "#ef4444",
             }}
           ></div>
         </div>

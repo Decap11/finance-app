@@ -11,7 +11,7 @@ const transactionsData = [
 
   {
     id: "T002",
-    type: "Shares Purchase",
+    type: "Shares",
     txAmount: 20000,
     status: "Pending",
     period: "Week 5",
@@ -29,7 +29,7 @@ const transactionsData = [
 
   {
     id: "T004",
-    type: "Shares Purchase",
+    type: "Shares",
     txAmount: 5000,
     status: "Completed",
     period: "Week 4",
@@ -51,7 +51,7 @@ export default function UserRecentTransactions() {
 
   return (
     <section className="recent-transactions-section">
-      <div className="quick-actions" style={{ padding: "30px" }}>
+      <div className="quick-actions">
         <div
           className="section-header"
           style={{ marginBottom: "25px", display: "flex" }}
@@ -121,7 +121,7 @@ function TransactionTypeBadge({ type }) {
     "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
     Development: { color: "#10b981", backgroundColor: "#10b9811a" },
     "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" }, // Extrapolated colors for the loan badge
-    "Shares Purchase": { color: "#253b8e", backgroundColor: "#ebf0fe" },
+    Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
   };
   // Fallback styling just in case a type comes back that isn't in the map above
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };

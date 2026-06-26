@@ -16,7 +16,7 @@ export default function FundDistributionMix() {
               fontSize: "1.6rem",
             }}
           >
-            <span style={{ color: "#ff9800" }}>Shares</span>
+            <span style={{ color: "#253b8e" }}>Shares</span>
             <span style={{ color: "#10b981" }}>Dev Fund</span>
             <span style={{ color: "#ef4444" }}>Social</span>
           </div>
@@ -31,7 +31,7 @@ export default function FundDistributionMix() {
               marginBottom: 30,
             }}
           >
-            <div style={{ width: "65%", backgroundColor: "#ff9800" }} />
+            <div style={{ width: "65%", backgroundColor: "#253b8e" }} />
             <div style={{ width: "22%", backgroundColor: "#10b981" }} />
             <div style={{ width: "13%", backgroundColor: "#ef4444" }} />
           </div>

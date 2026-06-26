@@ -3,7 +3,7 @@ html {
 }
 
 :root {
-  --primary-color: #253b8e;
+  --primary-color: rgb(37, 59, 142);
   --secondary-color: #f7f9fc;
   --bg-color: #f8fbff;
   --white: #ffffff;
@@ -27,8 +27,14 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 3.2rem 4rem;
-  background-color: rgb(248, 254, 253);
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    rgb(37, 59, 142) 0%,
+    rgb(15, 23, 42) 100%
+  );
   z-index: 10;
+  border-radius: 0.8rem;
 
   /* position: fixed; */
   /* width: 100%; */
@@ -39,13 +45,13 @@ header {
 .welcome-text p {
   font-size: 8rem;
   font-weight: 700;
-  color: var(--text-dark);
+  color: #fff;
   letter-spacing: -0.05rem;
   margin-bottom: 0.4rem;
 }
 
 .welcome-text p {
-  color: var(--text-light);
+  color: #fff;
   font-size: 1.4rem;
   font-weight: 500;
 }

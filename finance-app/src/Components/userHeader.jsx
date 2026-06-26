@@ -45,10 +45,6 @@ export default function UserHeader() {
       </div>
 
       <div className="header-actions">
-        {/* <div className="search-bar">
-          <i className="fa-solid fa-magnifying-glass" />
-          <input type="text" placeholder="Search transactions, loans..." />
-        </div> */}
         <Search />
 
         <div className="notification-bell">

@@ -14,8 +14,8 @@ export default function SavingsLatestMemberTransactions() {
             <div
               className="tx-icon"
               style={{
-                backgroundColor: "rgba(255, 152, 0, 0.1)",
-                color: "#ff9800",
+                backgroundColor: "#ebf0fe",
+                color: "#253b8e",
               }}
             >
               <i className="fa-solid fa-chart-pie"></i>
@@ -83,8 +83,8 @@ export default function SavingsLatestMemberTransactions() {
             <div
               className="tx-icon"
               style={{
-                backgroundColor: "rgba(255, 152, 0, 0.1)",
-                color: "#ff9800",
+                backgroundColor: "#ebf0fe",
+                color: "#253b8e",
               }}
             >
               <i className="fa-solid fa-chart-pie"></i>

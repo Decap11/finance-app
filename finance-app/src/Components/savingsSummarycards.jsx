@@ -7,7 +7,7 @@ export default function SavingsSummaryCards() {
           <span className="card-title">Total SACCO Assets</span>
           <div
             className="card-icon"
-            style={{ color: "#253b8e", backgroundColor: "#ebf0fe" }}
+            style={{ color: "#ff9800", backgroundColor: "#ff98001a" }}
           >
             <i className="fa-solid fa-building-columns"></i>
           </div>
@@ -28,8 +28,8 @@ export default function SavingsSummaryCards() {
           <div
             className="card-icon"
             style={{
-              color: "#ff9800",
-              backgroundColor: "rgba(255, 152, 0, 0.1)",
+              color: "#253b8e",
+              backgroundColor: "#ebf0fe",
             }}
           >
             <i className="fa-solid fa-chart-pie"></i>
