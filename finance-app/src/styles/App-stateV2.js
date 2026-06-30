@@ -11,7 +11,7 @@
     {
       name: "Kampala Drivers Cooperative",
       acronym: "KAMPALA",
-      code: "UGX-KAMPALA-814",
+      GroupId: "MZ-814",
       adminName: "Joseph Ssembatya",
       adminEmail: "admin@kampaladrivers.com",
       memberLimit: "30",
@@ -22,6 +22,7 @@
   const defaultMembers = [
     {
       id: "MEM-0042",
+      GroupId: "MZ-814",
       name: "Joseph Ssembatya",
       firstName: "Joseph",
       lastName: "Ssembatya",
@@ -30,10 +31,10 @@
       joinedDate: "Jan 2024",
       role: "Member",
       avatarUrl: "https://i.pravatar.cc/150?img=11",
-      savings: 1200000,
-      shares: 800000,
-      devFund: 64000,
-      socialFund: 250500,
+
+      shares: [800000, 5000, 40000, 25000],
+      devFund: [64000, 20000],
+      socialFund: [25500, 15000, 10000],
       tier: "Basic",
     },
     {
