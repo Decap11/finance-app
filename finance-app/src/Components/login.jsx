@@ -7,17 +7,36 @@ import { Link, useNavigate } from "react-router-dom";
 export default function Login() {
   const [memberId, setMemberId] = useState("");
   const [LogInpassword, setLogInPassword] = useState("");
-  // const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // TODO: Add login logic here
-    const loginData = {
-      memberId,
-      LogInpassword,
-    };
-    console.log(loginData);
+    if (!memberId || !LogInpassword) return;
+
+    setIsLoading(true);
+    setErrorMsg("");
+
+    let email = memberId.trim();
+    if (!email.includes("@")) {
+      email = `${email.toLowerCase()}@pewosa.com`;
+    }
+
+    const { supabase } = await import("../supabaseClient.js");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: LogInpassword,
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
     navigate("/dashboard");
   };
 
@@ -48,6 +67,8 @@ export default function Login() {
           Sign in to securely access your SACCO financial records.
         </p>
       </div>
+
+      {errorMsg && <div className="error-message" style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{errorMsg}</div>}
 
       <form id="loginForm" onSubmit={handleLogin}>
         <div className="form-group">
@@ -116,12 +137,12 @@ export default function Login() {
           </label>
         </div>
 
-        <button type="submit" className="btn-submit" id="submitBtn">
-          Secure Login
-          <i
+        <button type="submit" className="btn-submit" id="submitBtn" disabled={isLoading}>
+          {isLoading ? "Logging in..." : "Secure Login"}
+          {!isLoading && <i
             className="fa-solid fa-arrow-right-to-bracket"
             style={{ marginLeft: "0.8rem" }}
-          ></i>
+          ></i>}
         </button>
       </form>
 

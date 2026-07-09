@@ -1,16 +1,41 @@
-# React + Vite
+# SACCO Finance
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SACCO Finance is a Next.js application for managing Savings and Credit Cooperative Organization workflows. It includes member dashboards, savings and share tracking, loan request and repayment screens, contribution approvals, group member views, settings, onboarding, and admin dashboard surfaces.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Next.js
+- React
+- Supabase client
+- Tail
+- Optional `json-server` mock data
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Open `http://localhost:3000`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Scripts
+
+- `npm run dev`: start the Next.js development server.
+- `npm run build`: create a production build.
+- `npm run start`: start the production server after building.
+- `npm run lint`: run ESLint.
+- `npm run server`: run `json-server` against `data/data.json` on port `5000`.
+
+## Environment
+
+Create `.env` with:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## Project Notes
+
+The app currently uses a localStorage-backed mock state layer for most SACCO workflows. Supabase is partially wired for signup and should be expanded with Supabase Auth, RLS policies, and database-backed financial workflows before production use.

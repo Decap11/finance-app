@@ -1,0 +1,160 @@
+-- 1. Profiles Table
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null,
+  phone text,
+  email text,
+  member_number text unique not null,
+  group_id text,
+  role text not null default 'member'
+    check (role in ('member', 'loan_officer', 'admin')),
+  status text not null default 'pending'
+    check (status in ('pending', 'active', 'suspended', 'closed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- 2. SACCOs Table
+create table public.saccos (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  acronym text not null,
+  group_code text unique not null,
+  admin_profile_id uuid references public.profiles(id),
+  member_limit integer,
+  status text not null default 'active'
+    check (status in ('active', 'suspended', 'closed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- 3. SACCO Memberships Table
+create table public.sacco_memberships (
+  id uuid primary key default gen_random_uuid(),
+  sacco_id uuid not null references public.saccos(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null default 'member'
+    check (role in ('member', 'loan_officer', 'admin')),
+  status text not null default 'active'
+    check (status in ('pending', 'active', 'suspended', 'removed')),
+  joined_at timestamptz not null default now(),
+  unique (sacco_id, profile_id)
+);
+
+-- 4. Accounts Table
+create table public.accounts (
+  id uuid primary key default gen_random_uuid(),
+  sacco_id uuid not null references public.saccos(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  account_type text not null
+    check (account_type in ('savings', 'shares', 'development_fund', 'social_fund', 'loan')),
+  balance numeric(15, 2) not null default 0.00 check (balance >= 0),
+  status text not null default 'active'
+    check (status in ('active', 'frozen', 'closed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (sacco_id, profile_id, account_type)
+);
+
+-- 5. Transactions Table
+create table public.transactions (
+  id uuid primary key default gen_random_uuid(),
+  sacco_id uuid not null references public.saccos(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete restrict,
+  account_id uuid references public.accounts(id) on delete restrict,
+  loan_id uuid,
+  amount numeric(15, 2) not null check (amount > 0),
+  direction text not null check (direction in ('credit', 'debit')),
+  category text not null
+    check (category in (
+      'savings',
+      'shares',
+      'development_fund',
+      'social_fund',
+      'loan_disbursement',
+      'loan_repayment',
+      'fee',
+      'fine',
+      'dividend',
+      'adjustment'
+    )),
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'completed', 'failed', 'reversed')),
+  description text,
+  reference text,
+  requested_by uuid references public.profiles(id),
+  approved_by uuid references public.profiles(id),
+  approved_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- 6. Loans Table
+create table public.loans (
+  id uuid primary key default gen_random_uuid(),
+  sacco_id uuid not null references public.saccos(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete restrict,
+  amount_requested numeric(15, 2) not null check (amount_requested > 0),
+  amount_approved numeric(15, 2) check (amount_approved >= 0),
+  outstanding_balance numeric(15, 2) not null default 0.00 check (outstanding_balance >= 0),
+  interest_rate numeric(5, 2) not null default 0.00 check (interest_rate >= 0),
+  term_months integer check (term_months > 0),
+  purpose text,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'disbursed', 'active', 'completed', 'defaulted', 'cancelled')),
+  requested_at timestamptz not null default now(),
+  approved_by uuid references public.profiles(id),
+  approved_at timestamptz,
+  disbursed_at timestamptz,
+  due_date date,
+  closed_at timestamptz
+);
+
+alter table public.transactions
+  add constraint transactions_loan_id_fkey
+  foreign key (loan_id) references public.loans(id) on delete restrict;
+
+-- 7. Loan Repayments Table
+create table public.loan_repayments (
+  id uuid primary key default gen_random_uuid(),
+  loan_id uuid not null references public.loans(id) on delete cascade,
+  transaction_id uuid unique references public.transactions(id) on delete restrict,
+  amount numeric(15, 2) not null check (amount > 0),
+  paid_at timestamptz not null default now(),
+  source_account_id uuid references public.accounts(id)
+);
+
+-- 8. Audit Events Table
+create table public.audit_events (
+  id uuid primary key default gen_random_uuid(),
+  sacco_id uuid references public.saccos(id) on delete cascade,
+  actor_profile_id uuid references public.profiles(id),
+  entity_type text not null,
+  entity_id uuid,
+  action text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- 9. Trigger for New User Signup via Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, phone, member_number, role, status)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    NEW.email,
+    NEW.raw_user_meta_data->>'phone',
+    COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEMBER-' || substring(NEW.id::text, 1, 8)),
+    'member',
+    'pending'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

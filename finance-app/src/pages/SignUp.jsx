@@ -11,6 +11,9 @@ export default function SignupForm() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
   function togglePassword(element, fieldId) {
     const inputField = document.getElementById(fieldId);
     const isPassword = inputField.type === "password";
@@ -19,44 +22,40 @@ export default function SignupForm() {
     element.classList.toggle("fa-eye-slash");
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!fullName || !phone || !memberId || !groupId || !password) return;
+    if (!termsAccepted) {
+      setErrorMsg("You must accept the terms and conditions.");
+      return;
+    }
 
-    const nameParts = fullName.trim().split(/\s+/);
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
+    setIsLoading(true);
+    setErrorMsg("");
 
-    const newMemberObject = {
-      id: memberId.trim().toUpperCase(),
-      name: fullName.trim(),
-      firstName: firstName,
-      lastName: lastName,
-      email: `${memberId.trim().toLowerCase()}@pewosa.com`,
-      phone: phone.trim(),
-      groupId: groupId.trim().toUpperCase(),
-      role: "Member",
-      tier: "Basic",
-    };
+    const email = `${memberId.trim().toLowerCase()}@pewosa.com`;
 
-    if (window.SaccoState) {
-      window.SaccoState.addMember(newMemberObject);
-    } else {
-      // Fallback if not initialized
-      const members = JSON.parse(localStorage.getItem("members") || "[]");
-      members.unshift({
-        ...newMemberObject,
-        joinedDate: new Date().toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        }),
-        savings: 0,
-        shares: 0,
-        devFund: 0,
-        socialFund: 0,
-        avatarUrl: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
-      });
-      localStorage.setItem("members", JSON.stringify(members));
+    // Initialize Supabase Client dynamically so it doesn't break if not set yet
+    const { supabase } = await import("../supabaseClient.js");
+
+    const { error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          member_number: memberId.trim().toUpperCase(),
+          group_id: groupId.trim().toUpperCase(),
+        }
+      }
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
     }
 
     // Reset form fields after submission
@@ -67,8 +66,8 @@ export default function SignupForm() {
     setPassword("");
     setTermsAccepted(false);
 
-    // Redirect the user to the members page to see their addition
-    navigate("/members");
+    // Redirect the user to the login page or members page
+    navigate("/login");
   }
 
   return (
@@ -84,6 +83,8 @@ export default function SignupForm() {
           Join the SACCO and take control of your future.
         </p>
       </div>
+
+      {errorMsg && <div className="error-message" style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{errorMsg}</div>}
 
       <form id="signupForm" onSubmit={handleSubmit}>
         <div className="form-group">
@@ -193,12 +194,12 @@ export default function SignupForm() {
           </label>
         </div>
 
-        <button type="submit" className="btn-submit" id="submitBtn">
-          Create Account{" "}
-          <i
+        <button type="submit" className="btn-submit" id="submitBtn" disabled={isLoading}>
+          {isLoading ? "Creating..." : "Create Account"}{" "}
+          {!isLoading && <i
             className="fa-solid fa-arrow-right"
             style={{ marginLeft: "0.8rem" }}
-          ></i>
+          ></i>}
         </button>
       </form>
 

@@ -15,6 +15,7 @@ import Payments from "./pages/Payments";
 import Settings from "./pages/setting";
 import LandingPage from "./pages/LandingPage";
 import Loader from "./Components/loader";
+import ProtectedRoute from "./Components/ProtectedRoute.jsx";
 
 //1.Creating a new context
 
@@ -30,16 +31,16 @@ export default function App() {
         <Route path="/signup" element={<SignupForm />} />
         <Route path="/login" element={<Login />} />
         <Route path="/intro" element={<LandingPage />} />
-        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
         <Route path="/loader" element={<Loader />} />
 
-        <Route path="/savings" element={<MemberSavingsPage />} />
-        <Route path="/dashboard" element={<MemberDashboardPage />} />
+        <Route path="/savings" element={<ProtectedRoute><MemberSavingsPage /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><MemberDashboardPage /></ProtectedRoute>} />
 
-        <Route path="/loans" element={<MemberLoansPage />} />
-        <Route path="/members" element={<GroupMembers />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/loans" element={<ProtectedRoute><MemberLoansPage /></ProtectedRoute>} />
+        <Route path="/members" element={<ProtectedRoute><GroupMembers /></ProtectedRoute>} />
+        <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
