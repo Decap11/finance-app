@@ -20,8 +20,8 @@ export default function MemberDashboardPage() {
   }, []);
   return (
     <MemberLayout>
-      <UserHeader />
       <div className="dashboard-body">
+        <UserHeader />
         <UserSummaryCards
           title="My Shares Value"
           icon="fa-solid fa-chart-pie"

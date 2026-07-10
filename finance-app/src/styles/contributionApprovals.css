@@ -1,58 +1,161 @@
-/* Basic styles for Contribution Approvals table */
+/* Premium styling for Contribution Approvals */
 .recent-transactions {
-  background: #fff;
-  height: 100%;
-  border-radius: 1.2rem;
-  box-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
-  padding: 2rem;
+  background: #ffffff;
+  border-radius: 1.6rem;
+  box-shadow: 0 0.4rem 2rem rgba(0, 0, 0, 0.02);
+  padding: 2.5rem;
   margin-bottom: 2rem;
+  border: 1px solid #f1f5f9;
 }
+
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.2rem;
-  font-size: 5rem;
+  margin-bottom: 2.5rem;
 }
+
 .section-title {
-  font-size: 1.4rem;
+  font-size: 1.8rem;
   font-weight: 700;
   color: #1e293b;
 }
+
+.view-all-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 1.3rem;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.view-all-link:hover {
+  color: #2563eb;
+}
+
+.admin-table-wrapper {
+  overflow-x: auto;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
 }
-.admin-table th,
-.admin-table td {
-  padding: 0.8rem 1.2rem;
-  text-align: left;
-  border-bottom: 1px solid #f1f5f9;
-}
+
 .admin-table th {
-  background: #f8fbff;
+  text-align: left;
+  padding: 1.2rem 1rem;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
   font-weight: 600;
-  color: #253b8e;
+  letter-spacing: 0.05em;
 }
+
+.admin-table td {
+  padding: 1.6rem 1rem;
+  border-bottom: 1px solid #f8fafc;
+  vertical-align: middle;
+}
+
+/* Member ID Cell Layout */
+.member-id-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.member-id-number {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.member-name-sub {
+  font-size: 1.2rem;
+  color: #64748b;
+}
+
+/* Badges */
 .badge {
   display: inline-block;
-  padding: 0.2rem 0.8rem;
-  border-radius: 1rem;
+  padding: 0.4rem 1rem;
+  border-radius: 0.6rem;
   font-size: 1.1rem;
-  font-weight: 500;
-  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
 }
+
 .badge-shares-pool {
-  background: #6366f1;
+  background-color: #fef3c7;
+  color: #d97706;
 }
+
 .badge-dev-fund {
-  background: #f59e0b;
+  background-color: #d1fae5;
+  color: #059669;
 }
+
 .badge-social-fund {
-  background: #10b981;
+  background-color: #fee2e2;
+  color: #dc2626;
 }
+
+.badge-savings {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+/* Text Formatting */
+.amount-text {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.date-text {
+  font-size: 1.3rem;
+  color: #64748b;
+}
+
+/* Table Actions */
 .table-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.table-actions .btn-sm {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  border: none;
+  font-size: 1.4rem;
+  transition: all 0.2s ease;
+}
+
+.table-actions .btn-approve {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
+.table-actions .btn-approve:hover {
+  background-color: #059669;
+}
+
+.table-actions .btn-reject {
+  background-color: #f8fafc;
+  color: #ef4444;
+  border: 1px solid #e2e8f0;
+}
+
+.table-actions .btn-reject:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
 }

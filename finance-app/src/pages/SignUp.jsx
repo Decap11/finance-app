@@ -5,8 +5,10 @@ import { Link, useNavigate } from "react-router-dom";
 export default function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [memberId, setMemberId] = useState("");
-  const [groupId, setGroupId] = useState("");
+  const [saccoName, setSaccoName] = useState("");
+  const [saccoUniqueNumber, setSaccoUniqueNumber] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ export default function SignupForm() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName || !phone || !memberId || !groupId || !password) return;
+    if (!fullName || !phone || !email || !memberId || !saccoName || !saccoUniqueNumber || !password) return;
     if (!termsAccepted) {
       setErrorMsg("You must accept the terms and conditions.");
       return;
@@ -33,20 +35,44 @@ export default function SignupForm() {
     setIsLoading(true);
     setErrorMsg("");
 
-    const email = `${memberId.trim().toLowerCase()}@pewosa.com`;
+    const formattedMemberId = `MEM-${memberId.trim().toUpperCase()}`;
 
     // Initialize Supabase Client dynamically so it doesn't break if not set yet
     const { supabase } = await import("../supabaseClient.js");
 
+    // Generate acronym and group code using entered sacco name and unique number
+    const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
+    const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
+
+    // Verify that the SACCO group code exists in the database
+    const { data: saccoData, error: saccoError } = await supabase
+      .from('saccos')
+      .select('id')
+      .eq('group_code', generatedGroupCode)
+      .limit(1)
+      .maybeSingle();
+
+    if (saccoError) {
+      setErrorMsg("Error validating Group ID: " + saccoError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!saccoData) {
+      setErrorMsg("Registration Failed: The SACCO group does not exist. Please check the SACCO Name and Unique Number.");
+      setIsLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
-      email: email,
+      email: email.trim(),
       password: password,
       options: {
         data: {
           full_name: fullName.trim(),
           phone: phone.trim(),
-          member_number: memberId.trim().toUpperCase(),
-          group_id: groupId.trim().toUpperCase(),
+          member_number: formattedMemberId,
+          group_id: generatedGroupCode,
         }
       }
     });
@@ -61,8 +87,10 @@ export default function SignupForm() {
     // Reset form fields after submission
     setFullName("");
     setPhone("");
+    setEmail("");
     setMemberId("");
-    setGroupId("");
+    setSaccoName("");
+    setSaccoUniqueNumber("");
     setPassword("");
     setTermsAccepted(false);
 
@@ -120,33 +148,64 @@ export default function SignupForm() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Member ID</label>
+          <label className="form-label">Email Address</label>
+          <div className="form-input-container">
+            <i className="fa-regular fa-envelope form-icon"></i>
+            <input
+              type="email"
+              id="email"
+              className="form-input"
+              placeholder="e.g. member@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Member ID Number</label>
           <div className="form-input-container">
             <i className="fa-solid fa-id-badge form-icon"></i>
             <input
               type="text"
               id="memberId"
               className="form-input"
-              placeholder="e.g. MEM-0042"
+              placeholder="e.g. 0042"
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
               required
-              style={{ textTransform: "uppercase" }}
             />
           </div>
         </div>
 
         <div className="form-group">
-          <label className="form-label">Group ID:</label>
+          <label className="form-label">SACCO Name</label>
           <div className="form-input-container">
-            <i className="fa-regular fa-envelope form-icon"></i>
+            <i className="fa-solid fa-building-columns form-icon"></i>
             <input
               type="text"
-              id="groupId"
+              id="saccoName"
               className="form-input"
-              placeholder="e.g. GROUP-001"
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
+              placeholder="e.g. Kisenyi Youth Sacco"
+              value={saccoName}
+              onChange={(e) => setSaccoName(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">SACCO Unique Number / Code</label>
+          <div className="form-input-container">
+            <i className="fa-solid fa-hashtag form-icon"></i>
+            <input
+              type="text"
+              id="saccoUniqueNumber"
+              className="form-input"
+              placeholder="e.g. 2200"
+              value={saccoUniqueNumber}
+              onChange={(e) => setSaccoUniqueNumber(e.target.value)}
               required
             />
           </div>
@@ -203,11 +262,19 @@ export default function SignupForm() {
         </button>
       </form>
 
-      <div className="auth-footer">
-        Already have an account?{" "}
-        <Link to="/login" className="auth-link">
-          Log in here
-        </Link>
+      <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div>
+          Already have an account?{" "}
+          <Link to="/login" className="auth-link">
+            Log in here
+          </Link>
+        </div>
+        <div>
+          Are you an Administrator?{" "}
+          <Link to="/register-sacco" className="auth-link">
+            Register your SACCO
+          </Link>
+        </div>
       </div>
     </div>
   );

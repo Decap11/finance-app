@@ -3,6 +3,7 @@
   grid-template-columns: minmax(24rem, 1fr) 2fr;
   gap: 2.4rem;
   align-items: start;
+  margin-top: 2.8rem;
 }
 
 .settings-form-grid {

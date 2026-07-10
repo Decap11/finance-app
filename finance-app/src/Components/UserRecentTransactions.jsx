@@ -1,53 +1,30 @@
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient.js";
 import "../styles/UserRecentTransactionsTable.css";
-const transactionsData = [
-  {
-    id: "T001",
-    type: "Development",
-    txAmount: 2000,
-    status: "Completed",
-    period: "Week 5",
-    date: "2026-06-21",
-  },
 
-  {
-    id: "T002",
-    type: "Shares",
-    txAmount: 20000,
-    status: "Pending",
-    period: "Week 5",
-    date: "2026-06-20",
-  },
-
-  {
-    id: "T003",
-    type: "Social Fund",
-    txAmount: 2000,
-    status: "Completed",
-    period: "Week 2",
-    date: "2026-06-15",
-  },
-
-  {
-    id: "T004",
-    type: "Shares",
-    txAmount: 5000,
-    status: "Completed",
-    period: "Week 4",
-    date: "2026-06-18",
-  },
-
-  {
-    id: "T005",
-    type: "Development",
-    txAmount: 3000,
-    status: "Pending",
-    period: "Week 5",
-    date: "2026-06-22",
-  },
-];
 export default function UserRecentTransactions() {
-  // const [transactionWeek, setTransactionWeek] = useState([]);
-  // const [transactionType, setTransactionype] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTransactions() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('profile_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (data && !error) {
+        setTransactions(data);
+      }
+      setLoading(false);
+    }
+    fetchTransactions();
+  }, []);
 
   return (
     <section className="recent-transactions-section">
@@ -58,7 +35,7 @@ export default function UserRecentTransactions() {
         >
           <h3 className="section-title">Recent Transactions</h3>
           <a
-            href="#"
+            href="/transactions"
             style={{
               color: "var(--primary-color)",
               textDecoration: "none",
@@ -67,7 +44,6 @@ export default function UserRecentTransactions() {
             }}
           >
             View All
-            {/* <span>&#xfe40;</span> */}
           </a>
         </div>
         <div className="recent-transactions-table">
@@ -81,32 +57,53 @@ export default function UserRecentTransactions() {
               </tr>
             </thead>
             <tbody>
-              {/* 2. Map through the data array to render rows dynamically */}
-              {transactionsData.map((transaction) => (
-                <tr key={transaction.id}>
-                  <td>
-                    {transaction.date}
-                    <br></br>
-                    <span className="period">{transaction.period}</span>
-                  </td>
-
-                  {/* Pass only the type; the component handles the styling */}
-                  <TransactionTypeBadge type={transaction.type} />
-                  <td className="amount-cell">{transaction.txAmount}</td>
-                  <td>
-                    {/* Render status dynamically based on the string */}
-                    <span
-                      className={`status-badge ${
-                        transaction.status === "Completed"
-                          ? "success"
-                          : "pending"
-                      }`}
-                    >
-                      {transaction.status}
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: "center", padding: "1rem" }}>
+                    Loading transactions...
                   </td>
                 </tr>
-              ))}
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: "center", padding: "1rem" }}>
+                    No recent transactions.
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((transaction) => {
+                  const dateObj = new Date(transaction.created_at);
+                  const formattedDate = dateObj.toLocaleDateString();
+                  
+                  // Map category to a friendly display string
+                  let displayType = transaction.category;
+                  if (displayType === "social_fund") displayType = "Social Fund";
+                  if (displayType === "development_fund") displayType = "Development";
+                  if (displayType === "shares") displayType = "Shares";
+                  if (displayType === "savings") displayType = "Savings";
+
+                  return (
+                    <tr key={transaction.id}>
+                      <td>
+                        {formattedDate}
+                        <br></br>
+                      </td>
+                      <TransactionTypeBadge type={displayType} />
+                      <td className="amount-cell">{Number(transaction.amount).toLocaleString()}</td>
+                      <td>
+                        <span
+                          className={`status-badge ${
+                            transaction.status === "completed" || transaction.status === "approved"
+                              ? "success"
+                              : transaction.status === "pending" ? "pending" : "danger"
+                          }`}
+                        >
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

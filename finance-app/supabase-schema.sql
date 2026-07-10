@@ -139,17 +139,34 @@ create table public.audit_events (
 -- 9. Trigger for New User Signup via Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  v_sacco_id UUID;
+  v_group_id TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, phone, member_number, role, status)
+  v_group_id := NEW.raw_user_meta_data->>'group_id';
+
+  INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
     NEW.email,
     NEW.raw_user_meta_data->>'phone',
     COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEMBER-' || substring(NEW.id::text, 1, 8)),
-    'member',
-    'pending'
+    v_group_id,
+    COALESCE(NEW.raw_user_meta_data->>'role', 'member'),
+    COALESCE(NEW.raw_user_meta_data->>'status', 'pending')
   );
+
+  -- If a group_id is provided, try to find the matching SACCO and create a pending membership
+  IF v_group_id IS NOT NULL AND v_group_id <> '' THEN
+    SELECT id INTO v_sacco_id FROM public.saccos WHERE group_code = UPPER(v_group_id);
+    IF v_sacco_id IS NOT NULL THEN
+      INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
+      VALUES (v_sacco_id, NEW.id, 'member', 'pending')
+      ON CONFLICT DO NOTHING;
+    END IF;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -158,3 +175,24 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Trigger function to initialize accounts when a member joins a SACCO
+CREATE OR REPLACE FUNCTION public.initialize_member_accounts()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance)
+  VALUES 
+    (NEW.sacco_id, NEW.profile_id, 'savings', 0.00),
+    (NEW.sacco_id, NEW.profile_id, 'shares', 0.00),
+    (NEW.sacco_id, NEW.profile_id, 'development_fund', 0.00),
+    (NEW.sacco_id, NEW.profile_id, 'social_fund', 0.00),
+    (NEW.sacco_id, NEW.profile_id, 'loan', 0.00)
+  ON CONFLICT DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_sacco_membership_created ON public.sacco_memberships;
+CREATE TRIGGER on_sacco_membership_created
+  AFTER INSERT ON public.sacco_memberships
+  FOR EACH ROW EXECUTE PROCEDURE public.initialize_member_accounts();

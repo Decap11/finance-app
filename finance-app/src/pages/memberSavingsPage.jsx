@@ -8,8 +8,8 @@ import PromoBanner from "../Components/PromoBanner";
 export default function MemberSavingsPage() {
   return (
     <MemberLayout>
-      <UserHeader />
       <div className="dashboard-body">
+        <UserHeader />
         <SavingsSummaryCards />
         <div className="dashboard-grid">
           <FundDistributionMix />

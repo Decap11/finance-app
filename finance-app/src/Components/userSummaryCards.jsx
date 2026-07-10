@@ -1,6 +1,47 @@
 import "../styles/summary-cards-row.css";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient.js";
+
 export default function UserSummaryCards() {
+  const [loading, setLoading] = useState(true);
+  const [balances, setBalances] = useState({
+    shares: 0,
+    development_fund: 0,
+    social_fund: 0,
+    savings: 0,
+  });
+
+  useEffect(() => {
+    async function fetchBalances() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("accounts")
+        .select("account_type, balance")
+        .eq("profile_id", user.id);
+
+      if (data && !error) {
+        const newBalances = { ...balances };
+        data.forEach((acc) => {
+          newBalances[acc.account_type] = acc.balance;
+        });
+        setBalances(newBalances);
+      }
+      setLoading(false);
+    }
+    fetchBalances();
+  }, []);
+
+  const totalCapital =
+    balances.shares +
+    balances.development_fund +
+    balances.social_fund +
+    balances.savings;
+
   return (
     <section className="summary-cards">
       <Card
@@ -8,16 +49,16 @@ export default function UserSummaryCards() {
         backgroundColor={"#f59e0b1a"}
         color={"#f59e0b"}
         icon="fa-solid fa-chart-pie"
-        info=" 2,450,000"
-        subInfo="Total shares value due week 4"
+        info={loading ? "..." : totalCapital.toLocaleString()}
+        subInfo="Total capital value"
       />
       <Card
         title="My Shares Value"
         backgroundColor="#ebf0fe"
         color="#253b8e"
         icon="fa-solid fa-chart-pie"
-        info=" 2,450,000"
-        subInfo="Total shares value due week 4"
+        info={loading ? "..." : balances.shares.toLocaleString()}
+        subInfo="Total shares value"
       />
 
       <Card
@@ -25,7 +66,7 @@ export default function UserSummaryCards() {
         backgroundColor="#10b9811a"
         color="#10b981"
         icon="fa-solid fa-seedling"
-        info=" 450,000"
+        info={loading ? "..." : balances.development_fund.toLocaleString()}
         subInfo="Total Development funds"
       />
       <Card
@@ -33,8 +74,8 @@ export default function UserSummaryCards() {
         backgroundColor="#ef44441a"
         color="#ef4444"
         icon="fa-solid fa-handshake-angle"
-        info=" 50,000"
-        subInfo="Total Development funds"
+        info={loading ? "..." : balances.social_fund.toLocaleString()}
+        subInfo="Total Social funds"
       />
     </section>
   );
@@ -55,7 +96,7 @@ function Card({ title, icon, info, subInfo, color, backgroundColor }) {
         </div>
       </div>
       <div className="card-amount">
-        <span>Ugx</span>
+        <span>Ugx </span>
         {info}
       </div>
       <p className="subInfo">{subInfo}</p>

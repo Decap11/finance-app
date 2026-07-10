@@ -7,8 +7,8 @@ import MemberLayout from "../layout/MemberLayout";
 export default function MemberLoansPage() {
   return (
     <MemberLayout>
-      <UserHeader />
       <div className="dashboard-body">
+        <UserHeader />
         <section className="dashboard-grid">
           <div className="loan-widgets-container">
             <LoanRequestWidget />

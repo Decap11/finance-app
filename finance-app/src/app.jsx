@@ -10,6 +10,7 @@ import MemberDashboardPage from "./pages/memberDashboardpage";
 import MemberLoansPage from "./pages/memberloansPage";
 import AdminDashboardPage from "./pages/adminDashboardPage";
 import OnBoardingSteps from "./pages/onBoardingSteps";
+import RegisterSacco from "./pages/RegisterSacco";
 import GroupMembers from "./pages/GroupMembers";
 import Payments from "./pages/Payments";
 import Settings from "./pages/setting";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/home" element={<LandingPage />} />
         <Route path="/onboarding" element={<OnBoardingSteps />} />
         <Route path="/signup" element={<SignupForm />} />
+        <Route path="/register-sacco" element={<RegisterSacco />} />
         <Route path="/login" element={<Login />} />
         <Route path="/intro" element={<LandingPage />} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />

@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 // import { useSaccoState } from "../context/useSaccoState";
 
 export default function Login() {
-  const [memberId, setMemberId] = useState("");
+  const [email, setEmail] = useState("");
   const [LogInpassword, setLogInPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -13,31 +13,38 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!memberId || !LogInpassword) return;
+    if (!email || !LogInpassword) return;
 
     setIsLoading(true);
     setErrorMsg("");
 
-    let email = memberId.trim();
-    if (!email.includes("@")) {
-      email = `${email.toLowerCase()}@pewosa.com`;
-    }
-
     const { supabase } = await import("../supabaseClient.js");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
       password: LogInpassword,
     });
 
-    setIsLoading(false);
-
     if (error) {
+      setIsLoading(false);
       setErrorMsg(error.message);
       return;
     }
 
-    navigate("/dashboard");
+    // Fetch user profile role to route appropriately
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+
+    setIsLoading(false);
+
+    if (profile && profile.role === 'admin') {
+      navigate("/admin");
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   const togglePassword = () => {
@@ -72,16 +79,16 @@ export default function Login() {
 
       <form id="loginForm" onSubmit={handleLogin}>
         <div className="form-group">
-          <label className="form-label">Email or Member ID</label>
+          <label className="form-label">Email Address</label>
           <div className="form-input-container">
-            <i className="fa-regular fa-user form-icon"></i>
+            <i className="fa-regular fa-envelope form-icon"></i>
             <input
-              type="text"
-              id="username"
+              type="email"
+              id="email"
               className="form-input"
-              placeholder="e.g. MEM-0042"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
+              placeholder="e.g. member@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -146,11 +153,19 @@ export default function Login() {
         </button>
       </form>
 
-      <div className="auth-footer">
-        Don't have an account?{" "}
-        <Link to="/signup" className="auth-link">
-          Sign up here
-        </Link>
+      <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div>
+          Don't have an account?{" "}
+          <Link to="/signup" className="auth-link">
+            Sign up here
+          </Link>
+        </div>
+        <div>
+          Are you an Administrator?{" "}
+          <Link to="/register-sacco" className="auth-link">
+            Register your SACCO
+          </Link>
+        </div>
       </div>
     </div>
   );

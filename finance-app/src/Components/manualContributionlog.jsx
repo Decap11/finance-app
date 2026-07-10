@@ -1,32 +1,69 @@
 import { useState } from "react";
+import { supabase } from "../supabaseClient.js";
 import "../styles/featureArea.css";
 
 export default function ManualContributionLog({ allMembers }) {
   const [addMember, setAddMember] = useState("");
-  const [addFundType, setAddFundType] = useState("");
+  const [addFundType, setAddFundType] = useState("savings");
   const [addAmount, setAddAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!addMember || !addFundType || !addAmount) {
-      alert("Please fill in all fields before submitting.");
+      setMessage("Please fill in all fields before submitting.");
       return;
     }
-    // Handle form submission
-    const newContributionRequest = {
-      memberId: addMember,
-      name: allMembers.find((member) => member.id === addMember)?.name || "",
-      requestType: addFundType,
-      amount: addAmount,
-      date: new Date().toLocaleDateString(),
-    };
-    console.log(newContributionRequest);
+    
+    setLoading(true);
+    setMessage("");
 
-    // Reset form fields
-    setAddMember("");
-    setAddFundType("");
-    setAddAmount("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      // Get admin's sacco_id
+      const { data: membershipData } = await supabase
+        .from('sacco_memberships')
+        .select('sacco_id')
+        .eq('profile_id', user.id)
+        .eq('role', 'admin')
+        .limit(1)
+        .single();
+        
+      if (!membershipData) throw new Error("Admin membership not found");
+
+      // Create a pending transaction for this member
+      // For a real app, you might want to call process_transaction directly if admins don't need approval
+      // Here, we just insert a pending transaction which the admin can then approve.
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          sacco_id: membershipData.sacco_id,
+          profile_id: addMember,
+          amount: Number(addAmount),
+          direction: 'credit',
+          category: addFundType,
+          status: 'pending',
+          description: 'Manual contribution log by admin'
+        });
+
+      if (error) throw error;
+
+      setMessage("Contribution logged successfully (Pending Approval).");
+
+      // Reset form fields
+      setAddMember("");
+      setAddFundType("savings");
+      setAddAmount("");
+    } catch (err) {
+      setMessage(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
     <form className="quick-actions quick-actions-log" onSubmit={handleSubmit}>
       <div className="section-header section-header-log">
@@ -35,6 +72,13 @@ export default function ManualContributionLog({ allMembers }) {
           Contribution
         </h3>
       </div>
+      
+      {message && (
+        <div style={{ marginBottom: '1rem', padding: '0.5rem', borderRadius: '4px', background: message.includes('success') ? '#d1fae5' : '#fee2e2', color: message.includes('success') ? '#065f46' : '#991b1b', textAlign: 'center' }}>
+          {message}
+        </div>
+      )}
+
       <div className="admin-form-group admin-form-group-member">
         <label className="admin-label-member">Select Member</label>
         <select
@@ -42,9 +86,10 @@ export default function ManualContributionLog({ allMembers }) {
           value={addMember}
           onChange={(e) => setAddMember(e.target.value)}
         >
-          {allMembers.map(({ id, name }) => (
+          <option value="">-- Select Member --</option>
+          {allMembers.map(({ id, name, memberId }) => (
             <option key={id} value={id}>
-              {name}
+              {name} ({memberId})
             </option>
           ))}
         </select>
@@ -56,9 +101,10 @@ export default function ManualContributionLog({ allMembers }) {
           value={addFundType}
           onChange={(e) => setAddFundType(e.target.value)}
         >
-          <option>Shares Pool </option>
-          <option>Development Fund </option>
-          <option>Social Fund </option>
+          <option value="savings">Savings</option>
+          <option value="shares">Shares Pool</option>
+          <option value="development_fund">Development Fund</option>
+          <option value="social_fund">Social Fund</option>
         </select>
       </div>
       <div className="admin-form-group admin-form-group-amount">
@@ -71,12 +117,12 @@ export default function ManualContributionLog({ allMembers }) {
           onChange={(e) => setAddAmount(Number(e.target.value))}
         />
       </div>
-      <button className="admin-btn-primary admin-btn-register-contribution">
-        Register Contribution
-        <i
+      <button className="admin-btn-primary admin-btn-register-contribution" disabled={loading}>
+        {loading ? "Logging..." : "Register Contribution"}
+        {!loading && <i
           className="fa-solid fa-check-double"
           style={{ marginLeft: "0.5rem" }}
-        ></i>
+        ></i>}
       </button>
     </form>
   );

@@ -1,10 +1,45 @@
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient.js";
 import "../styles/summary-cards-row.css";
+
 export default function SavingsSummaryCards() {
+  const [loading, setLoading] = useState(true);
+  const [balances, setBalances] = useState({
+    shares: 0,
+    development_fund: 0,
+    social_fund: 0,
+    savings: 0,
+  });
+
+  useEffect(() => {
+    async function fetchBalances() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('account_type, balance')
+        .eq('profile_id', user.id);
+
+      if (data && !error) {
+        const newBalances = { ...balances };
+        data.forEach((acc) => {
+          newBalances[acc.account_type] = acc.balance;
+        });
+        setBalances(newBalances);
+      }
+      setLoading(false);
+    }
+    fetchBalances();
+  }, []);
+
+  const totalCapital = balances.shares + balances.development_fund + balances.social_fund + balances.savings;
+
   return (
     <section className="summary-cards">
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Total SACCO Assets</span>
+          <span className="card-title">My Total SACCO Assets</span>
           <div
             className="card-icon"
             style={{ color: "#ff9800", backgroundColor: "#ff98001a" }}
@@ -13,18 +48,18 @@ export default function SavingsSummaryCards() {
           </div>
         </div>
         <div className="card-amount">
-          <span>Ugx</span> 64,500,000
+          <span>Ugx</span> {loading ? "..." : totalCapital.toLocaleString()}
         </div>
         <div className="card-change">
           <i className="fa-solid fa-arrow-trend-up change-positive"></i>
-          <span className="change-positive">+2.4%</span>
+          <span className="change-positive">+0.0%</span>
           <span>this week</span>
         </div>
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Shares Pool Total</span>
+          <span className="card-title">My Shares Total</span>
           <div
             className="card-icon"
             style={{
@@ -36,18 +71,18 @@ export default function SavingsSummaryCards() {
           </div>
         </div>
         <div className="card-amount">
-          <span>Ugx</span> 42,000,000
+          <span>Ugx</span> {loading ? "..." : balances.shares.toLocaleString()}
         </div>
         <div className="card-change">
           <span style={{ color: "#8893a7" }}>
-            8,400 Total Shares Distributed
+            Total Shares Value
           </span>
         </div>
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Development Fund</span>
+          <span className="card-title">My Development Fund</span>
           <div
             className="card-icon"
             style={{
@@ -59,7 +94,7 @@ export default function SavingsSummaryCards() {
           </div>
         </div>
         <div className="card-amount">
-          <span>Ugx</span> 14,500,000
+          <span>Ugx</span> {loading ? "..." : balances.development_fund.toLocaleString()}
         </div>
         <div className="card-change">
           <span style={{ color: "#8893a7" }}>Steady weekly growth</span>
@@ -68,7 +103,7 @@ export default function SavingsSummaryCards() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Social Fund Pool</span>
+          <span className="card-title">My Social Fund</span>
           <div
             className="card-icon"
             style={{
@@ -80,7 +115,7 @@ export default function SavingsSummaryCards() {
           </div>
         </div>
         <div className="card-amount">
-          <span>Ugx</span> 8,000,000
+          <span>Ugx</span> {loading ? "..." : balances.social_fund.toLocaleString()}
         </div>
         <div className="card-change">
           <span style={{ color: "#8893a7" }}>Available for member support</span>

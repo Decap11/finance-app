@@ -1,42 +1,7 @@
 import "../styles/LandingPage.css";
-import { useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function LandingPage() {
-  const modalOverlayRef = useRef(null);
-  const generatedCodeRef = useRef(null);
-
-  useEffect(() => {
-    const modal = modalOverlayRef.current;
-    if (modal) {
-      modal.style.display = "none";
-    }
-  }, []);
-
-  const scrollToRegister = () => {
-    document.getElementById("register")?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const navigate = useNavigate();
-
-  const handleRegistration = (event) => {
-    event.preventDefault();
-    if (modalOverlayRef.current) {
-      modalOverlayRef.current.style.display = "flex";
-    }
-  };
-
-  const copyCode = () => {
-    const code = generatedCodeRef.current?.textContent || "";
-    if (navigator.clipboard && code) {
-      navigator.clipboard.writeText(code);
-    }
-  };
-
-  const routeToWorkspace = () => {
-    navigate("/dashboard");
-  };
-
   return (
     <>
       <div className="landing-page">
@@ -57,9 +22,9 @@ export default function LandingPage() {
             </span>
             <span className="logo-badge">SaaS v1.0</span>
           </a>
-          <a href="#register" className="nav-cta">
+          <Link to="/register-sacco" className="nav-cta">
             Register Organization
-          </a>
+          </Link>
         </nav>
 
         {/* Hero Section */}
@@ -76,9 +41,9 @@ export default function LandingPage() {
               multi-tenant workspace.
             </p>
             <div className="hero-btn-group">
-              <button onClick={scrollToRegister} className="btn-primary">
-                Create Workspace <i className="fa-solid fa-circle-plus"></i>
-              </button>
+              <Link to="/register-sacco" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                Create Workspace <i className="fa-solid fa-circle-plus" style={{ marginLeft: "0.5rem" }}></i>
+              </Link>
               {/* <button href="sacco-link.html" className="btn-secondary">
                 Connect Workspace <i className="fa-solid fa-network-wired"></i>
               </button> */}
@@ -754,208 +719,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="register-section" id="register">
-          <div className="registration-container">
-            <div className="reg-info-side">
-              <div>
-                <h2 className="reg-info-title">
-                  Create Your Exclusive SACCO Workspace
-                </h2>
-                <p className="reg-info-desc">
-                  Input your cooperative details below. Our SaaS provisioning
-                  engine will setup your secure database instance and generate a
-                  workspace access code.
-                </p>
-              </div>
-              <ul className="benefit-list">
-                <li className="benefit-item">
-                  <i className="fa-solid fa-check" />
-                  <span>Generate a unique Organization Code instantly</span>
-                </li>
-                <li className="benefit-item">
-                  <i className="fa-solid fa-check" />
-                  <span>Ready-to-use Admin Dashboard overview</span>
-                </li>
-                <li className="benefit-item">
-                  <i className="fa-solid fa-check" />
-                  <span>Secure in-memory LocalStorage prototyping engine</span>
-                </li>
-              </ul>
-              <div
-                style={{
-                  fontSize: "1.2rem",
-                  opacity: 0.7,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.8rem",
-                }}
-              >
-                <i className="fa-solid fa-lock" />
-                <span>Compliance grade data encryption active.</span>
-              </div>
-            </div>
-            <div className="reg-form-side">
-              <h3>Workspace Details</h3>
-              <form id="registerForm" onSubmit={handleRegistration}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="saccoName">
-                    SACCO Group Name
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-building-columns" />
-                    <input
-                      type="text"
-                      id="saccoName"
-                      className="form-input"
-                      placeholder="e.g. Kampala Drivers Cooperative"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="saccoName">
-                    Group ID:
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-building-columns" />
-                    <input
-                      type="text"
-                      id="saccoName"
-                      className="form-input"
-                      placeholder="e.g. Kampala Drivers Cooperative"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="saccoAcronym">
-                    Organization Acronym
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-tags" />
-                    <input
-                      type="text"
-                      id="saccoAcronym"
-                      className="form-input"
-                      placeholder="e.g. KAMPALA (Max 8 characters)"
-                      maxLength="8"
-                      style={{ textTransform: "uppercase" }}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="adminName">
-                    Admin Full Name
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-user-tie" />
-                    <input
-                      type="text"
-                      id="adminName"
-                      className="form-input"
-                      placeholder="e.g. Joseph Ssembatya"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="adminEmail">
-                    Admin Secure Email
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-envelope" />
-                    <input
-                      type="email"
-                      id="adminEmail"
-                      className="form-input"
-                      placeholder="e.g. admin@kampaladrivers.com"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: "3rem" }}>
-                  <label className="form-label" htmlFor="memberSize">
-                    Estimated Member Limit
-                  </label>
-                  <div className="form-input-wrapper">
-                    <i className="fa-solid fa-users" />
-                    <select
-                      id="memberSize"
-                      className="form-input"
-                      style={{
-                        paddingLeft: "4.5rem",
-                        appearance: "none",
-                        WebkitAppearance: "none",
-                      }}
-                    >
-                      <option value="30">
-                        Up to 30 members (Standard Tier - Free)
-                      </option>
-                      <option value="100">
-                        31 - 100 members (Growth Tier)
-                      </option>
-                      <option value="500">
-                        101 - 500 members (Premium Tier)
-                      </option>
-                    </select>
-                    <i
-                      className="fa-solid fa-chevron-down"
-                      style={{
-                        left: "auto",
-                        right: "1.5rem",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  </div>
-                </div>
-                <button type="submit" className="btn-submit-reg" id="submitBtn">
-                  Deploy System Workspace{" "}
-                  <i
-                    className="fa-solid fa-rocket"
-                    style={{ marginLeft: "0.8rem" }}
-                  />
-                </button>
-              </form>
-            </div>
-          </div>
-        </section>
-
-        <div className="modal-overlay" id="modalOverlay" ref={modalOverlayRef}>
-          <div className="success-modal">
-            <div className="success-icon-wrapper">
-              <i className="fa-solid fa-circle-check" />
-            </div>
-            <h2 className="modal-title">Workspace Deployed!</h2>
-            <p className="modal-desc">
-              Your secure cooperative workspace has been successfully
-              provisioned. Provide the code below to your members so they can
-              link their devices.
-            </p>
-            <div className="code-reveal-box">
-              <div className="code-title">SACCO Organization Code</div>
-              <div
-                className="sacco-code-display"
-                id="generatedCodeDisplay"
-                ref={generatedCodeRef}
-              >
-                UGX-KAMPALA-814
-              </div>
-              <button
-                className="copy-btn"
-                onClick={copyCode}
-                title="Copy to clipboard"
-              >
-                <i className="fa-regular fa-copy" id="copyIcon" />
-              </button>
-            </div>
-            <div className="modal-btn-group">
-              <button onClick={routeToWorkspace} className="modal-btn-primary">
-                Enter Dashboard Space <i className="fa-solid fa-angles-right" />
-              </button>
-            </div>
-          </div>
-        </div>
 
         <footer>
           <a href="#" className="footer-logo">
