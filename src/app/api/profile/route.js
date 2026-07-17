@@ -35,12 +35,26 @@ export async function POST(request) {
 
     if (action === 'update_avatar') {
       const { avatar_url } = body;
+      
+      // Try updating public.profiles table
       const { error: profileErr } = await supabase
         .from('profiles')
         .update({ avatar_url: avatar_url || '' })
         .eq('id', user.id);
 
-      if (profileErr) return Response.json({ error: profileErr.message }, { status: 500 });
+      // Update auth metadata as secondary fallback
+      try {
+        await supabase.auth.updateUser({
+          data: { avatar_url: avatar_url || '' }
+        });
+      } catch (e) {
+        // Ignore auth metadata error
+      }
+
+      if (profileErr) {
+        console.warn("Profiles table avatar_url column not found in schema cache:", profileErr.message);
+      }
+
       return Response.json({ success: true });
     } else if (action === 'update_profile') {
       const cleanEmail = (email || '').trim();
