@@ -246,3 +246,96 @@
   background-color: #059669;
   border: 0.1rem solid #047857;
 }
+
+/* Edit Targets Form Styles */
+.targets-edit-btn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.8rem;
+  background-color: #f1f5f9;
+  transition: all 0.2s ease;
+}
+
+.targets-edit-btn:hover {
+  background-color: var(--secondary-color);
+}
+
+.targets-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.target-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.target-input-group label {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.target-input-group input {
+  padding: 1rem 1.2rem;
+  border: 0.15rem solid #cbd5e1;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.target-input-group input:focus {
+  border-color: var(--primary-color);
+}
+
+.targets-form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.targets-save-btn {
+  flex: 1;
+  padding: 1.2rem;
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.targets-save-btn:hover {
+  background-color: #1e2f75;
+}
+
+.targets-cancel-btn {
+  padding: 1.2rem;
+  background-color: #f1f5f9;
+  color: var(--text-dark);
+  border: none;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.targets-cancel-btn:hover {
+  background-color: #e2e8f0;
+}

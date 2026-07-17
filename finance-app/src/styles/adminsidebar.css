@@ -11,30 +11,7 @@
   border-right: none;
 }
 
-/* Sidebar overriding for Admin */
-.admin-sidebar {
-  background-color: var(--admin-sidebar-bg);
-  box-shadow: none;
-  position: sticky;
-}
 
-.admin-sidebar .logo-container h2 {
-  color: #ffffff;
-}
-
-.admin-sidebar .nav-links li a {
-  color: var(--admin-sidebar-text);
-}
-
-.admin-sidebar .nav-links li a:hover,
-.admin-sidebar .nav-links li a.active {
-  background-color: var(--admin-sidebar-hover);
-  color: #ffffff;
-  box-shadow: none;
-  border-left: 0.4rem solid var(--admin-sidebar-active);
-  border-radius: 0 1.2rem 1.2rem 0;
-  transform: translateX(0);
-}
 
 .logo-container {
   display: flex;

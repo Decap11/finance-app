@@ -6,7 +6,7 @@ export default function PaymentPlans() {
         <article className="plan-card plan-basic">
           <div className="plan-badge">Basic</div>
           <h2>Free Access</h2>
-          <p>Ideal for members starting with weekly contributions.</p>
+          <p>Free for the very first month of onboarding for every tenant / SACCO group.</p>
           <div className="plan-price">Shs 0</div>
           <ul>
             <li>Basic contribution tracking</li>
@@ -20,7 +20,7 @@ export default function PaymentPlans() {
           <div className="plan-badge">Standard</div>
           <h2>Standard</h2>
           <p>Best for active members with regular savings.</p>
-          <div className="plan-price">Shs 5,000 / month</div>
+          <div className="plan-price">Shs 75,000 / month</div>
           <ul>
             <li>Enhanced payment reminders</li>
             <li>Priority support</li>
@@ -33,11 +33,12 @@ export default function PaymentPlans() {
           <div className="plan-badge">Premium</div>
           <h2>Premium</h2>
           <p>For members who want full control and advanced insights.</p>
-          <div className="plan-price">Shs 10,000 / month</div>
+          <div className="plan-price">Shs 200,000 / 3 months</div>
           <ul>
             <li>Custom savings goals</li>
             <li>Real-time payment history</li>
             <li>Dedicated account support</li>
+            <li>Valid for 3 months</li>
           </ul>
           <button>Choose Premium</button>
         </article>

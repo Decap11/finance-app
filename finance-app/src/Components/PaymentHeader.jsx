@@ -1,5 +1,5 @@
 import { useSidebar } from "../context/useSidebar";
-import "../styles/PaymentHeader.css";
+import "../styles/paymentHeader.css";
 
 export default function PaymentHeader() {
   const { isOpen, toggleSidebar } = useSidebar();

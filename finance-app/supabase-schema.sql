@@ -11,7 +11,10 @@ create table public.profiles (
   status text not null default 'pending'
     check (status in ('pending', 'active', 'suspended', 'closed')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  shares_target numeric(15, 2) default 50000.00,
+  devt_target numeric(15, 2) default 10000.00,
+  social_target numeric(15, 2) default 10000.00
 );
 
 -- 2. SACCOs Table
@@ -81,12 +84,13 @@ create table public.transactions (
   status text not null default 'pending'
     check (status in ('pending', 'approved', 'rejected', 'completed', 'failed', 'reversed')),
   description text,
+  full_name text,
   reference text,
   requested_by uuid references public.profiles(id),
   approved_by uuid references public.profiles(id),
-  approved_at timestamptz,
-  completed_at timestamptz,
-  created_at timestamptz not null default now()
+  approved_at date,
+  completed_at date,
+  created_at date not null default current_date
 );
 
 -- 6. Loans Table
@@ -101,12 +105,13 @@ create table public.loans (
   term_months integer check (term_months > 0),
   purpose text,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'rejected', 'disbursed', 'active', 'completed', 'defaulted', 'cancelled')),
+    check (status in ('pending', 'approved', 'rejected', 'disbursed', 'active', 'completed', 'defaulted', 'cancelled', 'issued')),
   requested_at timestamptz not null default now(),
   approved_by uuid references public.profiles(id),
   approved_at timestamptz,
   disbursed_at timestamptz,
   due_date date,
+  loan_type text not null default 'normal' check (loan_type in ('normal', 'social_fund')),
   closed_at timestamptz
 );
 
@@ -196,3 +201,39 @@ DROP TRIGGER IF EXISTS on_sacco_membership_created ON public.sacco_memberships;
 CREATE TRIGGER on_sacco_membership_created
   AFTER INSERT ON public.sacco_memberships
   FOR EACH ROW EXECUTE PROCEDURE public.initialize_member_accounts();
+
+-- 10. Sync Full Name and Account ID to Transactions Trigger
+CREATE OR REPLACE FUNCTION public.sync_transaction_full_name()
+RETURNS trigger AS $$
+DECLARE
+  v_account_type TEXT;
+BEGIN
+  -- Sync full_name from profiles
+  SELECT full_name INTO NEW.full_name
+  FROM public.profiles
+  WHERE id = NEW.profile_id;
+
+  -- Sync account_id if not provided
+  IF NEW.account_id IS NULL THEN
+    IF NEW.category = 'loan_disbursement' OR NEW.category = 'loan_repayment' THEN
+      v_account_type := 'loan';
+    ELSE
+      v_account_type := NEW.category;
+    END IF;
+
+    SELECT id INTO NEW.account_id
+    FROM public.accounts
+    WHERE profile_id = NEW.profile_id 
+      AND sacco_id = NEW.sacco_id 
+      AND account_type = v_account_type
+    LIMIT 1;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_transaction_insert ON public.transactions;
+CREATE TRIGGER on_transaction_insert
+  BEFORE INSERT OR UPDATE OF profile_id ON public.transactions
+  FOR EACH ROW EXECUTE PROCEDURE public.sync_transaction_full_name();

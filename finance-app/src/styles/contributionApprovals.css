@@ -33,17 +33,12 @@
   color: #2563eb;
 }
 
-.admin-table-wrapper {
-  overflow-x: auto;
-}
-
-.admin-table {
+.admin-list-wrapper {
   width: 100%;
-  border-collapse: collapse;
 }
 
-.admin-table th {
-  text-align: left;
+.admin-list-header {
+  display: flex;
   padding: 1.2rem 1rem;
   font-size: 1.2rem;
   text-transform: uppercase;
@@ -51,12 +46,56 @@
   border-bottom: 1px solid #f1f5f9;
   font-weight: 600;
   letter-spacing: 0.05em;
+  align-items: center;
 }
 
-.admin-table td {
+.admin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-list-item {
+  display: flex;
+  align-items: center;
   padding: 1.6rem 1rem;
   border-bottom: 1px solid #f8fafc;
-  vertical-align: middle;
+}
+
+.list-empty {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.4rem;
+  color: #64748b;
+  list-style: none;
+}
+
+/* Column Widths to match table layout */
+.col-member {
+  flex: 1.5;
+  min-width: 120px;
+}
+
+.col-type {
+  flex: 1.2;
+  min-width: 100px;
+}
+
+.col-amount {
+  flex: 1.2;
+  min-width: 100px;
+}
+
+.col-date {
+  flex: 2;
+  min-width: 160px;
+}
+
+.col-action {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  justify-content: center;
 }
 
 /* Member ID Cell Layout */
@@ -89,8 +128,8 @@
 }
 
 .badge-shares-pool {
-  background-color: #fef3c7;
-  color: #d97706;
+  background-color: #ebf0fe;
+  color: #253b8e;
 }
 
 .badge-dev-fund {
@@ -106,6 +145,11 @@
 .badge-savings {
   background-color: #dbeafe;
   color: #2563eb;
+}
+
+.badge-loan-request {
+  background-color: #fef3c7;
+  color: #d97706;
 }
 
 /* Text Formatting */
@@ -158,4 +202,199 @@
 .table-actions .btn-reject:hover {
   background-color: #f1f5f9;
   border-color: #cbd5e1;
+}
+
+/* Fluid horizontal table-like list row sizing */
+.col-member {
+  flex: 2 1 20%;
+  min-width: 80px;
+  overflow: hidden;
+}
+
+.col-type {
+  flex: 1.5 1 15%;
+  min-width: 75px;
+}
+
+.col-amount {
+  flex: 1.5 1 15%;
+  min-width: 75px;
+}
+
+.col-date {
+  flex: 2.5 1 25%;
+  min-width: 110px;
+}
+
+.col-action {
+  flex: 1.2 1 12%;
+  min-width: 75px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Responsive adjustments for mobile/tablet screens */
+@media (max-width: 102.4rem) {
+  .admin-list-header {
+    padding: 1.2rem 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .admin-list-item {
+    padding: 1.6rem 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .member-id-number {
+    font-size: 1.35rem;
+  }
+
+  .member-name-sub {
+    font-size: 1.15rem;
+  }
+
+  .badge {
+    font-size: 1rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .amount-text {
+    font-size: 1.35rem;
+  }
+
+  .currency-unit {
+    display: none !important; /* Hide Shs on mobile/tablet to look like screenshot */
+  }
+
+  .date-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .date-day-month {
+    display: block !important;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .date-week-label {
+    display: block;
+    font-size: 1.15rem;
+    color: #64748b;
+    text-transform: capitalize;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.2rem;
+  }
+/* Responsive adjustments for mobile/tablet screens */
+@media (max-width: 102.4rem) {
+  .admin-list-header {
+    padding: 1.2rem 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .admin-list-item {
+    padding: 1.2rem 0.5rem;
+  }
+
+  .member-id-number {
+    font-size: 1.2rem;
+  }
+
+  .member-name-sub {
+    font-size: 1.1rem;
+  }
+
+  .badge {
+    font-size: 1rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .amount-text {
+    font-size: 1.2rem;
+  }
+
+  .currency-unit {
+    display: none !important;
+  }
+
+  .date-day-month {
+    display: none !important;
+  }
+
+  .date-week-label {
+    text-transform: capitalize;
+    font-weight: 600;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.2rem;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 76.8rem) {
+  .admin-list-header {
+    font-size: 1rem;
+    padding: 0.8rem 0.4rem;
+  }
+
+  .admin-list-item {
+    padding: 1rem 0.4rem;
+  }
+
+  .member-id-number {
+    font-size: 1.1rem;
+  }
+
+  .member-name-sub {
+    display: none !important; /* Hide member full name on mobile to keep horizontal format clean */
+  }
+
+  .badge {
+    font-size: 0.95rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .amount-text {
+    font-size: 1.1rem;
+  }
+
+  .date-text {
+    font-size: 1rem;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.1rem;
+    border-radius: 0.4rem;
+  }
+}
+
+/* Mobile screen sizes below 670px */
+@media (max-width: 670px) {
+  .recent-transactions {
+    padding: 1.2rem !important;
+    border-radius: 1rem !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .admin-list-header {
+    padding: 0.8rem 0.2rem !important;
+  }
+
+  .admin-list-item {
+    padding: 0.8rem 0.2rem !important;
+  }
 }

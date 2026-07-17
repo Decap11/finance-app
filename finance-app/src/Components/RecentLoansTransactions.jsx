@@ -8,21 +8,26 @@ export default function RecentLoansTransactions() {
 
   useEffect(() => {
     async function fetchLoanActivity() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('profile_id', user.id)
-        .in('category', ['loan_disbursement', 'loan_repayment'])
-        .order('created_at', { ascending: false })
-        .limit(5);
+        const res = await fetch("/api/loans", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
 
-      if (data && !error) {
-        setTransactions(data);
+        if (data.recentTransactions) {
+          setTransactions(data.recentTransactions);
+        }
+      } catch (err) {
+        console.warn("Error loading user loan transactions:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchLoanActivity();
   }, []);

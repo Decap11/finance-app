@@ -1,0 +1,701 @@
+/* Premium Styling for Developer Portal */
+
+.dev-portal-body {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  background-color: #0b0f19;
+  color: #f8fafc;
+  min-height: 100vh;
+}
+
+/* Auth / Login Container */
+.dev-portal-auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.15) 0%, rgba(15, 23, 42, 0) 90%), #090d16;
+  padding: 2rem;
+}
+
+.dev-auth-card {
+  width: 100%;
+  max-width: 44rem;
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2.4rem;
+  padding: 4rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dev-auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 2.5rem;
+}
+
+.dev-auth-logo i {
+  font-size: 3rem;
+  color: #3b82f6;
+  text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+.dev-auth-logo h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.05rem;
+  color: #ffffff;
+}
+
+.dev-auth-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.8rem;
+}
+
+.dev-auth-subtitle {
+  font-size: 1.3rem;
+  color: #94a3b8;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.dev-auth-instructions {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  margin-bottom: 2.5rem;
+  font-size: 1.2rem;
+  color: #93c5fd;
+  text-align: center;
+}
+
+.dev-auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.dev-auth-form label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.dev-auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dev-auth-input-wrapper i {
+  position: absolute;
+  left: 1.6rem;
+  color: #64748b;
+  font-size: 1.6rem;
+}
+
+.dev-auth-input-wrapper input {
+  width: 100%;
+  padding: 1.4rem 1.6rem 1.4rem 4.4rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 1.4rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.dev-auth-input-wrapper input:focus {
+  border-color: #3b82f6;
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.btn-dev-login {
+  padding: 1.4rem;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 1.2rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+}
+
+.btn-dev-login:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* Dashboard Layout */
+.dev-dashboard-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background: #090d16;
+}
+
+.dev-sidebar {
+  width: 28rem;
+  background: #0f172a;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  padding: 3rem 2rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.dev-logo {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 4rem;
+}
+
+.dev-logo i {
+  font-size: 2.6rem;
+  color: #3b82f6;
+}
+
+.dev-logo h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.dev-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dev-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 1.4rem 1.8rem;
+  border-radius: 1.2rem;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dev-nav-item:hover,
+.dev-nav-item.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.dev-nav-item i {
+  font-size: 1.6rem;
+}
+
+.dev-sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 2rem;
+}
+
+.btn-dev-logout {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  color: #ef4444;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  padding: 1.2rem 1.8rem;
+  border-radius: 1.2rem;
+  transition: background 0.2s ease;
+}
+
+.btn-dev-logout:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* Dashboard Content */
+.dev-main-content {
+  flex: 1;
+  padding: 4rem;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.dev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3.5rem;
+}
+
+.dev-welcome h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.05rem;
+  margin-bottom: 0.6rem;
+}
+
+.dev-welcome p {
+  font-size: 1.4rem;
+  color: #94a3b8;
+}
+
+.dev-badge-role {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+  padding: 0.6rem 1.4rem;
+  border-radius: 2rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* Metrics Grid */
+.dev-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 2.5rem;
+  margin-bottom: 3.5rem;
+}
+
+.dev-metric-card {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 2rem;
+  padding: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.dev-metric-icon {
+  width: 5.6rem;
+  height: 5.6rem;
+  border-radius: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+}
+
+.dev-metric-icon.revenue {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.dev-metric-icon.tenants {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.dev-metric-icon.pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.dev-metric-icon.uptime {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.dev-metric-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dev-metric-label {
+  font-size: 1.3rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.dev-metric-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* Tabular Tenants Dashboard */
+.dev-card-wrapper {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 2rem;
+  padding: 3rem;
+  margin-bottom: 3.5rem;
+}
+
+.dev-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.dev-card-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.dev-table-container {
+  overflow-x: auto;
+}
+
+.dev-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dev-table th {
+  padding: 1.4rem 1.8rem;
+  font-size: 1.2rem;
+  color: #94a3b8;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dev-table td {
+  padding: 1.6rem 1.8rem;
+  font-size: 1.35rem;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.dev-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tenant-status {
+  padding: 0.4rem 1rem;
+  border-radius: 0.8rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.tenant-status.active {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.tenant-status.pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.tenant-status.suspended {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.tenant-plan {
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tenant-plan.basic {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a384;
+}
+
+.tenant-plan.premium {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.tenant-plan.enterprise {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.dev-actions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.btn-dev-action {
+  padding: 0.8rem 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.8rem;
+  background: rgba(15, 23, 42, 0.4);
+  color: #cbd5e1;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-dev-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-dev-action.critical {
+  color: #f87171;
+}
+
+.btn-dev-action.critical:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Plan Configuration Cards */
+.plan-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2.5rem;
+}
+
+.plan-card {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 2rem;
+  padding: 3rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-card.premium-plan {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(30, 41, 59, 0.35) 100%);
+}
+
+.plan-card.enterprise-plan {
+  border-color: rgba(139, 92, 246, 0.3);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, rgba(30, 41, 59, 0.35) 100%);
+}
+
+.plan-card-header {
+  margin-bottom: 2rem;
+}
+
+.plan-name {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.plan-desc {
+  font-size: 1.25rem;
+  color: #94a3b8;
+}
+
+.plan-price-block {
+  margin-bottom: 2.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.plan-price-currency {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+.plan-price-amt {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.plan-price-period {
+  font-size: 1.3rem;
+  color: #64748b;
+}
+
+.plan-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  margin-bottom: 3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 2rem;
+}
+
+.plan-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-setting-label {
+  font-size: 1.3rem;
+  color: #cbd5e1;
+}
+
+.plan-setting-input {
+  width: 9rem;
+  padding: 0.6rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.8rem;
+  color: #ffffff;
+  font-size: 1.3rem;
+  font-family: inherit;
+  text-align: right;
+}
+
+.btn-update-plan {
+  padding: 1.2rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  margin-top: auto;
+}
+
+.btn-update-plan:hover {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+/* Activity logs and feed */
+.sys-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.sys-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.6rem;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sys-log-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sys-log-badge {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.sys-log-badge.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.sys-log-badge.info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.sys-log-badge.warn {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.sys-log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sys-log-msg {
+  font-size: 1.35rem;
+  color: #cbd5e1;
+}
+
+.sys-log-time {
+  font-size: 1.15rem;
+  color: #64748b;
+}
+
+/* Responsive Overrides */
+@media (max-width: 102.4rem) {
+  .dev-dashboard-wrapper {
+    flex-direction: column;
+  }
+
+  .dev-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .dev-logo {
+    margin-bottom: 2rem;
+  }
+
+  .dev-nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .dev-main-content {
+    height: auto;
+    padding: 2.5rem;
+  }
+}
+
+@media (max-width: 670px) {
+  .dev-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+
+  .dev-badge-role {
+    align-self: flex-start;
+  }
+
+  .dev-table th:nth-child(4),
+  .dev-table td:nth-child(4) {
+    display: none; /* Hide admin email to save space */
+  }
+
+  .dev-table th:nth-child(5),
+  .dev-table td:nth-child(5) {
+    display: none; /* Hide plan type to save space */
+  }
+}

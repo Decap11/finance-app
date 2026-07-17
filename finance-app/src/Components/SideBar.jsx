@@ -1,26 +1,23 @@
-import { NavLink } from "react-router-dom";
+"use client";
+
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
+import "../styles/adminsidebar.css";
 
 const navItems = [
-  {
-    to: "/admin",
-    icon: "fa-solid fa-chart-line",
-    label: "Overview",
-    end: true,
-  },
-  {
-    to: "/admin",
-    icon: "fa-solid fa-clipboard-check",
-    label: "Verifications",
-    end: false,
-  },
-  { to: "/members", icon: "fa-solid fa-users", label: "Members" },
-  { to: "/settings", icon: "fa-solid fa-gear", label: "Settings" },
-  { to: "/payments", icon: "fa-solid fa-credit-card", label: "Payments" },
+  { to: "/admin?tab=overview", icon: "fa-solid fa-chart-line", label: "Overview" },
+  { to: "/admin?tab=verifications", icon: "fa-solid fa-clipboard-check", label: "Verifications" },
+  { to: "/admin?tab=members", icon: "fa-solid fa-users", label: "Members" },
+  { to: "/admin?tab=payments", icon: "fa-solid fa-credit-card", label: "Payments" },
+  { to: "/admin?tab=settings", icon: "fa-solid fa-gear", label: "Settings" },
 ];
 
 export default function SideBar() {
   const { isOpen, closeSidebar } = useSidebar();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "overview";
 
   const handleImageError = (event) => {
     event.currentTarget.src = "https://placehold.co/40x40/0f172a/ffffff?text=A";
@@ -51,14 +48,38 @@ export default function SideBar() {
           <h2>Admin</h2>
         </div>
         <ul className="nav-links">
-          {navItems.map((item) => (
-            <li key={`${item.to}-${item.label}`}>
-              <NavLink to={item.to} end={item.end} onClick={closeSidebar}>
-                <i className={item.icon} />
-                <span>{item.label}</span>
-              </NavLink>
-            </li>
-          ))}
+          {navItems.map((item) => {
+            const itemTab = item.to.split("tab=")[1] || "overview";
+            const isActive = currentTab === itemTab;
+            return (
+              <li key={`${item.to}-${item.label}`}>
+                <Link
+                  href={item.to}
+                  className={isActive ? "active" : ""}
+                  onClick={closeSidebar}
+                >
+                  <i className={item.icon} />
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+
+          <li style={{ marginTop: "2rem", borderTop: "1px solid rgba(226, 232, 240, 0.4)", paddingTop: "2rem" }}>
+            <Link
+              href="/dashboard"
+              className="member-switch-btn"
+              style={{
+                background: "rgba(15, 23, 42, 0.05)",
+                color: "var(--text-dark)",
+                fontWeight: "700",
+              }}
+              onClick={closeSidebar}
+            >
+              <i className="fa-solid fa-user" />
+              <span>Switch to Member View</span>
+            </Link>
+          </li>
         </ul>
       </aside>
     </>

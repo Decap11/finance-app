@@ -1,59 +1,99 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient.js";
 import "../styles/weeklyContributions.css";
+
 export default function WeeklyContributions() {
-  const [shares, setShares] = useState(0);
-  const [DevtFund, setDevtFund] = useState(0);
-  const [socialFund, setsocialFund] = useState(0);
-  //State to be lifted to parent component
-  //   const [weeklyContributions, setWeeklyContributions] = useState({
+  const [shares, setShares] = useState("");
+  const [DevtFund, setDevtFund] = useState(1000); // Default to 1000
+  const [socialFund, setsocialFund] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  //    shares:{
-  //       quantity:0,
-  //       amount:0
-  //    },
+  const [groupSettings, setGroupSettings] = useState({
+    sharePrice: 25000,
+    devtFund: 1000,
+    socialFund: 2000,
+    currentWeek: 1,
+    isLocked: false,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
-  //    developmentFund:{
-  //       amount:1000
-  //    },
+  useEffect(() => {
+    async function loadGroupSettings() {
+      try {
+        const res = await fetch("/api/sacco-settings");
+        const data = await res.json();
+        if (res.ok) {
+          setGroupSettings(data);
+          setDevtFund(data.devtFund || 1000);
+        }
+      } catch (err) {
+        console.warn("Failed to load active group settings:", err);
+      } finally {
+        setLoadingSettings(false);
+      }
+    }
+    loadGroupSettings();
+  }, []);
 
-  //    socialFund:{
-  //       amount:0
-  //    },
+  const sharePrice = groupSettings.sharePrice;
+  const isLocked = groupSettings.isLocked;
 
-  //    totalWeeklyContribution:0,
-
-  //    completedContributions:0,
-
-  //    status:"due"
-
-  // });
-  const sharePrice = 5000;
-
-  const handleSharesChange = (e) => {
-    const val = Number(e.target.value) || 0;
-    // constrain between 1 and 10
-    if (val < 0) return;
-    setShares(val);
-  };
-  // function handleSharesPush() {
-  //   alert("contributed a share");
-  // }
-  // function handleDevelopmentPush() {
-  //   alert("contributed a Development Fund");
-  // }
-  // function handleSocialPush() {
-  //   alert("Contributed a social fund");
-
-  function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!shares || !DevtFund || !socialFund) return;
-    const sharesValue = sharePrice * shares;
-    console.log(shares, sharesValue, DevtFund, socialFund);
+    if (isLocked) {
+      setMessage("Submissions are currently locked for this week.");
+      return;
+    }
 
-    setShares(0);
-    setDevtFund(0);
-    setsocialFund(0);
-  }
+    if (!shares && !DevtFund && !socialFund) {
+      setMessage("Please enter at least one contribution value.");
+      return;
+    }
+
+    const numShares = Number(shares) || 0;
+    const numDevt = Number(DevtFund) || 0;
+    const numSocial = Number(socialFund) || 0;
+
+    if (numShares < 0 || numDevt < 0 || numSocial < 0) {
+      setMessage("Obligation values cannot be negative.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be logged in to contribute.");
+
+      const res = await fetch("/api/user-transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          shares: numShares,
+          devtFund: numDevt,
+          socialFund: numSocial
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit contributions.");
+
+      setMessage("Contributions submitted successfully (Pending Admin approval).");
+      // Reset states
+      setShares("");
+      setDevtFund(groupSettings.devtFund || 1000); // Reset back to default
+      setsocialFund("");
+    } catch (err) {
+      setMessage(err.message || "Failed to submit contributions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <form className="contributions-section" onSubmit={handleSubmit}>
@@ -67,23 +107,41 @@ export default function WeeklyContributions() {
             width: "100%",
           }}
         >
-          <h3 className="section-title">Weekly Contributions</h3>
+          <h3 className="section-title">Week {groupSettings.currentWeek} Contributions</h3>
           <span
-            className="badge badge-pending"
+            className={`badge badge-${isLocked ? 'danger' : 'pending'}`}
             style={{
-              backgroundColor: "rgba(245, 158, 11, 0.1)",
-              color: "#f59e0b",
+              backgroundColor: isLocked ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+              color: isLocked ? "#ef4444" : "#f59e0b",
               padding: "0.6rem 1.2rem",
               borderRadius: "2rem",
               fontWeight: 700,
               fontSize: "1.2rem",
             }}
           >
-            DUE THIS WEEK
+            {isLocked ? "LOCKED" : "DUE THIS WEEK"}
           </span>
         </div>
 
-        <div className="contribution-card">
+        {isLocked && (
+          <div style={{
+            marginBottom: '2rem',
+            padding: '1.2rem',
+            borderRadius: '0.8rem',
+            background: '#fef2f2',
+            color: '#ef4444',
+            fontSize: '1.3rem',
+            fontWeight: 700,
+            textAlign: 'center',
+            border: '1px solid #fee2e2'
+          }}>
+            <i className="fa-solid fa-lock" style={{ marginRight: '0.8rem' }}></i>
+            Transactions for Week {groupSettings.currentWeek} are currently locked by the Admin.
+          </div>
+        )}
+
+        {/* 1. Shares Pool */}
+        <div className="contribution-card" style={{ opacity: isLocked ? 0.6 : 1 }}>
           <div className="fund-info">
             <div
               className="fund-icon"
@@ -97,7 +155,7 @@ export default function WeeklyContributions() {
             <div>
               <h4 className="fund-title">Shares Pool</h4>
               <p className="fund-desc">
-                Contribute 1 to 10 shares (Shs 5,000 per share)
+                Contribute 1 to 10 shares (Shs {sharePrice.toLocaleString()} per share)
               </p>
             </div>
           </div>
@@ -109,18 +167,18 @@ export default function WeeklyContributions() {
               min={1}
               max={10}
               placeholder="No. of Shares"
-              value={shares || ""}
-              onChange={handleSharesChange}
+              value={shares}
+              onChange={(e) => setShares(e.target.value)}
+              disabled={isLocked}
             />
             <div className="calculated-total" id="sharesTotal">
-              Shs {shares ? shares * sharePrice : 0}
+              Shs {shares ? (Number(shares) * sharePrice).toLocaleString() : 0}
             </div>
-            {/* <button className="btn-pay">Contribute</button> */}
           </div>
         </div>
 
         {/* 2. Development Fund */}
-        <div className="contribution-card">
+        <div className="contribution-card" style={{ opacity: isLocked ? 0.6 : 1 }}>
           <div className="fund-info">
             <div
               className="fund-icon"
@@ -133,29 +191,26 @@ export default function WeeklyContributions() {
             </div>
             <div>
               <h4 className="fund-title">Development Fund</h4>
-              <p className="fund-desc">Fixed weekly contribution</p>
+              <p className="fund-desc">Fixed weekly: Shs {groupSettings.devtFund.toLocaleString()}</p>
             </div>
           </div>
           <div className="fund-input-area">
             <input
-              type="text"
+              type="number"
               className="number-input"
-              defaultValue="1,000"
-              disabled
+              value={DevtFund}
+              onChange={(e) => setDevtFund(e.target.value)}
+              disabled={isLocked}
               style={{
-                backgroundColor: "#f8fafc",
-                color: "#64748b",
-                cursor: "not-allowed",
                 textAlign: "center",
               }}
             />
-            <div className="calculated-total">Shs 1000</div>
-            {/* <button className="btn-pay">Contribute</button> */}
+            <div className="calculated-total">Shs {DevtFund ? Number(DevtFund).toLocaleString() : 0}</div>
           </div>
         </div>
 
         {/* 3. Social Fund */}
-        <div className="contribution-card">
+        <div className="contribution-card" style={{ opacity: isLocked ? 0.6 : 1 }}>
           <div className="fund-info">
             <div
               className="fund-icon"
@@ -168,7 +223,7 @@ export default function WeeklyContributions() {
             </div>
             <div>
               <h4 className="fund-title">Social Fund</h4>
-              <p className="fund-desc">Contribute any amount of your choice</p>
+              <p className="fund-desc">Weekly obligation: Shs {groupSettings.socialFund.toLocaleString()}</p>
             </div>
           </div>
           <div className="fund-input-area">
@@ -177,57 +232,35 @@ export default function WeeklyContributions() {
               className="number-input"
               placeholder="Amount (Shs)"
               min={0}
+              value={socialFund}
+              onChange={(e) => setsocialFund(e.target.value)}
+              disabled={isLocked}
             />
-            <div className="calculated-total" style={{ visibility: "hidden" }}>
-              -
+            <div className="calculated-total" style={{ visibility: socialFund ? "visible" : "hidden" }}>
+              Shs {socialFund ? Number(socialFund).toLocaleString() : 0}
             </div>
           </div>
         </div>
-        <button className="btn-pay">Contribute</button>
+
+        {message && (
+          <div style={{
+            margin: '1.5rem 0',
+            padding: '1rem',
+            borderRadius: '0.6rem',
+            background: message.includes("successfully") ? '#f0fdf4' : '#fef2f2',
+            color: message.includes("successfully") ? '#22c55e' : '#ef4444',
+            fontSize: '1.2rem',
+            fontWeight: 600,
+            textAlign: 'center'
+          }}>
+            {message}
+          </div>
+        )}
+
+        <button className="btn-pay" type="submit" disabled={loading || isLocked} style={{ cursor: isLocked ? "not-allowed" : "pointer" }}>
+          {loading ? "Submitting..." : isLocked ? "Submissions Locked" : "Contribute"}
+        </button>
       </div>
     </form>
   );
 }
-// function ContribtionCard(
-//   icon,
-//   color,
-//   backgroundColor,
-//   fundTitle,
-//   fundDesc,
-//   shares,
-//   sharePrice,
-// ) {
-//   <div className="contribution-card">
-//     <div className="fund-info">
-//       <div
-//         className="fund-icon"
-//         style={{
-//           backgroundColor: backgroundColor,
-//           color: color,
-//         }}
-//       >
-//         <i className={icon}></i>
-//       </div>
-//       <div>
-//         <h4 className="fund-title">{fundTitle}</h4>
-//         <p className="fund-desc">{fundDesc}</p>
-//       </div>
-//     </div>
-//     <div className="fund-input-area">
-//       <input
-//         type="number"
-//         id="sharesInput"
-//         className="number-input"
-//         min={1}
-//         max={10}
-//         placeholder="No. of Shares"
-//         value={shares || ""}
-//         onChange={handleSharesChange}
-//       />
-//       <div className="calculated-total" id="sharesTotal">
-//         Shs {shares ? shares * sharePrice : 0}
-//       </div>
-//       <button className="btn-pay">Contribute</button>
-//     </div>
-//   </div>;
-// }

@@ -9,29 +9,40 @@ export default function UserSummaryCards() {
     shares: 0,
     development_fund: 0,
     social_fund: 0,
-    savings: 0,
   });
 
   useEffect(() => {
     async function fetchBalances() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      const { data, error } = await supabase
-        .from("accounts")
-        .select("account_type, balance")
-        .eq("profile_id", user.id);
-
-      if (data && !error) {
-        const newBalances = { ...balances };
-        data.forEach((acc) => {
-          newBalances[acc.account_type] = acc.balance;
+        const res = await fetch("/api/user-balances", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
         });
-        setBalances(newBalances);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        if (data.accounts) {
+          const newBalances = {
+            shares: 0,
+            development_fund: 0,
+            social_fund: 0,
+          };
+          data.accounts.forEach((acc) => {
+            if (newBalances[acc.account_type] !== undefined) {
+              newBalances[acc.account_type] = acc.balance;
+            }
+          });
+          setBalances(newBalances);
+        }
+      } catch (err) {
+        console.warn("Error loading user balances:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchBalances();
   }, []);
@@ -39,8 +50,7 @@ export default function UserSummaryCards() {
   const totalCapital =
     balances.shares +
     balances.development_fund +
-    balances.social_fund +
-    balances.savings;
+    balances.social_fund;
 
   return (
     <section className="summary-cards">

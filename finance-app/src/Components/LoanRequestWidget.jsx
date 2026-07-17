@@ -1,51 +1,120 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import "../styles/loans.css";
 
 export default function LoanRequestWidget() {
+  const [loanType, setLoanType] = useState("normal"); // "normal" or "social_fund"
   const [loanAmount, setLoanAmount] = useState("");
   const [loanReason, setLoanReason] = useState("");
+  const [repaymentPeriod, setRepaymentPeriod] = useState("1"); // term months (1-3) or "2w" for social
+  
+  const [sharesBalance, setSharesBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  
   const [totalRepayment, setTotalRepayment] = useState(0);
-  const [dueDate, setDueDate] = useState("Select amount to calculate");
+  const [dueDateText, setDueDateText] = useState("Select amount to calculate");
+  const [dbDueDate, setDbDueDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const INTEREST_RATE = 0.05; // 5% per month
-  const LOAN_DURATION_MONTHS = 12; // Default 12 months
+  const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
-  const calculateLoan = (amount) => {
-    if (!amount || amount < 50000) {
+  useEffect(() => {
+    async function loadSharesBalance() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch("/api/user-balances", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data.accounts) {
+          const sharesAcc = data.accounts.find(acc => acc.account_type === "shares");
+          if (sharesAcc) {
+            setSharesBalance(Number(sharesAcc.balance) || 0);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load shares balance:", err);
+      } finally {
+        setLoadingBalance(false);
+      }
+    }
+    loadSharesBalance();
+  }, []);
+
+  const calculateLoan = (amount, type, period) => {
+    if (!amount || amount <= 0) {
       setTotalRepayment(0);
-      setDueDate("Select amount to calculate");
+      setDueDateText("Select amount to calculate");
+      setDbDueDate("");
       return;
     }
 
-    const interest = amount * INTEREST_RATE * LOAN_DURATION_MONTHS;
-    const total = amount + interest;
+    let total = amount;
+    const today = new Date();
+    let dueDateTime = new Date();
+
+    if (type === "social_fund") {
+      // Social Fund: 0% Interest, 2 weeks repayment period
+      total = amount;
+      dueDateTime.setDate(today.getDate() + 14); // 2 weeks
+    } else {
+      // Normal Loan: 5% p.m. Interest, period is months (1-3)
+      const months = parseInt(period, 10) || 1;
+      const interest = amount * INTEREST_RATE * months;
+      total = amount + interest;
+      dueDateTime.setMonth(today.getMonth() + months);
+    }
+
     setTotalRepayment(total);
 
-    // Calculate due date (12 months from today)
-    const today = new Date();
-    const dueDateTime = new Date(
-      today.setMonth(today.getMonth() + LOAN_DURATION_MONTHS),
-    );
+    // Format for display
     const formattedDate = dueDateTime.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
-    setDueDate(formattedDate);
+    setDueDateText(formattedDate);
+
+    // Format for Database (YYYY-MM-DD)
+    const yyyy = dueDateTime.getFullYear();
+    const mm = String(dueDateTime.getMonth() + 1).padStart(2, '0');
+    const dd = String(dueDateTime.getDate()).padStart(2, '0');
+    setDbDueDate(`${yyyy}-${mm}-${dd}`);
+  };
+
+  const handleTypeChange = (e) => {
+    const selectedType = e.target.value;
+    setLoanType(selectedType);
+    
+    // Set default periods
+    const defaultPeriod = selectedType === "social_fund" ? "2w" : "1";
+    setRepaymentPeriod(defaultPeriod);
+    
+    calculateLoan(parseFloat(loanAmount) || "", selectedType, defaultPeriod);
   };
 
   const handleAmountChange = (e) => {
     const amount = parseFloat(e.target.value) || "";
     setLoanAmount(amount);
-    calculateLoan(amount);
+    calculateLoan(amount, loanType, repaymentPeriod);
+  };
+
+  const handlePeriodChange = (e) => {
+    const selectedPeriod = e.target.value;
+    setRepaymentPeriod(selectedPeriod);
+    calculateLoan(parseFloat(loanAmount) || "", loanType, selectedPeriod);
   };
 
   const handleReasonChange = (e) => {
     setLoanReason(e.target.value);
   };
+
+  const maxAllowedAmount = loanType === "social_fund" ? 50000 : sharesBalance * 2;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,43 +122,54 @@ export default function LoanRequestWidget() {
       setMessage("Please fill in all fields.");
       return;
     }
+
+    const amt = Number(loanAmount);
+    if (amt > maxAllowedAmount) {
+      setMessage(
+        loanType === "social_fund"
+          ? "Social Fund loan amount cannot exceed Shs 50,000."
+          : `Loan amount exceeds your maximum eligible borrowing limit of Shs ${maxAllowedAmount.toLocaleString()}.`
+      );
+      return;
+    }
     
     setIsLoading(true);
     setMessage("");
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in.");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be logged in.");
 
-      // Fetch the user's SACCO ID
-      const { data: membershipData, error: membershipError } = await supabase
-        .from('sacco_memberships')
-        .select('sacco_id')
-        .eq('profile_id', user.id)
-        .limit(1)
-        .single();
+      const isSocial = loanType === "social_fund";
+      const termMonths = isSocial ? null : Number(repaymentPeriod);
 
-      if (membershipError || !membershipData) {
-        throw new Error("Could not find your SACCO membership.");
-      }
-
-      // Call the RPC to request loan
-      const { error: rpcError } = await supabase.rpc('request_loan', {
-        p_sacco_id: membershipData.sacco_id,
-        p_amount: Number(loanAmount),
-        p_term_months: LOAN_DURATION_MONTHS,
-        p_purpose: loanReason
+      const res = await fetch("/api/loans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: "request_loan",
+          amount: amt,
+          purpose: loanReason,
+          loanType: loanType,
+          termMonths: termMonths,
+          interestRate: isSocial ? 0.00 : 5.00,
+          dueDate: dbDueDate
+        })
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit loan request.");
 
-      if (rpcError) throw rpcError;
-
-      setMessage("Loan request submitted successfully!");
+      setMessage("success: Loan request submitted successfully!");
       
       // Reset form
       setLoanAmount("");
       setLoanReason("");
       setTotalRepayment(0);
-      setDueDate("Select amount to calculate");
+      setDueDateText("Select amount to calculate");
+      setDbDueDate("");
     } catch (err) {
       setMessage(err.message || "An error occurred.");
     } finally {
@@ -104,26 +184,87 @@ export default function LoanRequestWidget() {
       </div>
       
       {message && (
-        <div style={{ marginBottom: '1rem', padding: '0.5rem', borderRadius: '4px', background: message.includes('success') ? '#d1fae5' : '#fee2e2', color: message.includes('success') ? '#065f46' : '#991b1b', textAlign: 'center' }}>
-          {message}
+        <div style={{ 
+          marginBottom: '1rem', 
+          padding: '0.8rem', 
+          borderRadius: '8px', 
+          background: message.startsWith('success') ? '#d1fae5' : '#fee2e2', 
+          color: message.startsWith('success') ? '#065f46' : '#991b1b', 
+          textAlign: 'center',
+          fontWeight: 600,
+          fontSize: '1.3rem'
+        }}>
+          {message.startsWith('success') ? message.replace('success: ', '') : message}
         </div>
       )}
 
       <form className="loan-form" onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="loan-amount">Loan Amount (Shs)</label>
+          <label htmlFor="loan-type">Loan Type</label>
+          <div className="input-wrapper">
+            <i className="fa-solid fa-layer-group"></i>
+            <select
+              id="loan-type"
+              value={loanType}
+              onChange={handleTypeChange}
+              required
+            >
+              <option value="normal">Normal Loan (5% interest p.m.)</option>
+              <option value="social_fund">Social Fund Loan (Interest-free)</option>
+            </select>
+            <i
+              className="fa-solid fa-chevron-down"
+              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
+            ></i>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="loan-amount">
+            Loan Amount (Shs) 
+            <span style={{ fontSize: '1.2rem', color: 'var(--text-light)', marginLeft: '1rem' }}>
+              (Max Limit: Shs {loadingBalance ? "..." : maxAllowedAmount.toLocaleString()})
+            </span>
+          </label>
           <div className="input-wrapper">
             <i className="fa-solid fa-money-bill-wave"></i>
             <input
               type="number"
               id="loan-amount"
-              placeholder="e.g. 500000"
-              min="50000"
-              step="10000"
+              placeholder={loanType === "social_fund" ? "e.g. 30000" : "e.g. 500000"}
+              min="1000"
+              max={maxAllowedAmount}
               value={loanAmount}
               onChange={handleAmountChange}
               required
             />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="repayment-period">Repayment Period</label>
+          <div className="input-wrapper">
+            <i className="fa-solid fa-calendar-days"></i>
+            {loanType === "social_fund" ? (
+              <select id="repayment-period" value="2w" disabled>
+                <option value="2w">2 Weeks (Fixed)</option>
+              </select>
+            ) : (
+              <select
+                id="repayment-period"
+                value={repaymentPeriod}
+                onChange={handlePeriodChange}
+                required
+              >
+                <option value="1">1 Month</option>
+                <option value="2">2 Months</option>
+                <option value="3">3 Months</option>
+              </select>
+            )}
+            <i
+              className="fa-solid fa-chevron-down"
+              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
+            ></i>
           </div>
         </div>
 
@@ -156,7 +297,9 @@ export default function LoanRequestWidget() {
         <div className="loan-details">
           <div className="detail-row">
             <span>Interest Rate</span>
-            <span className="highlight">5% per month</span>
+            <span className="highlight">
+              {loanType === "social_fund" ? "0% (Interest-free)" : "5% per month"}
+            </span>
           </div>
           <div className="detail-row">
             <span>Total Repayment</span>
@@ -170,7 +313,7 @@ export default function LoanRequestWidget() {
               className="highlight due-date"
               style={{ color: "var(--text-light)" }}
             >
-              {dueDate}
+              {dueDateText}
             </span>
           </div>
         </div>

@@ -1,6 +1,9 @@
+"use client";
+
 import "../styles/login.css";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // import { useSaccoState } from "../context/useSaccoState";
 
@@ -9,7 +12,16 @@ export default function Login() {
   const [LogInpassword, setLogInPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const navigate = useNavigate();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("rememberedEmail");
+      const savedPassword = localStorage.getItem("rememberedPassword");
+      if (savedEmail) setEmail(savedEmail);
+      if (savedPassword) setLogInPassword(savedPassword);
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -40,10 +52,15 @@ export default function Login() {
 
     setIsLoading(false);
 
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rememberedEmail", email.trim());
+      localStorage.setItem("rememberedPassword", LogInpassword);
+    }
+
     if (profile && profile.role === 'admin') {
-      navigate("/admin");
+      router.push("/admin");
     } else {
-      navigate("/dashboard");
+      router.push("/dashboard");
     }
   };
 
@@ -156,13 +173,13 @@ export default function Login() {
       <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <div>
           Don't have an account?{" "}
-          <Link to="/signup" className="auth-link">
+          <Link href="/signup" className="auth-link">
             Sign up here
           </Link>
         </div>
         <div>
           Are you an Administrator?{" "}
-          <Link to="/register-sacco" className="auth-link">
+          <Link href="/register-sacco" className="auth-link">
             Register your SACCO
           </Link>
         </div>

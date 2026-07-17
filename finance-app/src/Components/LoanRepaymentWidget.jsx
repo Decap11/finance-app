@@ -13,34 +13,27 @@ export default function LoanRepaymentWidget() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      // Fetch active loan
-      const { data: loans } = await supabase
-        .from('loans')
-        .select('*')
-        .eq('profile_id', user.id)
-        .eq('status', 'active')
-        .limit(1);
-        
-      if (loans && loans.length > 0) {
-        setActiveLoan(loans[0]);
+        const res = await fetch("/api/loans", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        if (data.activeLoan) {
+          setActiveLoan(data.activeLoan);
+        }
+        setSavingsBalance(data.savingsBalance || 0);
+      } catch (err) {
+        console.warn("Error loading loan data:", err);
+      } finally {
+        setLoading(false);
       }
-
-      // Fetch savings balance
-      const { data: savings } = await supabase
-        .from('accounts')
-        .select('balance')
-        .eq('profile_id', user.id)
-        .eq('account_type', 'savings')
-        .limit(1);
-
-      if (savings && savings.length > 0) {
-        setSavingsBalance(savings[0].balance);
-      }
-      
-      setLoading(false);
     }
     fetchData();
   }, []);
@@ -83,10 +76,7 @@ export default function LoanRepaymentWidget() {
       return;
     }
 
-    if (paymentSource === "savings" && amount > savingsBalance) {
-      setMessage(`Insufficient savings balance. Available: Shs ${savingsBalance.toLocaleString()}`);
-      return;
-    }
+
 
     // In a real scenario, call an RPC to process the loan repayment.
     // For now, we simulate success since we don't have a specific repay_loan RPC yet.
@@ -146,9 +136,6 @@ export default function LoanRepaymentWidget() {
                 required
               >
                 <option value="">Select source...</option>
-                <option value="savings">
-                  My Savings (Balance: Shs {savingsBalance.toLocaleString()})
-                </option>
                 <option value="mobile_money">Mobile Money</option>
                 <option value="bank">Bank Transfer</option>
               </select>

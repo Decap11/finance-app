@@ -88,18 +88,23 @@ html {
 }
 
 .heatmap-day.level-1 {
-  background-color: #bbf7d0; /* Light green */
-  border: 0.1rem solid #86efac;
+  background-color: #d1fae5; /* Lightest green for 1-2 shares */
+  border: 0.1rem solid #a7f3d0;
 }
 
 .heatmap-day.level-2 {
-  background-color: #34d399; /* Medium green */
-  border: 0.1rem solid #10b981;
+  background-color: #6ee7b7; /* Medium-light green for 3-4 shares */
+  border: 0.1rem solid #34d399;
 }
 
 .heatmap-day.level-3 {
-  background-color: #059669; /* Dark green */
+  background-color: #059669; /* Medium-dark green for 5-7 shares */
   border: 0.1rem solid #047857;
+}
+
+.heatmap-day.level-4 {
+  background-color: #064e3b; /* Darkest green for 8-10 shares */
+  border: 0.1rem solid #065f46;
 }
 
 .heatmap-legend {
@@ -139,16 +144,21 @@ html {
 }
 
 .heatmap-key-dot.level-1 {
-  background-color: #bbf7d0;
-  border: 0.1rem solid #86efac;
+  background-color: #d1fae5;
+  border: 0.1rem solid #a7f3d0;
 }
 
 .heatmap-key-dot.level-2 {
-  background-color: #34d399;
-  border: 0.1rem solid #10b981;
+  background-color: #6ee7b7;
+  border: 0.1rem solid #34d399;
 }
 
 .heatmap-key-dot.level-3 {
   background-color: #059669;
   border: 0.1rem solid #047857;
+}
+
+.heatmap-key-dot.level-4 {
+  background-color: #064e3b;
+  border: 0.1rem solid #065f46;
 }
