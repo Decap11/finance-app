@@ -45,36 +45,35 @@
 
 .members-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
   gap: 2rem;
   width: 100%;
 }
 
-@media (max-width: 1200px) {
-  .members-grid {
-    grid-template-columns: repeat(3, 1fr);
+@media (max-width: 44rem) {
+  .group-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.2rem;
+    padding: 1.6rem;
   }
-}
 
-@media (max-width: 900px) {
-  .members-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.6rem;
+  .group-header-info h2 {
+    font-size: 1.8rem;
   }
-}
 
-@media (max-width: 576px) {
   .members-grid {
     grid-template-columns: 1fr;
+    gap: 1.4rem;
   }
 }
 
 .member-card {
   background: var(--white);
-  border-radius: var(--border-radius);
-  padding: 2.5rem;
-  box-shadow: var(--card-shadow);
-  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 1.4rem;
+  padding: 1.8rem;
+  box-shadow: 0 0.4rem 2rem rgba(112, 144, 176, 0.06);
+  border: 1px solid #f1f5f9;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
@@ -83,8 +82,9 @@
 }
 
 .member-card:hover {
-  transform: translateY(-0.5rem);
-  box-shadow: 0 1.5rem 3.5rem rgba(112, 144, 176, 0.15);
+  transform: translateY(-0.3rem);
+  box-shadow: 0 1rem 2.5rem rgba(112, 144, 176, 0.12);
+  border-color: #ebf0fe;
 }
 
 .member-card::before {
@@ -93,35 +93,51 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 0.5rem;
+  height: 0.4rem;
   background: linear-gradient(90deg, var(--primary-color) 0%, #3b82f6 100%);
 }
 
 .member-card-header {
   display: flex;
-  gap: 1.8rem;
+  gap: 1.2rem;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.2rem;
 }
 
 .member-avatar {
-  width: 6.5rem;
-  height: 6.5rem;
+  width: 4.6rem;
+  height: 4.6rem;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--primary-light);
-  box-shadow: 0 0.4rem 1rem rgba(37, 59, 142, 0.08);
+  box-shadow: 0 0.2rem 0.6rem rgba(37, 59, 142, 0.08);
+  flex-shrink: 0;
+}
+
+.member-avatar-initials {
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  border: 2px solid var(--primary-light);
+  flex-shrink: 0;
 }
 
 .member-identity {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
   flex: 1;
 }
 
 .member-name {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-dark);
   margin: 0;
@@ -130,98 +146,54 @@
 .member-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .badge-id {
   background-color: var(--primary-light);
   color: var(--primary-color);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  padding: 0.3rem 0.8rem;
-  border-radius: 0.6rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
   text-transform: uppercase;
 }
 
 .badge-tier {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--success);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  padding: 0.3rem 0.8rem;
-  border-radius: 0.6rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
   text-transform: uppercase;
 }
 
 .member-contact-info {
-  border-top: 1px dashed var(--input-border);
-  border-bottom: 1px dashed var(--input-border);
-  padding: 1.5rem 0;
-  margin-bottom: 2rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1.2rem;
+  margin-top: 0.4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 
 .contact-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  font-size: 1.35rem;
+  gap: 0.8rem;
+  font-size: 1.25rem;
   color: var(--text-light);
 }
 
 .contact-row i {
   color: var(--primary-color);
-  width: 1.6rem;
+  width: 1.4rem;
   text-align: center;
+  font-size: 1.2rem;
 }
 
 .contact-value {
   color: var(--text-dark);
   font-weight: 600;
-}
-
-.member-balances-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.2rem;
-  margin-top: auto;
-}
-
-.balance-item {
-  background: var(--secondary-color);
-  border-radius: 1.2rem;
-  padding: 1.2rem;
-  text-align: center;
-  border: 1px solid rgba(226, 232, 240, 0.4);
-}
-
-.balance-label {
-  font-size: 1.1rem;
-  color: var(--text-light);
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 0.4rem;
-  display: block;
-}
-
-.balance-amount {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
-.member-avatar-initials {
-  width: 6.5rem;
-  height: 6.5rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%);
-  color: var(--white);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.2rem;
-  font-weight: 700;
-  border: 2px solid var(--primary-light);
 }
