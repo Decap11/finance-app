@@ -4,6 +4,8 @@ This document outlines the step-by-step operational flow of the SACCO web applic
 
 ## 1. Platform Administration & SACCO Onboarding
 
+Yeah
+
 The journey begins with bringing a new SACCO onto the platform.
 
 ### 1.1. SACCO Workspace Creation
