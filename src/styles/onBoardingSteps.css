@@ -1,0 +1,194 @@
+html {
+  font-size: 62.5%;
+}
+
+/* Core Variables */
+:root {
+  --primary-color: #253b8e;
+  /* Active dark blue */
+  --inactive-color: #b3b3b3;
+  /* Inactive grey */
+  --text-color: #253b8e;
+  --bg-color: #f4f6fa;
+  --white: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  background-color: var(--bg-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* App Container (Mobile App View Simulation) */
+.app-container,
+.onboarding-page {
+  width: 100%;
+  background-color: var(--white);
+  height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1.2rem 3.6rem rgba(0, 0, 0, 0.1);
+  border-radius: 2.4rem;
+  padding: 4rem 14rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Strictly Mobile Viewport adjustments */
+@media (max-width: 76.8rem) {
+  .onboarding-page {
+    padding: 3rem 4rem;
+  }
+}
+
+@media (max-width: 48rem) {
+  .onboarding-page {
+    height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 3rem 2rem;
+  }
+
+  .steps-indicator {
+    margin-bottom: 2.4rem;
+  }
+
+  .step {
+    width: 4.4rem;
+    height: 4.4rem;
+    font-size: 1.8rem;
+  }
+
+  .illustration-container {
+    max-height: 22rem;
+  }
+}
+
+/* Steps Indicator */
+.steps-indicator {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  margin-top: 2rem;
+  margin-bottom: 4rem;
+}
+
+.step {
+  width: 5.4rem;
+  height: 5.4rem;
+  border-radius: 50%;
+  background-color: var(--inactive-color);
+  color: var(--white);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.2rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 0.4rem 1rem rgba(0, 0, 0, 0.05);
+}
+
+.step.active {
+  background-color: var(--primary-color);
+  box-shadow: 0 0.6rem 1.5rem rgba(37, 59, 142, 0.3);
+}
+
+/* Content Area */
+.step-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  justify-content: space-around;
+}
+
+.step-title {
+  color: var(--primary-color);
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 2rem;
+  padding: 0 1rem;
+}
+
+.illustration-container {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-height: 30rem;
+}
+
+.step-illustration {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  /* Add dynamic hover behavior for modern feel */
+  transition: transform 0.4s ease;
+}
+
+.step-illustration:hover {
+  transform: scale(1.05);
+}
+
+/* Bottom Controls */
+.bottom-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  margin-bottom: 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 3.2rem;
+  border-radius: 1.2rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.3s ease,
+    transform 0.2s ease,
+    box-shadow 0.3s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--white);
+  min-width: 13rem;
+}
+
+.btn-primary:hover {
+  background-color: #1a2a68;
+  transform: translateY(-0.2rem);
+  box-shadow: 0 0.8rem 2rem rgba(26, 42, 104, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 0.4rem 1rem rgba(26, 42, 104, 0.3);
+}

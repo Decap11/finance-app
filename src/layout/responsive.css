@@ -1,0 +1,284 @@
+/* Shared responsive layout for all dashboard pages */
+
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  padding: 0;
+  border: 0.1rem solid #e2e8f0;
+  border-radius: 1.2rem;
+  background: var(--white);
+  color: var(--text-dark);
+  font-size: 2rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: var(--card-shadow);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.menu-toggle:hover {
+  background: var(--secondary-color);
+  color: var(--primary-color);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+.sidebar-close-btn {
+  display: none;
+}
+
+/* Tablet */
+@media (max-width: 850px) {
+  html {
+    font-size: 58%;
+  }
+  .dashboard-body {
+    padding-left: 2.4rem;
+    padding-right: 2.4rem;
+  }
+
+  .dashboard-grid,
+  .loan-progress-section {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content-row {
+    flex-direction: column;
+  }
+
+  .contribution-approvals-area,
+  .features-area {
+    width: 100%;
+  }
+
+  .settings-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile/Tablet — sidebar becomes off-canvas drawer */
+@media (max-width: 850px) {
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .dashboard-container {
+    flex-direction: row;
+    position: relative !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 0 auto !important;
+    height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .main-content {
+    width: 100%;
+    min-width: 0;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .admin-main-content {
+    width: 100%;
+    padding: 1.6rem;
+  }
+
+  header,
+  .admin-header,
+  .payment-header {
+    flex-wrap: nowrap !important;
+    gap: 1.2rem !important;
+    padding: 1.6rem 1.2rem !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    height: 7.5rem !important;
+  }
+
+  .header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1.2rem !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .welcome-text {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.8rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+  }
+
+  .welcome-text p {
+    display: none !important;
+  }
+
+  .header-actions {
+    margin-left: auto !important;
+    gap: 1.2rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .search-bar {
+    display: none !important;
+  }
+
+  .user-info {
+    display: none !important;
+  }
+
+  .user-profile {
+    width: auto !important;
+  }
+
+  .dashboard-body {
+    padding: 1.6rem;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
+  }
+
+  .sidebar-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(28rem, 85vw);
+    z-index: 99999 !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    width: 3.6rem;
+    height: 3.6rem;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font-size: 1.8rem;
+    cursor: pointer;
+  }
+
+  .admin-sidebar .sidebar-close-btn {
+    color: #ffffff;
+  }
+
+  .settings-container {
+    gap: 2rem;
+  }
+
+  .settings-content {
+    padding: 2rem !important;
+  }
+
+  .settings-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table {
+    min-width: 64rem;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 53%;
+  }
+
+  .notification-bell {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.8rem;
+  }
+
+  .user-profile img {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .onboarding-page {
+    padding: 2rem 1.6rem !important;
+  }
+
+  .step-title {
+    font-size: 2rem;
+  }
+
+  .bottom-controls {
+    flex-direction: column-reverse;
+    gap: 1.2rem;
+  }
+
+  .bottom-controls .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 440px) {
+  html {
+    font-size: 48%;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr !important;
+    height: auto;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+}

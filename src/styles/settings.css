@@ -1,0 +1,25 @@
+.settings-container {
+  display: grid;
+  grid-template-columns: minmax(24rem, 1fr) 2fr;
+  gap: 2.4rem;
+  align-items: start;
+  margin-top: 2.8rem;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.settings-sidebar,
+.settings-content {
+  min-width: 0;
+}
+
+@media (max-width: 76.8rem) {
+  .settings-container {
+    grid-template-columns: 1fr;
+  }
+}

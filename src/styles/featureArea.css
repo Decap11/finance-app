@@ -1,0 +1,152 @@
+/* Premium styles for Admin Actions Widgets */
+.features-area {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
+.quick-actions {
+  background-color: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 1.6rem;
+  box-shadow: 0 0.4rem 2rem rgba(0, 0, 0, 0.02);
+  padding: 2.5rem;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+  box-sizing: border-box;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.section-title i {
+  color: #3b82f6;
+  font-size: 1.8rem;
+}
+
+/* Forms & Fields */
+.admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  text-align: left;
+}
+
+.admin-form-group label {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.admin-form-group input,
+.admin-form-group select,
+.admin-form-group textarea {
+  width: 100%;
+  padding: 1.2rem 1.6rem;
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.8rem;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-form-group input::placeholder,
+.admin-form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+.admin-form-group input:focus,
+.admin-form-group select:focus,
+.admin-form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.1);
+}
+
+/* Primary Button style */
+.admin-btn-primary {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.8rem;
+  padding: 1.4rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.admin-btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.admin-btn-primary:active {
+  transform: scale(0.99);
+}
+
+.admin-btn-primary:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Premium Segmented Toggle Button Bar */
+.toggle-container {
+  display: flex;
+  background-color: #f1f5f9;
+  padding: 0.4rem;
+  border-radius: 1.2rem;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.toggle-button {
+  flex: 1;
+  padding: 1rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border-radius: 0.8rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-button.active {
+  background-color: #ffffff;
+  color: #253b8e;
+  box-shadow: 0 4px 12px rgba(37, 59, 142, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.toggle-button:not(.active):hover {
+  background-color: rgba(0, 0, 0, 0.03);
+  color: #1e293b;
+}

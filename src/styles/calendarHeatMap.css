@@ -1,0 +1,164 @@
+html {
+  font-size: 62.5%;
+}
+
+.calendar-heatmap {
+  margin-top: 2rem;
+  padding: 1.8rem 1.6rem;
+  background-color: #f8fafc;
+  border-radius: 1.6rem;
+  border: 0.1rem solid #e2e8f0;
+}
+
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.heatmap-header h4 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--text-dark);
+}
+
+.heatmap-header p {
+  margin: 0.4rem 0 0;
+  font-size: 1.3rem;
+  color: var(--text-light);
+}
+
+.heatmap-header span {
+  font-size: 1.2rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.heatmap-months {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.heatmap-month {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.heatmap-month span {
+  flex: 0 0 4rem;
+  text-align: right;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.heatmap-weekdays {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.heatmap-day {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.4rem;
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.heatmap-day:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.heatmap-day.level-0 {
+  background-color: #ef4444; /* Red for missed */
+  border: 0.1rem solid #dc2626;
+}
+
+.heatmap-day.level-1 {
+  background-color: #d1fae5; /* Lightest green for 1-2 shares */
+  border: 0.1rem solid #a7f3d0;
+}
+
+.heatmap-day.level-2 {
+  background-color: #6ee7b7; /* Medium-light green for 3-4 shares */
+  border: 0.1rem solid #34d399;
+}
+
+.heatmap-day.level-3 {
+  background-color: #059669; /* Medium-dark green for 5-7 shares */
+  border: 0.1rem solid #047857;
+}
+
+.heatmap-day.level-4 {
+  background-color: #064e3b; /* Darkest green for 8-10 shares */
+  border: 0.1rem solid #065f46;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  font-size: 1.2rem;
+  color: var(--text-light);
+}
+
+.heatmap-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.heatmap-key-dot {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.4rem;
+  display: inline-block;
+}
+
+.heatmap-key-label {
+  font-size: 1.2rem;
+  color: var(--text-light);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.heatmap-key-dot.level-0 {
+  background-color: #ef4444;
+  border: 0.1rem solid #dc2626;
+}
+
+.heatmap-key-dot.level-1 {
+  background-color: #d1fae5;
+  border: 0.1rem solid #a7f3d0;
+}
+
+.heatmap-key-dot.level-2 {
+  background-color: #6ee7b7;
+  border: 0.1rem solid #34d399;
+}
+
+.heatmap-key-dot.level-3 {
+  background-color: #059669;
+  border: 0.1rem solid #047857;
+}
+
+.heatmap-key-dot.level-4 {
+  background-color: #064e3b;
+  border: 0.1rem solid #065f46;
+}

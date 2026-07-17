@@ -1,0 +1,418 @@
+/* Premium styling for Contribution Approvals */
+.recent-transactions {
+  background: #ffffff;
+  border-radius: 1.6rem;
+  box-shadow: 0 0.4rem 2rem rgba(0, 0, 0, 0.02);
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #f1f5f9;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.view-all-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 1.3rem;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.view-all-link:hover {
+  color: #2563eb;
+}
+
+.admin-list-wrapper {
+  width: 100%;
+}
+
+.admin-list-header {
+  display: flex;
+  padding: 1.2rem 1rem;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  align-items: center;
+}
+
+.admin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-list-item {
+  display: flex;
+  align-items: center;
+  padding: 1.6rem 1rem;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.list-empty {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.4rem;
+  color: #64748b;
+  list-style: none;
+}
+
+/* Column Widths to match table layout */
+.col-member {
+  flex: 1.5;
+  min-width: 120px;
+}
+
+.col-type {
+  flex: 1.2;
+  min-width: 100px;
+}
+
+.col-amount {
+  flex: 1.2;
+  min-width: 100px;
+}
+
+.col-date {
+  flex: 2;
+  min-width: 160px;
+}
+
+.col-action {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Member ID Cell Layout */
+.member-id-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.member-id-number {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.member-name-sub {
+  font-size: 1.2rem;
+  color: #64748b;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  border-radius: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.badge-shares-pool {
+  background-color: #ebf0fe;
+  color: #253b8e;
+}
+
+.badge-dev-fund {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.badge-social-fund {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.badge-savings {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.badge-loan-request {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+/* Text Formatting */
+.amount-text {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.date-text {
+  font-size: 1.3rem;
+  color: #64748b;
+}
+
+/* Table Actions */
+.table-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.table-actions .btn-sm {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  border: none;
+  font-size: 1.4rem;
+  transition: all 0.2s ease;
+}
+
+.table-actions .btn-approve {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
+.table-actions .btn-approve:hover {
+  background-color: #059669;
+}
+
+.table-actions .btn-reject {
+  background-color: #f8fafc;
+  color: #ef4444;
+  border: 1px solid #e2e8f0;
+}
+
+.table-actions .btn-reject:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Fluid horizontal table-like list row sizing */
+.col-member {
+  flex: 2 1 20%;
+  min-width: 80px;
+  overflow: hidden;
+}
+
+.col-type {
+  flex: 1.5 1 15%;
+  min-width: 75px;
+}
+
+.col-amount {
+  flex: 1.5 1 15%;
+  min-width: 75px;
+}
+
+.col-date {
+  flex: 2.5 1 25%;
+  min-width: 110px;
+}
+
+.col-action {
+  flex: 1.2 1 12%;
+  min-width: 75px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Responsive adjustments for mobile/tablet screens */
+@media (max-width: 102.4rem) {
+  .admin-list-header {
+    padding: 1.2rem 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .admin-list-item {
+    padding: 1.6rem 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .member-id-number {
+    font-size: 1.35rem;
+  }
+
+  .member-name-sub {
+    font-size: 1.15rem;
+  }
+
+  .badge {
+    font-size: 1rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .amount-text {
+    font-size: 1.35rem;
+  }
+
+  .currency-unit {
+    display: none !important; /* Hide Shs on mobile/tablet to look like screenshot */
+  }
+
+  .date-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .date-day-month {
+    display: block !important;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .date-week-label {
+    display: block;
+    font-size: 1.15rem;
+    color: #64748b;
+    text-transform: capitalize;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.2rem;
+  }
+/* Responsive adjustments for mobile/tablet screens */
+@media (max-width: 102.4rem) {
+  .admin-list-header {
+    padding: 1.2rem 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .admin-list-item {
+    padding: 1.2rem 0.5rem;
+  }
+
+  .member-id-number {
+    font-size: 1.2rem;
+  }
+
+  .member-name-sub {
+    font-size: 1.1rem;
+  }
+
+  .badge {
+    font-size: 1rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .amount-text {
+    font-size: 1.2rem;
+  }
+
+  .currency-unit {
+    display: none !important;
+  }
+
+  .date-day-month {
+    display: none !important;
+  }
+
+  .date-week-label {
+    text-transform: capitalize;
+    font-weight: 600;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.2rem;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 76.8rem) {
+  .admin-list-header {
+    font-size: 1rem;
+    padding: 0.8rem 0.4rem;
+  }
+
+  .admin-list-item {
+    padding: 1rem 0.4rem;
+  }
+
+  .member-id-number {
+    font-size: 1.1rem;
+  }
+
+  .member-name-sub {
+    display: none !important; /* Hide member full name on mobile to keep horizontal format clean */
+  }
+
+  .badge {
+    font-size: 0.95rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .amount-text {
+    font-size: 1.1rem;
+  }
+
+  .date-text {
+    font-size: 1rem;
+  }
+
+  .table-actions .btn-sm {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.1rem;
+    border-radius: 0.4rem;
+  }
+}
+
+/* Mobile screen sizes below 670px */
+@media (max-width: 670px) {
+  .recent-transactions {
+    padding: 1.2rem !important;
+    border-radius: 1rem !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .admin-list-header {
+    padding: 0.8rem 0.2rem !important;
+  }
+
+  .admin-list-item {
+    padding: 0.8rem 0.2rem !important;
+  }
+}
+
+/* Mobile screen sizes below 44rem (440px) */
+@media (max-width: 54rem) {
+  .recent-transactions {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+  }
+  
+  .admin-list-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .admin-list-header, 
+  .admin-list-item {
+    min-width: 55rem; /* Preserves columns and enables smooth horizontal swipe scrolling */
+  }
+}

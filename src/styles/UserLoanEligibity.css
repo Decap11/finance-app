@@ -1,0 +1,156 @@
+/* Loan Eligibility Widget */
+.loan-widget {
+  background-color: var(--white);
+  border-radius: 1.6rem;
+  padding: 2.5rem;
+  box-shadow: var(--card-shadow);
+  border: 0.1rem solid #f1f5f9;
+  transition: all 0.3s ease;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.loan-widget:hover {
+  box-shadow: 0 1rem 3rem rgba(37, 59, 142, 0.1);
+  border-color: #ebf0fe;
+}
+
+.eligibility-content {
+  display: flex;
+  gap: 2.5rem;
+}
+
+.eligibility-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  flex: 0 0 auto;
+}
+
+.score-circle {
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(37, 59, 142, 0.1) 0%,
+    rgba(37, 59, 142, 0.05) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.3rem solid var(--primary-color);
+  box-shadow: inset 0 0.4rem 1rem rgba(37, 59, 142, 0.08);
+}
+
+.score-value {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.score-label {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--success);
+  margin: 0;
+}
+
+.eligibility-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1.2rem;
+  border-bottom: 0.1rem solid #f1f5f9;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 1.3rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.btn-loan {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 1.2rem 2.4rem;
+  border-radius: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1.4rem;
+  transition: all 0.2s;
+}
+
+.btn-loan:hover {
+  background-color: #1a2a68;
+  transform: translateY(-0.2rem);
+  box-shadow: 0 0.8rem 1.6rem rgba(37, 59, 142, 0.25);
+}
+
+@media (max-width: 44rem) {
+  .loan-widget {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+    margin-top: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .eligibility-content {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1.8rem !important;
+  }
+
+  .score-circle {
+    width: 9rem !important;
+    height: 9rem !important;
+  }
+
+  .score-value {
+    font-size: 2.2rem !important;
+  }
+
+  .score-label {
+    font-size: 1.2rem !important;
+  }
+
+  .eligibility-details {
+    width: 100% !important;
+    gap: 1.2rem !important;
+  }
+
+  .detail-label {
+    font-size: 1.25rem !important;
+  }
+
+  .detail-value {
+    font-size: 1.35rem !important;
+  }
+
+  .btn-loan {
+    width: 100% !important;
+    margin-top: 0.8rem !important;
+    padding: 1.2rem !important;
+    font-size: 1.4rem !important;
+    text-align: center !important;
+  }
+}

@@ -1,0 +1,144 @@
+/* Recent Transactions Table */
+.recent-transactions-table {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  overflow: hidden;
+  border: 0.1rem solid #f1f5f9;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transactions-table thead {
+  background-color: #f8fafc;
+  border-bottom: 0.1rem solid #e2e8f0;
+}
+
+.transactions-table th {
+  padding: 1.6rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.transactions-table tbody tr {
+  border-bottom: 0.1rem solid #f1f5f9;
+  transition: background-color 0.2s ease;
+}
+
+.transactions-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.transactions-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.transactions-table td {
+  padding: 1.6rem;
+  font-size: 1.4rem;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.amount-cell {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.transaction-badge {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.transaction-badge.deposit {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.transaction-badge.withdrawal {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.transaction-badge.transfer {
+  background-color: rgba(37, 59, 142, 0.1);
+  color: var(--primary-color);
+}
+
+.transaction-badge.loan {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.period {
+  font-size: 1.2rem;
+  font-weight: 100;
+  margin: 1.6rem;
+}
+.status-badge.success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.status-badge.pending {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.status-badge.failed {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+@media (max-width: 44rem) {
+  .recent-transactions-section .quick-actions {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+  }
+  
+  .recent-transactions-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1rem;
+  }
+  
+  .transactions-table {
+    min-width: 50rem;
+  }
+  
+  .transactions-table th {
+    padding: 1.2rem 1rem !important;
+    font-size: 1.2rem !important;
+  }
+  
+  .transactions-table td {
+    padding: 1.2rem 1rem !important;
+    font-size: 1.3rem !important;
+  }
+  
+  .transaction-badge, 
+  .status-badge {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 1.1rem !important;
+    border-radius: 0.6rem !important;
+  }
+  
+  .section-header h3 {
+    font-size: 1.5rem !important;
+  }
+}

@@ -1,0 +1,227 @@
+/* GroupMembers.css */
+
+.group-members-container {
+  padding: 1rem 0;
+  width: 100%;
+}
+
+.group-header-card {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  padding: 2.5rem;
+  margin-bottom: 3rem;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.group-header-info h2 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.group-header-info p {
+  font-size: 1.4rem;
+  color: var(--text-light);
+}
+
+.active-group-badge {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  padding: 0.8rem 1.6rem;
+  border-radius: 2rem;
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.members-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .members-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .members-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.6rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .members-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.member-card {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  padding: 2.5rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.member-card:hover {
+  transform: translateY(-0.5rem);
+  box-shadow: 0 1.5rem 3.5rem rgba(112, 144, 176, 0.15);
+}
+
+.member-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0.5rem;
+  background: linear-gradient(90deg, var(--primary-color) 0%, #3b82f6 100%);
+}
+
+.member-card-header {
+  display: flex;
+  gap: 1.8rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.member-avatar {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary-light);
+  box-shadow: 0 0.4rem 1rem rgba(37, 59, 142, 0.08);
+}
+
+.member-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.member-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.member-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.badge-id {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.6rem;
+  text-transform: uppercase;
+}
+
+.badge-tier {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.6rem;
+  text-transform: uppercase;
+}
+
+.member-contact-info {
+  border-top: 1px dashed var(--input-border);
+  border-bottom: 1px dashed var(--input-border);
+  padding: 1.5rem 0;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.35rem;
+  color: var(--text-light);
+}
+
+.contact-row i {
+  color: var(--primary-color);
+  width: 1.6rem;
+  text-align: center;
+}
+
+.contact-value {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.member-balances-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.2rem;
+  margin-top: auto;
+}
+
+.balance-item {
+  background: var(--secondary-color);
+  border-radius: 1.2rem;
+  padding: 1.2rem;
+  text-align: center;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+}
+
+.balance-label {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+.balance-amount {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.member-avatar-initials {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 700;
+  border: 2px solid var(--primary-light);
+}

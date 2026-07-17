@@ -1,0 +1,220 @@
+html {
+  font-size: 62.5%;
+}
+
+:root {
+  --primary-color: #253b8e;
+  --secondary-color: #f7f9fc;
+  --bg-color: #f8fbff;
+  --white: #ffffff;
+  --text-dark: #1e293b;
+  --text-light: #64748b;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --card-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08); /* Sophisticated diffuse shadow */
+  --border-radius: 2rem; /* Highly rounded corners */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+}
+.contributions-section {
+  width: 100%;
+  margin-bottom: 3rem;
+}
+.quick-actions {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 3rem;
+  box-shadow: var(--card-shadow);
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+/* Specific forms styling for Weekly Contributions */
+.contribution-card {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 25px;
+  margin-bottom: 20px;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+/* Specific forms styling for Weekly Contributions */
+.contribution-card {
+  background-color: var(--white);
+  border-radius: 1.2rem;
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+.contribution-card:hover {
+  box-shadow: 0 1rem 2.5rem rgba(37, 59, 142, 0.08);
+  border-color: #ebf0fe;
+}
+.fund-info {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.fund-icon {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.fund-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.3rem;
+}
+.fund-desc {
+  font-size: 1.6rem;
+  color: var(--text-light);
+}
+.fund-input-area {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.number-input {
+  padding: 1.2rem 1.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1.5rem;
+  width: 14rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.number-input:focus {
+  border-color: var(--primary-color);
+}
+.calculated-total {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  width: 12rem;
+  text-align: right;
+}
+.btn-pay {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 1.2rem 2.4rem;
+  border-radius: 0.8rem;
+  font-weight: 600;
+  margin-left: 73%;
+  cursor: pointer;
+  font-size: 1.4rem;
+  transition: all 0.2s;
+}
+.btn-pay:hover {
+  background-color: #1a2a68;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 44rem) {
+  .contributions-section .quick-actions {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+  }
+  
+  .section-header {
+    margin-bottom: 2rem !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+  }
+  
+  .section-title {
+    font-size: 1.5rem !important;
+  }
+  
+  .contribution-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1.6rem !important;
+    gap: 1.5rem !important;
+    border-radius: 1.2rem !important;
+  }
+  
+  .fund-info {
+    width: 100% !important;
+    gap: 1.2rem !important;
+  }
+  
+  .fund-icon {
+    width: 4.2rem !important;
+    height: 4.2rem !important;
+    font-size: 1.8rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .fund-title {
+    font-size: 1.6rem !important;
+  }
+  
+  .fund-desc {
+    font-size: 1.25rem !important;
+  }
+  
+  .fund-input-area {
+    width: 100% !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+  }
+  
+  .number-input {
+    width: 12rem !important;
+    font-size: 1.4rem !important;
+    padding: 1rem 1.2rem !important;
+  }
+  
+  .calculated-total {
+    font-size: 1.5rem !important;
+    width: auto !important;
+    text-align: right !important;
+  }
+  
+  .btn-pay {
+    margin-left: 0 !important;
+    width: 100% !important;
+    margin-top: 1rem !important;
+    padding: 1.2rem !important;
+    font-size: 1.4rem !important;
+  }
+}

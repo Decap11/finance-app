@@ -1,0 +1,4 @@
+[build]
+  base = "finance-app"
+  command = "npm run build"
+  publish = ".next"
