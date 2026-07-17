@@ -64,7 +64,7 @@ export default function Settings({ isAdminView = false }) {
     loadUserProfile();
   }, []);
 
-  const compressImage = (file, maxWidth = 250, maxHeight = 250, quality = 0.8) => {
+  const processAvatarImage = (file, max = 300) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -77,14 +77,14 @@ export default function Settings({ isAdminView = false }) {
           let height = img.height;
 
           if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
+            if (width > max) {
+              height = Math.round((height * max) / width);
+              width = max;
             }
           } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
+            if (height > max) {
+              width = Math.round((width * max) / height);
+              height = max;
             }
           }
 
@@ -94,12 +94,16 @@ export default function Settings({ isAdminView = false }) {
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
 
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
-          resolve(compressedDataUrl);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          canvas.toBlob(
+            (blob) => resolve({ blob, dataUrl }),
+            "image/jpeg",
+            0.85
+          );
         };
-        img.onerror = (err) => reject(err);
+        img.onerror = reject;
       };
-      reader.onerror = (err) => reject(err);
+      reader.onerror = reject;
     });
   };
 
@@ -111,7 +115,7 @@ export default function Settings({ isAdminView = false }) {
       if (!file) return;
 
       setUpdating(true);
-      const compressedBase64 = await compressImage(file, 250, 250, 0.8);
+      const { blob, dataUrl } = await processAvatarImage(file, 300);
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -120,40 +124,51 @@ export default function Settings({ isAdminView = false }) {
         return;
       }
 
-      // 1. Save to local storage for instant local preview
-      if (session.user?.id) {
-        localStorage.setItem(`sacco_avatar_${session.user.id}`, compressedBase64);
+      const userId = session.user.id;
+      let finalUrl = dataUrl;
+
+      // 1. Try uploading file blob to Supabase Storage bucket 'avatars' (WhatsApp / Industry Standard)
+      const filePath = `${userId}/avatar.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, blob, { upsert: true, contentType: "image/jpeg" });
+
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(filePath);
+        if (urlData?.publicUrl) {
+          // Add timestamp query parameter to bypass browser caching when updated
+          finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+        }
+      } else {
+        console.warn("Supabase Storage bucket upload warning:", uploadErr.message);
       }
 
-      // 2. Direct client-side update to public.profiles table
+      // 2. Save CDN URL or fallback data URL to public.profiles table
       const { error: dbErr } = await supabase
-        .from('profiles')
-        .update({ avatar_url: compressedBase64 })
-        .eq('id', session.user.id);
+        .from("profiles")
+        .update({ avatar_url: finalUrl })
+        .eq("id", userId);
 
       if (dbErr) {
-        console.warn("Direct DB avatar update warning:", dbErr.message);
+        console.warn("Database profiles table avatar_url update warning:", dbErr.message);
       }
 
-      // 3. Persist to API route as secondary sync
+      // 3. Save to auth user metadata
       try {
-        await fetch('/api/profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            action: 'update_avatar',
-            avatar_url: compressedBase64
-          })
+        await supabase.auth.updateUser({
+          data: { avatar_url: finalUrl }
         });
-      } catch (apiErr) {
-        console.warn("API route avatar update warning:", apiErr.message);
+      } catch (e) {
+        // Ignore metadata update errors
       }
 
-      setAvatarUrl(compressedBase64);
-      setSuccessMsg("Avatar updated successfully across all devices!");
+      // 4. Save locally for instant UI update
+      localStorage.setItem(`sacco_avatar_${userId}`, finalUrl);
+
+      setAvatarUrl(finalUrl);
+      setSuccessMsg("Profile avatar updated successfully!");
     } catch (err) {
       console.warn("Error uploading avatar:", err);
       setErrorMsg("Failed to upload avatar: " + err.message);
