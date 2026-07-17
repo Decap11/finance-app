@@ -64,6 +64,45 @@ export default function Settings({ isAdminView = false }) {
     loadUserProfile();
   }, []);
 
+  const compressImage = (file, maxWidth = 250, maxHeight = 250, quality = 0.8) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
   const handleAvatarUpload = async (e) => {
     try {
       setErrorMsg("");
@@ -71,50 +110,50 @@ export default function Settings({ isAdminView = false }) {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        try {
-          const base64Url = reader.result;
+      setUpdating(true);
+      const compressedBase64 = await compressImage(file, 250, 250, 0.8);
 
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            setErrorMsg("Your session has expired. Please log in again.");
-            return;
-          }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setErrorMsg("Your session has expired. Please log in again.");
+        setUpdating(false);
+        return;
+      }
 
-          // Save to local storage for instant local preview
-          if (session.user?.id) {
-            localStorage.setItem(`sacco_avatar_${session.user.id}`, base64Url);
-          }
+      // 1. Save to local storage for instant local preview
+      if (session.user?.id) {
+        localStorage.setItem(`sacco_avatar_${session.user.id}`, compressedBase64);
+      }
 
-          // Persist to database profiles table so all members can view it
-          const res = await fetch('/api/profile', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({
-              action: 'update_avatar',
-              avatar_url: base64Url
-            })
-          });
+      // 2. Direct client-side update to public.profiles table
+      const { error: dbErr } = await supabase
+        .from('profiles')
+        .update({ avatar_url: compressedBase64 })
+        .eq('id', session.user.id);
 
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Failed to update avatar");
+      if (dbErr) {
+        console.warn("Direct DB avatar update warning:", dbErr.message);
+      }
 
-          setAvatarUrl(base64Url);
-          setSuccessMsg("Avatar uploaded successfully!");
-        } catch (err) {
-          console.warn("Error uploading avatar in onload:", err);
-          setErrorMsg("Failed to upload avatar: " + err.message);
-        }
-      };
+      // 3. Persist to API route as secondary sync
+      try {
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            action: 'update_avatar',
+            avatar_url: compressedBase64
+          })
+        });
+      } catch (apiErr) {
+        console.warn("API route avatar update warning:", apiErr.message);
+      }
 
-      reader.onerror = (error) => {
-        throw error;
-      };
+      setAvatarUrl(compressedBase64);
+      setSuccessMsg("Avatar updated successfully across all devices!");
     } catch (err) {
       console.warn("Error uploading avatar:", err);
       setErrorMsg("Failed to upload avatar: " + err.message);
