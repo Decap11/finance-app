@@ -63,8 +63,50 @@
   }
 
   .members-grid {
-    grid-template-columns: 1fr;
-    gap: 1.4rem;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  .member-card {
+    padding: 1.2rem !important;
+    border-radius: 1.2rem !important;
+  }
+
+  .member-card-header {
+    gap: 0.8rem !important;
+    margin-bottom: 0.8rem !important;
+  }
+
+  .member-avatar,
+  .member-avatar-initials {
+    width: 3.6rem !important;
+    height: 3.6rem !important;
+    font-size: 1.4rem !important;
+  }
+
+  .member-name {
+    font-size: 1.3rem !important;
+  }
+
+  .badge-id,
+  .badge-tier {
+    font-size: 0.95rem !important;
+    padding: 0.15rem 0.5rem !important;
+  }
+
+  .member-contact-info {
+    padding-top: 0.8rem !important;
+    gap: 0.4rem !important;
+  }
+
+  .contact-row {
+    font-size: 1.1rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .contact-row i {
+    width: 1.2rem !important;
+    font-size: 1.1rem !important;
   }
 }
 
