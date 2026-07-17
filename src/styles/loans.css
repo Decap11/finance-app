@@ -317,3 +317,110 @@ html {
   background-color: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
 }
+
+@media (max-width: 44rem) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+
+  .loan-request-widget,
+  .repayment-progress-visual,
+  .recent-transactions {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+    margin-top: 1.5rem !important;
+  }
+
+  .loan-form {
+    gap: 1.5rem !important;
+  }
+
+  .form-group label {
+    font-size: 1.3rem !important;
+  }
+
+  .input-wrapper input,
+  .input-wrapper select {
+    padding: 1.2rem 1.2rem 1.2rem 3.8rem !important;
+    font-size: 1.4rem !important;
+    border-radius: 0.8rem !important;
+  }
+
+  .input-wrapper i {
+    left: 1.2rem !important;
+    font-size: 1.4rem !important;
+  }
+
+  .loan-details {
+    padding: 1.4rem !important;
+    gap: 1rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .detail-row {
+    font-size: 1.25rem !important;
+  }
+
+  .detail-row .bold {
+    font-size: 1.4rem !important;
+  }
+
+  .btn-submit-loan {
+    padding: 1.4rem !important;
+    font-size: 1.4rem !important;
+    border-radius: 0.8rem !important;
+  }
+
+  .progress-labels {
+    font-size: 1.15rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.6rem !important;
+  }
+
+  .progress-footer {
+    font-size: 1.15rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .section-header {
+    margin-bottom: 1.8rem !important;
+  }
+
+  .section-title {
+    font-size: 1.5rem !important;
+  }
+
+  .transaction-item {
+    padding: 1.4rem 0 !important;
+  }
+
+  .tx-info {
+    gap: 1.2rem !important;
+  }
+
+  .tx-icon {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 1.6rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tx-details h4 {
+    font-size: 1.35rem !important;
+  }
+
+  .tx-details p {
+    font-size: 1.15rem !important;
+  }
+
+  .tx-amount {
+    font-size: 1.35rem !important;
+  }
+
+  .tx-status {
+    font-size: 1.1rem !important;
+    padding: 0.3rem 0.8rem !important;
+  }
+}
