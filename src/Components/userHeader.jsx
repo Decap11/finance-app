@@ -40,9 +40,18 @@ export default function UserHeader() {
 
         if (data.profile) {
           setProfile(data.profile);
-          const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
+          const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`) || localStorage.getItem(`sacco_avatar_${session.user.id}`);
           const avatar = data.profile.avatar_url || localAvatar || data.user?.user_metadata?.avatar_url || "";
           setAvatarUrl(avatar);
+
+          // Auto-sync to database profiles table if missing
+          if (!data.profile.avatar_url && avatar) {
+            supabase
+              .from("profiles")
+              .update({ avatar_url: avatar })
+              .eq("id", data.profile.id)
+              .then(() => {});
+          }
 
           // Fetch broadcasts for this SACCO Group
           await fetchBroadcasts(data.profile, session.user.id);

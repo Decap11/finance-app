@@ -136,27 +136,13 @@ export default function Login() {
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: "1.3rem",
-            marginBottom: "2rem",
-            color: "var(--text-light)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.8rem",
-          }}
-        >
+        <div className="remember-container">
           <input
             type="checkbox"
             id="remember"
-            style={{
-              width: "1.4rem",
-              height: "1.4rem",
-              accentColor: "var(--primary-color)",
-              cursor: "pointer",
-            }}
+            className="remember-checkbox"
           />
-          <label htmlFor="remember" style={{ cursor: "pointer" }}>
+          <label htmlFor="remember" className="remember-label">
             Remember me on this device
           </label>
         </div>
@@ -170,7 +156,7 @@ export default function Login() {
         </button>
       </form>
 
-      <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div className="auth-footer">
         <div>
           Don't have an account?{" "}
           <Link href="/signup" className="auth-link">

@@ -52,9 +52,21 @@ export default function GroupMembers() {
         const groupCount = profiles.length;
 
         const combined = profiles.map((p) => {
-          const isCurrentUser = p.id === session.user.id;
-          const localAvatar = isCurrentUser ? localStorage.getItem(`sacco_avatar_${p.id}`) : null;
-          const avatarUrl = p.avatar_url || localAvatar || (isCurrentUser ? (session.user.user_metadata?.avatar_url || "") : "");
+          const isCurrentUser = String(p.id).toLowerCase() === String(session.user.id).toLowerCase();
+          const localAvatar = localStorage.getItem(`sacco_avatar_${p.id}`) || (isCurrentUser ? localStorage.getItem(`sacco_avatar_${session.user.id}`) : null);
+          const metaAvatar = isCurrentUser ? (session.user?.user_metadata?.avatar_url || "") : "";
+          const avatarUrl = p.avatar_url || localAvatar || metaAvatar || "";
+
+          // Auto-backfill database table if missing for current user
+          if (isCurrentUser && !p.avatar_url && avatarUrl) {
+            supabase
+              .from("profiles")
+              .update({ avatar_url: avatarUrl })
+              .eq("id", p.id)
+              .then(({ error }) => {
+                if (error) console.warn("Auto-sync profile avatar error:", error.message);
+              });
+          }
 
           return {
             id: p.member_number || `MEM-${p.id.substring(0, 8)}`,
