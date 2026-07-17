@@ -14,7 +14,8 @@ create table public.profiles (
   updated_at timestamptz not null default now(),
   shares_target numeric(15, 2) default 50000.00,
   devt_target numeric(15, 2) default 10000.00,
-  social_target numeric(15, 2) default 10000.00
+  social_target numeric(15, 2) default 10000.00,
+  avatar_url text
 );
 
 -- 2. SACCOs Table

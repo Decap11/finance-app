@@ -47,14 +47,11 @@ export default function Settings({ isAdminView = false }) {
         setEmail(data.profile.email || "");
         setPhone(data.profile.phone || "");
 
-        // 3. Load avatar from local storage with metadata fallback
-        if (data.profile?.id) {
+        // 3. Load avatar from database with local storage fallback
+        if (data.profile) {
           const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
-          if (localAvatar) {
-            setAvatarUrl(localAvatar);
-          } else if (data.user?.user_metadata?.avatar_url) {
-            setAvatarUrl(data.user.user_metadata.avatar_url);
-          }
+          const avatar = data.profile.avatar_url || localAvatar || data.user?.user_metadata?.avatar_url || "";
+          setAvatarUrl(avatar);
         }
       } catch (err) {
         console.warn("Error fetching user profile:", err);
@@ -86,19 +83,26 @@ export default function Settings({ isAdminView = false }) {
             return;
           }
 
-          // Save to local storage
+          // Save to local storage for instant local preview
           if (session.user?.id) {
             localStorage.setItem(`sacco_avatar_${session.user.id}`, base64Url);
           }
 
-          // Save through client-side auth update directly to prevent stateless server session failures
-          const { error: updateErr } = await supabase.auth.updateUser({
-            data: { avatar_url: "" } // Do not store base64 in metadata to prevent JWT bloating & 431 errors
+          // Persist to database profiles table so all members can view it
+          const res = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              action: 'update_avatar',
+              avatar_url: base64Url
+            })
           });
 
-          if (updateErr) {
-            throw updateErr;
-          }
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to update avatar");
 
           setAvatarUrl(base64Url);
           setSuccessMsg("Avatar uploaded successfully!");

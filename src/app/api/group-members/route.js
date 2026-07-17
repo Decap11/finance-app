@@ -25,7 +25,7 @@ export async function GET(request) {
     // Fetch all profiles in the same group
     const { data: profiles, error: listErr } = await supabase
       .from('profiles')
-      .select('id, member_number, full_name, phone, email, role, status, created_at, group_id')
+      .select('id, member_number, full_name, phone, email, role, status, created_at, group_id, avatar_url')
       .eq('group_id', userProfile.group_id);
 
     if (listErr) {

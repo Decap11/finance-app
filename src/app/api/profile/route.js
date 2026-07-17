@@ -34,11 +34,14 @@ export async function POST(request) {
     const { action, email, phone } = body;
 
     if (action === 'update_avatar') {
-      const { data: updateData, error: updateErr } = await supabase.auth.updateUser({
-        data: { avatar_url: "" } // Do not store base64 in metadata to prevent JWT bloating & 431 errors
-      });
-      if (updateErr) return Response.json({ error: updateErr.message }, { status: 500 });
-      return Response.json({ success: true, user: updateData.user });
+      const { avatar_url } = body;
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatar_url || '' })
+        .eq('id', user.id);
+
+      if (profileErr) return Response.json({ error: profileErr.message }, { status: 500 });
+      return Response.json({ success: true });
     } else if (action === 'update_profile') {
       const cleanEmail = (email || '').trim();
       const cleanPhone = (phone || '').trim();

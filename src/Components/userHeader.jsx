@@ -41,11 +41,8 @@ export default function UserHeader() {
         if (data.profile) {
           setProfile(data.profile);
           const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
-          if (localAvatar) {
-            setAvatarUrl(localAvatar);
-          } else if (data.user?.user_metadata?.avatar_url) {
-            setAvatarUrl(data.user.user_metadata.avatar_url);
-          }
+          const avatar = data.profile.avatar_url || localAvatar || data.user?.user_metadata?.avatar_url || "";
+          setAvatarUrl(avatar);
 
           // Fetch broadcasts for this SACCO Group
           await fetchBroadcasts(data.profile, session.user.id);

@@ -54,7 +54,7 @@ export default function GroupMembers() {
         const combined = profiles.map((p) => {
           const isCurrentUser = p.id === session.user.id;
           const localAvatar = isCurrentUser ? localStorage.getItem(`sacco_avatar_${p.id}`) : null;
-          const avatarUrl = localAvatar || (isCurrentUser ? (session.user.user_metadata?.avatar_url || "") : "");
+          const avatarUrl = p.avatar_url || localAvatar || (isCurrentUser ? (session.user.user_metadata?.avatar_url || "") : "");
 
           return {
             id: p.member_number || `MEM-${p.id.substring(0, 8)}`,
