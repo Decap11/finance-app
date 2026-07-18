@@ -13,53 +13,53 @@ CREATE POLICY "Users can view all profiles" ON public.profiles FOR SELECT USING 
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- 2. SACCOs Policies
--- Anyone can view active SACCOs
 CREATE POLICY "Anyone can view saccos" ON public.saccos FOR SELECT USING (true);
--- Only SACCO admins can update SACCO details
 CREATE POLICY "Admins can update sacco" ON public.saccos FOR UPDATE USING (
+  admin_profile_id = auth.uid() OR
   EXISTS (
-    SELECT 1 FROM public.sacco_memberships sm 
-    WHERE sm.sacco_id = id AND sm.profile_id = auth.uid() AND sm.role = 'admin'
+    SELECT 1 FROM public.profiles p 
+    WHERE p.id = auth.uid() AND p.role = 'admin'
   )
 );
 
 -- 3. SACCO Memberships Policies
--- Users can view their own memberships or if they are admin/loan_officer
 CREATE POLICY "Users can view their memberships" ON public.sacco_memberships FOR SELECT USING (
   profile_id = auth.uid() OR
   EXISTS (
-    SELECT 1 FROM public.sacco_memberships sm 
-    WHERE sm.sacco_id = sacco_id AND sm.profile_id = auth.uid() AND sm.role IN ('admin', 'loan_officer')
+    SELECT 1 FROM public.profiles p 
+    WHERE p.id = auth.uid() AND p.role IN ('admin', 'loan_officer')
   )
 );
 
 -- 4. Accounts Policies
--- Users can only view their own accounts
 CREATE POLICY "Users can view own accounts" ON public.accounts FOR SELECT USING (
   profile_id = auth.uid() OR
   EXISTS (
-    SELECT 1 FROM public.sacco_memberships sm 
-    WHERE sm.sacco_id = sacco_id AND sm.profile_id = auth.uid() AND sm.role IN ('admin', 'loan_officer')
+    SELECT 1 FROM public.profiles p 
+    WHERE p.id = auth.uid() AND p.role IN ('admin', 'loan_officer')
   )
 );
 
 -- 5. Transactions Policies
--- Users can view their own transactions
 CREATE POLICY "Users can view own transactions" ON public.transactions FOR SELECT USING (
   profile_id = auth.uid() OR
+  requested_by = auth.uid() OR
   EXISTS (
-    SELECT 1 FROM public.sacco_memberships sm 
-    WHERE sm.sacco_id = sacco_id AND sm.profile_id = auth.uid() AND sm.role IN ('admin', 'loan_officer')
+    SELECT 1 FROM public.profiles p 
+    WHERE p.id = auth.uid() AND p.role IN ('admin', 'loan_officer')
   )
 );
 
+CREATE POLICY "Users can insert own transactions" ON public.transactions FOR INSERT WITH CHECK (
+  profile_id = auth.uid() OR requested_by = auth.uid()
+);
+
 -- 6. Loans Policies
--- Users can view their own loans
 CREATE POLICY "Users can view own loans" ON public.loans FOR SELECT USING (
   profile_id = auth.uid() OR
   EXISTS (
-    SELECT 1 FROM public.sacco_memberships sm 
-    WHERE sm.sacco_id = sacco_id AND sm.profile_id = auth.uid() AND sm.role IN ('admin', 'loan_officer')
+    SELECT 1 FROM public.profiles p 
+    WHERE p.id = auth.uid() AND p.role IN ('admin', 'loan_officer')
   )
 );
 
