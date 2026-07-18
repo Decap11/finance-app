@@ -78,8 +78,21 @@ export default function UserHeader() {
       }
     });
 
+    const handleAvatarBroadcast = (event) => {
+      if (event.detail?.avatarUrl) {
+        setAvatarUrl(event.detail.avatarUrl);
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+    }
+
     return () => {
       authListener.subscription?.unsubscribe();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+      }
     };
   }, []);
 

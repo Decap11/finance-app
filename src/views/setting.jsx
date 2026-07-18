@@ -168,6 +168,14 @@ export default function Settings({ isAdminView = false }) {
       localStorage.setItem(`sacco_avatar_${userId}`, finalUrl);
 
       setAvatarUrl(finalUrl);
+
+      // 5. Broadcast avatar update event to all active header and directory components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_avatar_updated", {
+          detail: { avatarUrl: finalUrl, userId }
+        }));
+      }
+
       setSuccessMsg("Profile avatar updated successfully!");
     } catch (err) {
       console.warn("Error uploading avatar:", err);

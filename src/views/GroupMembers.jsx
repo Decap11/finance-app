@@ -97,6 +97,28 @@ export default function GroupMembers() {
     }
 
     loadMembers();
+
+    const handleAvatarBroadcast = (event) => {
+      if (event.detail?.avatarUrl && event.detail?.userId) {
+        setMembersList((prev) =>
+          prev.map((m) =>
+            m.isCurrentUser || String(m.id).toLowerCase().includes(String(event.detail.userId).toLowerCase())
+              ? { ...m, avatarUrl: event.detail.avatarUrl }
+              : m
+          )
+        );
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+      }
+    };
   }, []);
 
   const filteredMembers = membersList.filter(

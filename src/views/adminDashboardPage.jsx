@@ -153,8 +153,25 @@ export default function AdminDashboardPage() {
       )
       .subscribe();
 
+    const handleAvatarBroadcast = (event) => {
+      if (event.detail?.avatarUrl && event.detail?.userId) {
+        setAllMembers((prev) =>
+          prev.map((m) =>
+            m.id === event.detail.userId ? { ...m, avatarUrl: event.detail.avatarUrl } : m
+          )
+        );
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+      }
     };
   }, []);
 
