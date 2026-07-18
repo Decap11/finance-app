@@ -60,15 +60,21 @@ export default function AdminDashboardPage() {
 
       if (profilesList) {
         setAllMembers(
-          profilesList.map((m) => ({
-            id: m.id,
-            name: m.full_name || "Unknown",
-            memberId: m.member_number || "",
-            phone: m.phone || "N/A",
-            email: m.email || "N/A",
-            joinedDate: m.created_at ? new Date(m.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "N/A",
-            role: m.role || "member",
-          })),
+          profilesList.map((m) => {
+            const isCurrentUser = String(m.id).toLowerCase() === String(user.id).toLowerCase();
+            const localAvatar = typeof window !== "undefined" ? (localStorage.getItem(`sacco_avatar_${m.id}`) || (isCurrentUser ? localStorage.getItem(`sacco_avatar_${user.id}`) : null)) : null;
+            const avatarUrl = m.avatar_url || m.avatarUrl || m.avatar || localAvatar || "";
+            return {
+              id: m.id,
+              name: m.full_name || "Unknown",
+              memberId: m.member_number || "",
+              phone: m.phone || "N/A",
+              email: m.email || "N/A",
+              joinedDate: m.created_at ? new Date(m.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "N/A",
+              role: m.role || "member",
+              avatarUrl: avatarUrl,
+            };
+          }),
         );
 
         setMetrics((prev) => ({ ...prev, totalMembers: profilesList.length }));
@@ -283,21 +289,43 @@ export default function AdminDashboardPage() {
                   border: "0.1rem solid rgba(226, 232, 240, 0.8)"
                 }}>
                   <div className="member-card-header" style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                    <div className="member-avatar-initials" style={{
-                      width: "5.5rem",
-                      height: "5.5rem",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%)",
-                      color: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "2rem",
-                      fontWeight: 700,
-                      boxShadow: "0 0.4rem 1rem rgba(59, 130, 246, 0.15)"
-                    }}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </div>
+                    {member.avatarUrl ? (
+                      <img
+                        src={member.avatarUrl}
+                        alt={`${member.name} Avatar`}
+                        style={{
+                          width: "5.5rem",
+                          height: "5.5rem",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          boxShadow: "0 0.4rem 1rem rgba(0, 0, 0, 0.1)",
+                          border: "0.2rem solid var(--primary-color)"
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextSibling) {
+                            e.currentTarget.nextSibling.style.display = "flex";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    {(!member.avatarUrl) && (
+                      <div className="member-avatar-initials" style={{
+                        width: "5.5rem",
+                        height: "5.5rem",
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%)",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "2rem",
+                        fontWeight: 700,
+                        boxShadow: "0 0.4rem 1rem rgba(59, 130, 246, 0.15)"
+                      }}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <h3 style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--text-dark)", margin: 0 }}>
                         {member.name}
