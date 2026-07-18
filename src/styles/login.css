@@ -215,11 +215,34 @@ body {
   }
 }
 
+.remember-container {
+  font-size: 1.3rem;
+  margin-bottom: 2rem;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.remember-checkbox {
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.remember-label {
+  cursor: pointer;
+}
+
 .auth-footer {
   margin-top: 3.5rem;
   text-align: center;
   font-size: 1.4rem;
   color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
 }
 
 .auth-link {
@@ -236,6 +259,97 @@ body {
 
 @media (max-width: 48rem) {
   .auth-container {
-    padding: 3rem 2rem;
+    padding: 3.5rem 2.5rem;
+  }
+}
+
+/* Mobile Responsive Styling (440px and below) */
+@media (max-width: 440px) {
+  body {
+    padding: 1.6rem 1.2rem;
+  }
+
+  .auth-container {
+    padding: 2.8rem 2rem;
+    border-radius: 1.8rem;
+    box-shadow: 0 0.8rem 3rem rgba(112, 144, 176, 0.12);
+    border: 0.1rem solid rgba(226, 232, 240, 0.8);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .auth-header {
+    margin-bottom: 2.4rem;
+  }
+
+  .auth-logo {
+    width: 5.2rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .auth-title {
+    font-size: 2.2rem;
+    letter-spacing: -0.02rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .auth-subtitle {
+    font-size: 1.3rem;
+    line-height: 1.45;
+  }
+
+  .form-group {
+    margin-bottom: 1.6rem;
+  }
+
+  .form-label {
+    font-size: 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .forgot-link {
+    font-size: 1.2rem;
+  }
+
+  .form-input-container {
+    width: 100%;
+  }
+
+  .form-input {
+    padding: 1.3rem 4rem 1.3rem 4.2rem;
+    font-size: 1.35rem;
+    border-radius: 1rem;
+  }
+
+  .form-icon {
+    font-size: 1.3rem;
+    left: 1.4rem;
+  }
+
+  .pwd-toggle {
+    font-size: 1.3rem;
+    right: 1.4rem;
+  }
+
+  .remember-container {
+    font-size: 1.25rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .btn-submit {
+    padding: 1.4rem;
+    font-size: 1.5rem;
+    border-radius: 1rem;
+    margin-top: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .auth-footer {
+    margin-top: 2.5rem;
+    font-size: 1.25rem;
+    line-height: 1.6;
   }
 }

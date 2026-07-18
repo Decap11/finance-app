@@ -1,6 +1,7 @@
 import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
+import { ToastProvider } from "../context/ToastContext";
 
 export const metadata = {
   title: "SACCO Finance",
@@ -22,8 +23,10 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <GlobalErrorHandler />
-        <div id="root">{children}</div>
+        <ToastProvider>
+          <GlobalErrorHandler />
+          <div id="root">{children}</div>
+        </ToastProvider>
       </body>
     </html>
   );

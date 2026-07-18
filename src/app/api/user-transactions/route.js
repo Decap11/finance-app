@@ -1,5 +1,3 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { verifyAuth } from '../../../lib/auth';
 
 export async function GET(request) {
@@ -78,10 +76,10 @@ export async function POST(request) {
       return Response.json({ error: 'Sacco group membership not found on your profile.' }, { status: 400 });
     }
 
-    // 2. Fetch Sacco ID
+    // 2. Fetch Sacco ID and database-backed settings
     const { data: saccoData, error: saccoErr } = await supabase
       .from('saccos')
-      .select('id')
+      .select('id, share_price, current_week')
       .eq('group_code', userProfile.group_id)
       .limit(1)
       .single();
@@ -91,21 +89,9 @@ export async function POST(request) {
     }
 
     const saccoId = saccoData.id;
+    const sharePrice = Number(saccoData.share_price) || 25000;
+    const currentWeek = Number(saccoData.current_week) || 1;
     const inserts = [];
-    
-    let sharePrice = 25000;
-    let currentWeek = 1;
-    try {
-      const filePath = path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
-      const data = await fs.readFile(filePath, 'utf8');
-      const settings = JSON.parse(data);
-      if (settings) {
-        if (settings.sharePrice) sharePrice = settings.sharePrice;
-        if (settings.currentWeek) currentWeek = settings.currentWeek;
-      }
-    } catch (err) {
-      console.warn("Failed to load active settings, using fallback:", err);
-    }
 
     // Check if the user has already submitted requests for this week number
     const { data: existingTxs, error: checkErr } = await supabase

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import { useToast } from "../../context/ToastContext";
 import "../../styles/developerPortal.css";
 
 export default function DeveloperPortal() {
@@ -11,6 +12,7 @@ export default function DeveloperPortal() {
   const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [loadingData, setLoadingData] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Database-backed states
   const [tenants, setTenants] = useState([]);
@@ -206,10 +208,10 @@ export default function DeveloperPortal() {
 
       // Refresh data
       await fetchDatabaseData();
-      alert(`Success: Sacco status updated in database to ${nextStatus.toUpperCase()}!`);
+      showSuccess(`Sacco status updated in database to ${nextStatus.toUpperCase()}!`);
     } catch (err) {
       console.error("Error updating Sacco status:", err);
-      alert(`Error updating Sacco status: ${err.message}`);
+      showError(`Error updating Sacco status: ${err.message}`);
     } finally {
       setLoadingData(false);
     }
@@ -239,7 +241,7 @@ export default function DeveloperPortal() {
       time: "Just now"
     };
     setLogs(prev => [newLog, ...prev]);
-    alert(`Success: Subscription plan '${planName}' configurations saved locally!`);
+    showSuccess(`Subscription plan '${planName}' configurations saved locally!`);
   };
 
   // Calculate platform totals

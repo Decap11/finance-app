@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import { useToast } from "../context/ToastContext";
 import "../styles/UserProgressTracker.css";
 
 export default function UserProgressTracker() {
   const [loading, setLoading] = useState(true);
+  const { showError, showSuccess } = useToast();
   const [balances, setBalances] = useState({
     shares: 0,
     development_fund: 0,
@@ -160,8 +162,9 @@ export default function UserProgressTracker() {
         social: newSocialTarget,
       });
       setIsEditing(false);
+      showSuccess("Financial goal targets updated successfully!");
     } catch (err) {
-      alert("Failed to save targets: " + err.message);
+      showError("Failed to save targets: " + err.message);
     } finally {
       setSavingTargets(false);
     }

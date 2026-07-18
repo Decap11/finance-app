@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import { useToast } from "../context/ToastContext";
 import "../styles/featureArea.css";
 
 export default function BroadcastMessageWidget() {
@@ -9,6 +10,7 @@ export default function BroadcastMessageWidget() {
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const { showSuccess } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,7 +64,7 @@ export default function BroadcastMessageWidget() {
 
       if (insertErr) throw insertErr;
 
-      alert(`Broadcast Message "${title}" published successfully to all group members!`);
+      showSuccess(`Broadcast Message "${title}" published successfully to all group members!`);
       setTitle("");
       setContent("");
 

@@ -28,6 +28,11 @@ create table public.saccos (
   member_limit integer,
   status text not null default 'active'
     check (status in ('active', 'suspended', 'closed')),
+  share_price numeric(15, 2) not null default 25000.00,
+  devt_fund numeric(15, 2) not null default 1000.00,
+  social_fund numeric(15, 2) not null default 2000.00,
+  current_week integer not null default 1 check (current_week between 1 and 52),
+  is_locked boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

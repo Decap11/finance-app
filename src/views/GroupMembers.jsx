@@ -55,7 +55,7 @@ export default function GroupMembers() {
           const isCurrentUser = String(p.id).toLowerCase() === String(session.user.id).toLowerCase();
           const localAvatar = localStorage.getItem(`sacco_avatar_${p.id}`) || (isCurrentUser ? localStorage.getItem(`sacco_avatar_${session.user.id}`) : null);
           const metaAvatar = isCurrentUser ? (session.user?.user_metadata?.avatar_url || "") : "";
-          const avatarUrl = p.avatar_url || localAvatar || metaAvatar || "";
+          const avatarUrl = p.avatar_url || p.avatarUrl || p.avatar || localAvatar || metaAvatar || "";
 
           // Auto-backfill database table if missing for current user
           if (isCurrentUser && !p.avatar_url && avatarUrl) {

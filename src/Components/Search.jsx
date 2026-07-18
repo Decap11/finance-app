@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../supabaseClient.js";
+import { useToast } from "../context/ToastContext";
 import "../styles/search.css";
 
 const NAV_SHORTCUTS = [

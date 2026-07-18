@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient.js";
+import { useToast } from "../context/ToastContext";
 import "../styles/UserRecentTransactionsTable.css";
 
 export default function UserRecentTransactions() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSuccess, showError } = useToast();
 
   async function fetchTransactions() {
     try {
@@ -18,13 +20,11 @@ export default function UserRecentTransactions() {
         }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      if (data.transactions) {
+      if (res.ok && data.transactions) {
         setTransactions(data.transactions);
       }
     } catch (err) {
-      console.warn("Error loading user transactions:", err);
+      console.warn("Failed to fetch transactions:", err);
     } finally {
       setLoading(false);
     }
@@ -60,9 +60,10 @@ export default function UserRecentTransactions() {
         p_transaction_id: transactionId
       });
       if (error) throw error;
+      showSuccess("Transaction approved successfully!");
       fetchTransactions();
     } catch (err) {
-      alert("Failed to approve transaction: " + err.message);
+      showError("Failed to approve transaction: " + err.message);
     }
   };
 
@@ -72,9 +73,10 @@ export default function UserRecentTransactions() {
         p_transaction_id: transactionId
       });
       if (error) throw error;
+      showSuccess("Transaction rejected.");
       fetchTransactions();
     } catch (err) {
-      alert("Failed to reject transaction: " + err.message);
+      showError("Failed to reject transaction: " + err.message);
     }
   };
 
