@@ -1,21 +1,25 @@
-import { verifyAuth } from '../../../lib/auth';
+import { verifyAuth, getPublicSupabase } from '../../../lib/auth';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
-    if (auth.error) return auth.error;
+    const user = !auth.error ? auth.user : null;
+    const publicSupabase = getPublicSupabase();
 
-    const { user, supabase } = auth;
+    if (!user) {
+      return Response.json({ error: 'No active authentication session token.' }, { status: 401 });
+    }
 
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profileRows } = await publicSupabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .limit(1);
 
-    if (profileErr) {
-      return Response.json({ error: profileErr.message }, { status: 500 });
-    }
+    const profile = profileRows && profileRows.length > 0 ? profileRows[0] : null;
 
     return Response.json({ user, profile });
   } catch (err) {

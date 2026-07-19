@@ -25,19 +25,18 @@ export default function Settings({ isAdminView = false }) {
 
         // 1. Get authenticated user session
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setErrorMsg("User session not found. Please log in.");
-          setLoading(false);
-          return;
-        }
+        const token = session.access_token;
+        const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
 
         // 2. Query profile through local server-side proxy API
-        const res = await fetch("/api/profile", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          }
-        });
-        const data = await res.json();
+        const res = await fetch("/api/profile", { headers });
+        const text = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(text || "Server returned a non-JSON profile response.");
+        }
 
         if (!res.ok) {
           throw new Error(data.error || "Failed to load settings profile.");

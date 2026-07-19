@@ -30,12 +30,18 @@ export default function UserHeader() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const res = await fetch("/api/profile", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          }
-        });
-        const data = await res.json();
+        const token = session.access_token;
+        const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
+
+        const res = await fetch("/api/profile", { headers });
+        const text = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.warn("Profile fetch non-JSON response:", text);
+          return;
+        }
         if (!res.ok) throw new Error(data.error);
 
         if (data.profile) {
