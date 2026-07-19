@@ -5,12 +5,22 @@ import { supabase } from "../supabaseClient.js";
 import "../styles/saccoSettings.css";
 
 export default function SaccoSettings() {
-  const [settings, setSettings] = useState({
-    sharePrice: 25000,
-    devtFund: 1000,
-    socialFund: 2000,
-    currentWeek: 1,
-    isLocked: false,
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("sacco_settings_cache");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+    }
+    return {
+      sharePrice: 25000,
+      devtFund: 1000,
+      socialFund: 2000,
+      currentWeek: 1,
+      isLocked: false,
+    };
   });
 
   const [allMembers, setAllMembers] = useState([]);
@@ -47,9 +57,20 @@ export default function SaccoSettings() {
       if (res.ok) {
         setSettings(data);
         setFilterWeek(data.currentWeek || 1);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
+        }
       }
     } catch (err) {
       console.warn("Failed to load Sacco settings:", err);
+      if (typeof window !== "undefined") {
+        const cached = localStorage.getItem("sacco_settings_cache");
+        if (cached) {
+          try {
+            setSettings(JSON.parse(cached));
+          } catch (e) {}
+        }
+      }
     } finally {
       setLoadingSettings(false);
     }
@@ -225,6 +246,9 @@ export default function SaccoSettings() {
       if (!res.ok) throw new Error(data.error || "Failed to update settings.");
 
       setMessage("Settings saved successfully!");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sacco_settings_cache", JSON.stringify(settings));
+      }
       await loadSettings();
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {

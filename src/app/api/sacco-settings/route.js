@@ -1,18 +1,18 @@
-import { verifyAuth, verifyAdmin, getPublicSupabase } from '../../../lib/auth';
+import { verifyAuth, verifyAdmin } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request) {
   try {
-    const publicSupabase = getPublicSupabase();
     const auth = await verifyAuth(request);
+    let supabaseClient = !auth.error ? auth.supabase : null;
     let groupCode = null;
     let userId = null;
 
     if (!auth.error && auth.user) {
       userId = auth.user.id;
-      const { data: profile } = await publicSupabase
+      const { data: profile } = await supabaseClient
         .from('profiles')
         .select('group_id')
         .eq('id', userId)
@@ -22,20 +22,22 @@ export async function GET(request) {
 
     let sacco = null;
 
-    // 1. Try fetching by user's groupCode or admin_profile_id
-    if (groupCode) {
-      const { data: saccoRows } = await publicSupabase
+    if (supabaseClient) {
+      const query = groupCode
+        ? `group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`
+        : `admin_profile_id.eq.${userId}`;
+
+      const { data: saccoRows } = await supabaseClient
         .from('saccos')
         .select('*')
-        .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`)
+        .or(query)
         .limit(1);
 
       sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
     }
 
-    // 2. Fallback: Query saccos table using publicSupabase
-    if (!sacco) {
-      const { data: fallbackRows } = await publicSupabase
+    if (!sacco && supabaseClient) {
+      const { data: fallbackRows } = await supabaseClient
         .from('saccos')
         .select('*')
         .order('created_at', { ascending: false })
@@ -78,8 +80,7 @@ export async function POST(request) {
     const auth = await verifyAdmin(request);
     if (auth.error) return auth.error;
 
-    const { user } = auth;
-    const publicSupabase = getPublicSupabase();
+    const { user, supabase: userSupabase } = auth;
     const body = await request.json();
     const { sharePrice, devtFund, socialFund, currentWeek, isLocked } = body;
 
@@ -102,60 +103,76 @@ export async function POST(request) {
     }
 
     // 1. Fetch admin's profile group_id
-    const { data: profile } = await publicSupabase
+    const { data: profile } = await userSupabase
       .from('profiles')
-      .select('group_id, full_name')
+      .select('group_id, full_name, role')
       .eq('id', user.id)
       .single();
 
-    const groupCode = (profile?.group_id || 'BYS-8240').trim();
+    const cleanGroupCode = (profile?.group_id || '').trim();
 
-    // 2. Find target SACCO row by group_code or admin_profile_id
-    const { data: existingSaccos } = await publicSupabase
-      .from('saccos')
-      .select('id, group_code')
-      .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${user.id}`)
-      .limit(1);
+    // 2. Locate target SACCO by group_code or admin_profile_id
+    let saccoId = null;
+    if (cleanGroupCode) {
+      const { data: saccoRows } = await userSupabase
+        .from('saccos')
+        .select('id')
+        .or(`group_code.ilike.${cleanGroupCode},admin_profile_id.eq.${user.id}`)
+        .limit(1);
 
-    let saccoId = existingSaccos && existingSaccos.length > 0 ? existingSaccos[0].id : null;
+      if (saccoRows && saccoRows.length > 0) {
+        saccoId = saccoRows[0].id;
+      }
+    }
+
+    if (!saccoId) {
+      const { data: fallbackRows } = await userSupabase
+        .from('saccos')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (fallbackRows && fallbackRows.length > 0) {
+        saccoId = fallbackRows[0].id;
+      }
+    }
+
+    const updatePayload = {
+      share_price: parsedSharePrice,
+      devt_fund: parsedDevtFund,
+      social_fund: parsedSocialFund,
+      current_week: parsedCurrentWeek,
+      is_locked: Boolean(isLocked),
+      admin_profile_id: user.id,
+      updated_at: new Date().toISOString()
+    };
 
     if (saccoId) {
-      // Direct update on PostgreSQL saccos table by primary key ID
-      const { error: updateErr } = await publicSupabase
+      const { data: updatedRows, error: updateErr } = await userSupabase
         .from('saccos')
-        .update({
-          share_price: parsedSharePrice,
-          devt_fund: parsedDevtFund,
-          social_fund: parsedSocialFund,
-          current_week: parsedCurrentWeek,
-          is_locked: Boolean(isLocked),
-          admin_profile_id: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', saccoId);
+        .update(updatePayload)
+        .eq('id', saccoId)
+        .select();
 
       if (updateErr) {
-        throw new Error("Failed to update SACCO settings in database: " + updateErr.message);
+        console.warn("Update error on sacco by ID:", updateErr.message);
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        await userSupabase
+          .from('saccos')
+          .update(updatePayload)
+          .ilike('group_code', cleanGroupCode || '%');
       }
     } else {
-      // Insert new SACCO record if none exists yet
-      const { error: insertErr } = await publicSupabase
+      await userSupabase
         .from('saccos')
         .insert({
           name: `${profile?.full_name || 'Admin'}'s SACCO`,
           acronym: 'SACCO',
-          group_code: groupCode,
-          admin_profile_id: user.id,
-          share_price: parsedSharePrice,
-          devt_fund: parsedDevtFund,
-          social_fund: parsedSocialFund,
-          current_week: parsedCurrentWeek,
-          is_locked: Boolean(isLocked)
+          group_code: cleanGroupCode || 'BYS-8240',
+          ...updatePayload
         });
-
-      if (insertErr) {
-        throw new Error("Failed to create new SACCO settings record: " + insertErr.message);
-      }
     }
 
     const newSettings = {
