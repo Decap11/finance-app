@@ -1,5 +1,3 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { verifyAuth } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -22,10 +20,10 @@ export async function GET(request) {
       return Response.json({ error: 'Sacco membership not found on profile.' }, { status: 400 });
     }
 
-    // 2. Fetch Sacco ID
+    // 2. Fetch Sacco details directly from database
     const { data: saccoData, error: saccoErr } = await supabase
       .from('saccos')
-      .select('id')
+      .select('id, current_week')
       .eq('group_code', userProfile.group_id)
       .limit(1)
       .single();
@@ -34,18 +32,7 @@ export async function GET(request) {
       return Response.json({ error: 'Sacco group not found.' }, { status: 400 });
     }
 
-    // 3. Read active week from sacco-settings
-    let currentWeek = 1;
-    try {
-      const filePath = path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
-      const data = await fs.readFile(filePath, 'utf8');
-      const settings = JSON.parse(data);
-      if (settings && settings.currentWeek) {
-        currentWeek = Number(settings.currentWeek);
-      }
-    } catch (err) {
-      console.warn("Failed to load settings file, using fallback currentWeek = 1");
-    }
+    const currentWeek = Number(saccoData.current_week) || 1;
 
     // 4. Fetch all approved/completed transactions for this SACCO group
     const { data: transactions, error: txErr } = await supabase
