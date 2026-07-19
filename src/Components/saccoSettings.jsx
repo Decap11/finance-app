@@ -242,7 +242,14 @@ export default function SaccoSettings() {
         body: JSON.stringify(settings),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(text || "Server returned a non-JSON response.");
+      }
+
       if (!res.ok) throw new Error(data.error || "Failed to update settings.");
 
       setMessage("Settings saved successfully!");
