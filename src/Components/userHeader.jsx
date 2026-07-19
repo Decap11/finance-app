@@ -257,7 +257,7 @@ export default function UserHeader() {
           <Search />
 
           {/* Prominent Switch to Admin View Button for Admins */}
-          {((profile?.role || "").trim().toLowerCase() === "admin" || (profile?.role || "").trim().toLowerCase() === "super_admin") && (
+          {(((profile?.role || "").trim().toLowerCase() === "admin" || (profile?.role || "").trim().toLowerCase() === "super_admin") || (typeof window !== "undefined" && localStorage.getItem("is_admin_user") === "true")) && (
             <Link
               href="/admin"
               className="btn-admin-view-switch"
@@ -354,7 +354,7 @@ export default function UserHeader() {
               className={`profile-dropdown${showDropdown ? " show" : ""}`}
               id="profileDropdown"
             >
-              {((profile?.role || "").trim().toLowerCase() === "admin" || (profile?.role || "").trim().toLowerCase() === "super_admin") && (
+              {(((profile?.role || "").trim().toLowerCase() === "admin" || (profile?.role || "").trim().toLowerCase() === "super_admin") || (typeof window !== "undefined" && localStorage.getItem("is_admin_user") === "true")) && (
                 <>
                   <Link href="/admin" className="dropdown-item" style={{ fontWeight: 600, color: "var(--primary-color)" }}>
                     <i className="fa-solid fa-user-shield" /> Switch to Admin Mode

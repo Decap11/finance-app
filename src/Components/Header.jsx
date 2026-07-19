@@ -39,9 +39,12 @@ export default function Header() {
 
         if (data.profile) {
           setProfile(data.profile);
-          const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
+          const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`) || localStorage.getItem(`sacco_avatar_${session.user.id}`);
           const avatar = data.profile.avatar_url || localAvatar || data.user?.user_metadata?.avatar_url || "";
           setAvatarUrl(avatar);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("is_admin_user", "true");
+          }
 
           // Fetch broadcasts for this SACCO Group
           await fetchBroadcasts(data.profile, session.user.id);
