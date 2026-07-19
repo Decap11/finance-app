@@ -222,6 +222,7 @@ export default function SaccoSettings() {
       if (!res.ok) throw new Error(data.error || "Failed to update settings.");
 
       setMessage("Settings saved successfully!");
+      await loadSettings();
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
       setMessage(`Error: ${err.message}`);

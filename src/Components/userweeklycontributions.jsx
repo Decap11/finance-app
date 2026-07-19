@@ -25,7 +25,12 @@ export default function WeeklyContributions() {
         const data = await res.json();
         if (res.ok) {
           setGroupSettings(data);
-          setDevtFund(data.devtFund || 1000);
+          if (data.devtFund !== undefined && data.devtFund !== null) {
+            setDevtFund(data.devtFund);
+          }
+          if (data.socialFund !== undefined && data.socialFund !== null) {
+            setsocialFund(data.socialFund);
+          }
         }
       } catch (err) {
         console.warn("Failed to load active group settings:", err);
