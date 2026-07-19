@@ -39,7 +39,10 @@ export default function SaccoSettings() {
   // Load Sacco configuration
   async function loadSettings() {
     try {
-      const res = await fetch("/api/sacco-settings");
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
+
+      const res = await fetch("/api/sacco-settings", { headers });
       const data = await res.json();
       if (res.ok) {
         setSettings(data);

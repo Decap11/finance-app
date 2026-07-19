@@ -5,47 +5,52 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
-    if (!auth.error) {
-      const { user, supabase } = auth;
+    let supabaseClient = !auth.error ? auth.supabase : null;
+    let groupCode = null;
+    let userId = null;
 
-      const { data: profile } = await supabase
+    if (!auth.error && auth.user) {
+      userId = auth.user.id;
+      const { data: profile } = await supabaseClient
         .from('profiles')
         .select('group_id')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
+      groupCode = (profile?.group_id || '').trim();
+    }
 
-      const cleanGroupCode = (profile?.group_id || '').trim();
-      let sacco = null;
+    let sacco = null;
 
-      if (cleanGroupCode) {
-        const { data: saccoRows } = await supabase
-          .from('saccos')
-          .select('*')
-          .or(`group_code.ilike.${cleanGroupCode},admin_profile_id.eq.${user.id}`)
-          .limit(1);
+    // 1. Try fetching by user's groupCode or admin_profile_id
+    if (groupCode && supabaseClient) {
+      const { data: saccoRows } = await supabaseClient
+        .from('saccos')
+        .select('*')
+        .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`)
+        .limit(1);
 
-        sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
-      }
+      sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+    }
 
-      if (!sacco) {
-        const { data: fallbackRows } = await supabase
-          .from('saccos')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1);
+    // 2. Fallback: Query saccos table using server supabase client
+    if (!sacco) {
+      const { data: fallbackRows } = await supabase
+        .from('saccos')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-        sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
-      }
+      sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
+    }
 
-      if (sacco) {
-        return Response.json({
-          sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
-          devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
-          socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
-          currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
-          isLocked: Boolean(sacco.is_locked)
-        });
-      }
+    if (sacco) {
+      return Response.json({
+        sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
+        devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
+        socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
+        currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
+        isLocked: Boolean(sacco.is_locked)
+      });
     }
 
     return Response.json({
