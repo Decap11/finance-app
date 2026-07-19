@@ -30,8 +30,7 @@ export default function UserHeader() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const token = session.access_token;
-        const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
+        const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
 
         const res = await fetch("/api/profile", { headers });
         const text = await res.text();

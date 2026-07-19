@@ -25,8 +25,7 @@ export default function Settings({ isAdminView = false }) {
 
         // 1. Get authenticated user session
         const { data: { session } } = await supabase.auth.getSession();
-        const token = session.access_token;
-        const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
+        const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
 
         // 2. Query profile through local server-side proxy API
         const res = await fetch("/api/profile", { headers });
