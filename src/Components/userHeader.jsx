@@ -267,31 +267,6 @@ export default function UserHeader() {
         <div className="header-actions">
           <Search />
 
-          {/* Prominent Switch to Admin View Button for Admins */}
-          {(((profile?.role || "").trim().toLowerCase() === "admin" || (profile?.role || "").trim().toLowerCase() === "super_admin") || (typeof window !== "undefined" && localStorage.getItem("is_admin_user") === "true")) && (
-            <Link
-              href="/admin"
-              className="btn-admin-view-switch"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.6rem",
-                backgroundColor: "#ebf0fe",
-                color: "#253b8e",
-                border: "1px solid rgba(37, 59, 142, 0.2)",
-                padding: "0.6rem 1.4rem",
-                borderRadius: "2rem",
-                fontWeight: 700,
-                fontSize: "1.2rem",
-                textDecoration: "none",
-                transition: "all 0.2s ease"
-              }}
-            >
-              <i className="fa-solid fa-user-shield" />
-              <span>Admin View</span>
-            </Link>
-          )}
-
           {/* Dynamic Notification Bell Container */}
           <div 
             ref={notifRef}
