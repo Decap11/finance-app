@@ -7,13 +7,12 @@ export async function GET(request) {
   try {
     const publicSupabase = getPublicSupabase();
     const auth = await verifyAuth(request);
-    let supabaseClient = !auth.error ? auth.supabase : publicSupabase;
     let groupCode = null;
     let userId = null;
 
     if (!auth.error && auth.user) {
       userId = auth.user.id;
-      const { data: profile } = await supabaseClient
+      const { data: profile } = await publicSupabase
         .from('profiles')
         .select('group_id')
         .eq('id', userId)
@@ -25,7 +24,7 @@ export async function GET(request) {
 
     // 1. Try fetching by user's groupCode or admin_profile_id
     if (groupCode) {
-      const { data: saccoRows } = await supabaseClient
+      const { data: saccoRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`)
@@ -79,7 +78,8 @@ export async function POST(request) {
     const auth = await verifyAdmin(request);
     if (auth.error) return auth.error;
 
-    const { user, supabase } = auth;
+    const { user } = auth;
+    const publicSupabase = getPublicSupabase();
     const body = await request.json();
     const { sharePrice, devtFund, socialFund, currentWeek, isLocked } = body;
 
@@ -102,7 +102,7 @@ export async function POST(request) {
     }
 
     // 1. Fetch admin's profile group_id
-    const { data: profile } = await supabase
+    const { data: profile } = await publicSupabase
       .from('profiles')
       .select('group_id, full_name')
       .eq('id', user.id)
@@ -111,7 +111,7 @@ export async function POST(request) {
     const groupCode = (profile?.group_id || 'BYS-8240').trim();
 
     // 2. Find target SACCO row by group_code or admin_profile_id
-    const { data: existingSaccos } = await supabase
+    const { data: existingSaccos } = await publicSupabase
       .from('saccos')
       .select('id, group_code')
       .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${user.id}`)
@@ -120,8 +120,8 @@ export async function POST(request) {
     let saccoId = existingSaccos && existingSaccos.length > 0 ? existingSaccos[0].id : null;
 
     if (saccoId) {
-      // Update existing SACCO record by primary key ID
-      const { error: updateErr } = await supabase
+      // Direct update on PostgreSQL saccos table by primary key ID
+      const { error: updateErr } = await publicSupabase
         .from('saccos')
         .update({
           share_price: parsedSharePrice,
@@ -135,11 +135,11 @@ export async function POST(request) {
         .eq('id', saccoId);
 
       if (updateErr) {
-        console.warn("Database update error by saccoId:", updateErr.message);
+        throw new Error("Failed to update SACCO settings in database: " + updateErr.message);
       }
     } else {
       // Insert new SACCO record if none exists yet
-      const { data: newSacco, error: insertErr } = await supabase
+      const { error: insertErr } = await publicSupabase
         .from('saccos')
         .insert({
           name: `${profile?.full_name || 'Admin'}'s SACCO`,
@@ -151,12 +151,10 @@ export async function POST(request) {
           social_fund: parsedSocialFund,
           current_week: parsedCurrentWeek,
           is_locked: Boolean(isLocked)
-        })
-        .select()
-        .single();
+        });
 
       if (insertErr) {
-        console.warn("Database insert error for sacco record:", insertErr.message);
+        throw new Error("Failed to create new SACCO settings record: " + insertErr.message);
       }
     }
 

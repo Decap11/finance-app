@@ -55,7 +55,8 @@ export async function verifyAdmin(request) {
       .eq('id', auth.user.id)
       .single();
 
-    if (profileErr || !profile || profile.role !== 'admin') {
+    const userRole = (profile?.role || '').trim().toLowerCase();
+    if (profileErr || !profile || (userRole !== 'admin' && userRole !== 'super_admin')) {
       return { error: Response.json({ error: 'Unauthorized. Only admins can access this resource.' }, { status: 403 }) };
     }
 
