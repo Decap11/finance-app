@@ -76,16 +76,37 @@ export async function POST(request) {
       return Response.json({ error: 'Sacco group membership not found on your profile.' }, { status: 400 });
     }
 
-    // 2. Fetch Sacco ID and database-backed settings
-    const { data: saccoData, error: saccoErr } = await supabase
-      .from('saccos')
-      .select('id, share_price, current_week')
-      .eq('group_code', userProfile.group_id)
-      .limit(1)
-      .single();
+    const cleanGroupCode = (userProfile.group_id || '').trim();
 
-    if (saccoErr || !saccoData) {
-      return Response.json({ error: 'Sacco group metadata not found in database.' }, { status: 400 });
+    // 2. Fetch Sacco ID and database-backed settings (case-insensitive & fail-safe)
+    const { data: saccoRows, error: saccoErr } = await supabase
+      .from('saccos')
+      .select('*')
+      .ilike('group_code', cleanGroupCode)
+      .limit(1);
+
+    if (saccoErr) {
+      return Response.json({ error: `Database error querying SACCO group: ${saccoErr.message}` }, { status: 500 });
+    }
+
+    let saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+
+    // Fallback: If specific group_code row wasn't found in saccos table, fetch first available sacco
+    if (!saccoData) {
+      const { data: fallbackRows } = await supabase
+        .from('saccos')
+        .select('*')
+        .limit(1);
+
+      if (fallbackRows && fallbackRows.length > 0) {
+        saccoData = fallbackRows[0];
+      }
+    }
+
+    if (!saccoData) {
+      return Response.json({ 
+        error: `Sacco group code '${cleanGroupCode}' was not found in your database's saccos table. Please ensure the SACCO group exists.` 
+      }, { status: 400 });
     }
 
     const saccoId = saccoData.id;

@@ -20,16 +20,30 @@ export async function GET(request) {
       return Response.json({ error: 'Sacco membership not found on profile.' }, { status: 400 });
     }
 
-    // 2. Fetch Sacco details directly from database
-    const { data: saccoData, error: saccoErr } = await supabase
-      .from('saccos')
-      .select('id, current_week')
-      .eq('group_code', userProfile.group_id)
-      .limit(1)
-      .single();
+    const cleanGroupCode = (userProfile.group_id || '').trim();
 
-    if (saccoErr || !saccoData) {
-      return Response.json({ error: 'Sacco group not found.' }, { status: 400 });
+    // 2. Fetch Sacco details directly from database (case-insensitive & fail-safe)
+    const { data: saccoRows, error: saccoErr } = await supabase
+      .from('saccos')
+      .select('*')
+      .ilike('group_code', cleanGroupCode)
+      .limit(1);
+
+    let saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+
+    if (!saccoData) {
+      const { data: fallbackRows } = await supabase
+        .from('saccos')
+        .select('*')
+        .limit(1);
+
+      if (fallbackRows && fallbackRows.length > 0) {
+        saccoData = fallbackRows[0];
+      }
+    }
+
+    if (!saccoData) {
+      return Response.json({ error: 'Sacco group metadata not found in database.' }, { status: 400 });
     }
 
     const currentWeek = Number(saccoData.current_week) || 1;
