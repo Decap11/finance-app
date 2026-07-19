@@ -23,21 +23,28 @@ export async function GET(request) {
 
     let sacco = null;
 
-    if (groupCode) {
+    // 1. Primary lookup by group_code or admin_profile_id, ordered by updated_at DESC
+    if (groupCode || userId) {
+      const filterClause = groupCode
+        ? `group_code.ilike.${groupCode}${userId ? `,admin_profile_id.eq.${userId}` : ''}`
+        : `admin_profile_id.eq.${userId}`;
+
       const { data: saccoRows } = await supabaseClient
         .from('saccos')
         .select('*')
-        .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`)
+        .or(filterClause)
+        .order('updated_at', { ascending: false })
         .limit(1);
 
       sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
     }
 
+    // 2. Global Fallback lookup: Most recently updated SACCO record in PostgreSQL
     if (!sacco) {
       const { data: fallbackRows } = await publicSupabase
         .from('saccos')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(1);
 
       sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
@@ -77,6 +84,9 @@ export async function POST(request) {
     const auth = await verifyAuth(request);
     const user = !auth.error ? auth.user : null;
     const publicSupabase = getPublicSupabase();
+    // Use authenticated client if available to pass RLS policy
+    const supabaseClient = (!auth.error && auth.supabase) ? auth.supabase : publicSupabase;
+
     const body = await request.json();
     const { sharePrice, devtFund, socialFund, currentWeek, isLocked } = body;
 
@@ -102,51 +112,13 @@ export async function POST(request) {
     let userId = user ? user.id : null;
 
     if (user) {
-      const { data: profile } = await publicSupabase
+      const { data: profile } = await supabaseClient
         .from('profiles')
         .select('group_id')
         .eq('id', user.id)
         .single();
 
       cleanGroupCode = (profile?.group_id || '').trim();
-    }
-
-    // 2. Locate target SACCO by group_code, admin_profile_id, or fallback
-    let saccoId = null;
-    if (cleanGroupCode) {
-      const { data: saccoRows } = await publicSupabase
-        .from('saccos')
-        .select('id')
-        .ilike('group_code', cleanGroupCode)
-        .limit(1);
-
-      if (saccoRows && saccoRows.length > 0) {
-        saccoId = saccoRows[0].id;
-      }
-    }
-
-    if (!saccoId && userId) {
-      const { data: saccoRows } = await publicSupabase
-        .from('saccos')
-        .select('id')
-        .eq('admin_profile_id', userId)
-        .limit(1);
-
-      if (saccoRows && saccoRows.length > 0) {
-        saccoId = saccoRows[0].id;
-      }
-    }
-
-    if (!saccoId) {
-      const { data: fallbackRows } = await publicSupabase
-        .from('saccos')
-        .select('id')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (fallbackRows && fallbackRows.length > 0) {
-        saccoId = fallbackRows[0].id;
-      }
     }
 
     const updatePayload = {
@@ -162,14 +134,50 @@ export async function POST(request) {
       updatePayload.admin_profile_id = userId;
     }
 
-    // Update ALL sacco rows in PostgreSQL database so every tenant/fallback persists updated settings
-    const { error: updateErr } = await publicSupabase
-      .from('saccos')
-      .update(updatePayload)
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    // 1. Locate target SACCO by group_code or admin_profile_id
+    let saccoId = null;
+    if (cleanGroupCode) {
+      const { data: saccoRows } = await supabaseClient
+        .from('saccos')
+        .select('id')
+        .ilike('group_code', cleanGroupCode)
+        .limit(1);
 
-    if (updateErr) {
-      console.warn("Update all sacco settings error:", updateErr.message);
+      if (saccoRows && saccoRows.length > 0) {
+        saccoId = saccoRows[0].id;
+      }
+    }
+
+    if (!saccoId && userId) {
+      const { data: saccoRows } = await supabaseClient
+        .from('saccos')
+        .select('id')
+        .eq('admin_profile_id', userId)
+        .limit(1);
+
+      if (saccoRows && saccoRows.length > 0) {
+        saccoId = saccoRows[0].id;
+      }
+    }
+
+    // 2. Perform database update using authenticated client + publicSupabase fallback
+    if (saccoId) {
+      await supabaseClient.from('saccos').update(updatePayload).eq('id', saccoId);
+      await publicSupabase.from('saccos').update(updatePayload).eq('id', saccoId);
+    } else {
+      // Update most recently created sacco or insert if empty
+      const { data: existing } = await publicSupabase.from('saccos').select('id').order('created_at', { ascending: false }).limit(1);
+      if (existing && existing.length > 0) {
+        await supabaseClient.from('saccos').update(updatePayload).eq('id', existing[0].id);
+        await publicSupabase.from('saccos').update(updatePayload).eq('id', existing[0].id);
+      } else {
+        await publicSupabase.from('saccos').insert({
+          name: 'SACCO',
+          acronym: 'SACCO',
+          group_code: cleanGroupCode || 'BYS-8240',
+          ...updatePayload
+        });
+      }
     }
 
     const newSettings = {
