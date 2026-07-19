@@ -34,8 +34,11 @@ export default function UserSideBar() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        if (data.profile && data.profile.role === "admin") {
-          setIsAdmin(true);
+        if (data.profile) {
+          const userRole = (data.profile.role || "").trim().toLowerCase();
+          if (userRole === "admin" || userRole === "super_admin") {
+            setIsAdmin(true);
+          }
         }
       } catch (err) {
         console.warn("Failed to check admin role in sidebar:", err);
