@@ -18,6 +18,24 @@ export default function DeveloperPortal() {
   const [tenants, setTenants] = useState([]);
   const [logs, setLogs] = useState([]);
 
+  // Super-Admin Provisioning & Tier Modal States
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [provisionForm, setProvisionForm] = useState({
+    saccoName: "",
+    acronym: "",
+    groupCode: "",
+    adminEmail: "",
+    planTier: "basic",
+    sharePrice: 25000
+  });
+
+  const [showTierModal, setShowTierModal] = useState(false);
+  const [tierForm, setTierForm] = useState({
+    saccoId: "",
+    saccoName: "",
+    planTier: "basic"
+  });
+
   // Mock Subscription Plans details (adjustable locally)
   const [plans, setPlans] = useState({
     basic: { name: "Basic Plan", price: 150000, memberLimit: 50, shareValuation: 2000 },
@@ -150,6 +168,70 @@ export default function DeveloperPortal() {
 
     } catch (err) {
       console.error("Error fetching developer portal database data:", err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Handle SACCO Group Provisioning
+  const handleProvisionSacco = async (e) => {
+    e.preventDefault();
+    if (!provisionForm.saccoName || !provisionForm.groupCode) {
+      showError("Please fill in SACCO Name and Group Code.");
+      return;
+    }
+
+    setLoadingData(true);
+    try {
+      const res = await fetch("/api/developer/provision-sacco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(provisionForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showSuccess(`SACCO '${provisionForm.saccoName}' provisioned successfully!`);
+      setShowProvisionModal(false);
+      setProvisionForm({
+        saccoName: "",
+        acronym: "",
+        groupCode: "",
+        adminEmail: "",
+        planTier: "basic",
+        sharePrice: 25000
+      });
+      await fetchDatabaseData();
+    } catch (err) {
+      showError(`Error provisioning SACCO: ${err.message}`);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Handle Tenant Tier Update
+  const handleUpdateTier = async (e) => {
+    e.preventDefault();
+    if (!tierForm.saccoId) return;
+
+    setLoadingData(true);
+    try {
+      const res = await fetch("/api/developer/update-tenant-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saccoId: tierForm.saccoId,
+          planTier: tierForm.planTier
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showSuccess(`Subscription tier for '${tierForm.saccoName}' updated to ${tierForm.planTier.toUpperCase()}!`);
+      setShowTierModal(false);
+      await fetchDatabaseData();
+    } catch (err) {
+      showError(`Failed to update tier: ${err.message}`);
     } finally {
       setLoadingData(false);
     }
@@ -563,8 +645,15 @@ export default function DeveloperPortal() {
 
           {activeTab === "tenants" && (
             <div className="dev-card-wrapper">
-              <div className="dev-card-header">
+              <div className="dev-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="dev-card-title">Platform Tenant Directory</span>
+                <button 
+                  onClick={() => setShowProvisionModal(true)} 
+                  className="btn-dev-action font-weight-700"
+                  style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "white", border: "none", padding: "0.8rem 1.6rem", borderRadius: "0.8rem", cursor: "pointer", fontWeight: 700 }}
+                >
+                  <i className="fa-solid fa-plus" style={{ marginRight: "0.8rem" }}></i> Provision New SACCO
+                </button>
               </div>
               <div className="dev-table-container">
                 <table className="dev-table">
@@ -583,7 +672,7 @@ export default function DeveloperPortal() {
                     {tenants.length === 0 ? (
                       <tr>
                         <td colSpan="7" style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
-                          No Saccos registered in database. Use register sacco to add one.
+                          No Saccos registered in database. Use provision sacco to add one.
                         </td>
                       </tr>
                     ) : (
@@ -604,7 +693,17 @@ export default function DeveloperPortal() {
                             </span>
                           </td>
                           <td>
-                            <div className="dev-actions" style={{ justifyContent: "flex-end" }}>
+                            <div className="dev-actions" style={{ justifyContent: "flex-end", gap: "0.8rem" }}>
+                              <button 
+                                onClick={() => {
+                                  setTierForm({ saccoId: tenant.id, saccoName: tenant.name, planTier: tenant.plan || "basic" });
+                                  setShowTierModal(true);
+                                }}
+                                className="btn-dev-action"
+                                style={{ background: "#334155", color: "#f8fafc", border: "0.1rem solid #475569" }}
+                              >
+                                Change Tier
+                              </button>
                               <button 
                                 onClick={() => toggleTenantStatus(tenant.id, tenant.status)} 
                                 className={`btn-dev-action ${tenant.status === 'active' ? 'critical' : ''}`}
@@ -653,7 +752,7 @@ export default function DeveloperPortal() {
                           <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>Shs {plan.shareValuation.toLocaleString()}</span>
                         </div>
                         <div className="plan-setting-row" style={{ marginTop: "1rem" }}>
-                          <span className="plan-setting-label">Edit Monthly Cost</span>
+                          <span className="plan-setting-label">Monthly Rate (Shs)</span>
                           <input 
                             type="number" 
                             className="plan-setting-input" 
@@ -702,6 +801,224 @@ export default function DeveloperPortal() {
           )}
         </main>
       </div>
+
+      {/* 1. Provision SACCO Modal */}
+      {showProvisionModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          background: "rgba(11, 15, 25, 0.85)",
+          backdropFilter: "blur(8px)",
+          zIndex: 10000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem"
+        }}>
+          <div style={{
+            background: "#1e293b",
+            border: "0.1rem solid #334155",
+            borderRadius: "1.6rem",
+            padding: "3rem",
+            width: "100%",
+            maxWidth: "520px",
+            boxShadow: "0 2rem 4rem rgba(0, 0, 0, 0.5)",
+            color: "#f8fafc"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+              <h3 style={{ fontSize: "2rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>
+                <i className="fa-solid fa-building-columns" style={{ marginRight: "1rem", color: "#3b82f6" }}></i>
+                Provision New SACCO Group
+              </h3>
+              <button 
+                onClick={() => setShowProvisionModal(false)}
+                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "2rem", cursor: "pointer" }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleProvisionSacco} style={{ display: "flex", flexDirection: "column", gap: "1.6rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                  SACCO Full Name *
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Kampala Drivers Cooperative" 
+                  value={provisionForm.saccoName}
+                  onChange={(e) => setProvisionForm(p => ({ ...p, saccoName: e.target.value }))}
+                  required
+                  style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.6rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                    Acronym
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. KDC" 
+                    value={provisionForm.acronym}
+                    onChange={(e) => setProvisionForm(p => ({ ...p, acronym: e.target.value }))}
+                    style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                    Group Code *
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. KDC-1020" 
+                    value={provisionForm.groupCode}
+                    onChange={(e) => setProvisionForm(p => ({ ...p, groupCode: e.target.value }))}
+                    required
+                    style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                  Primary Admin Email (Optional)
+                </label>
+                <input 
+                  type="email" 
+                  placeholder="e.g. admin@kampala.org" 
+                  value={provisionForm.adminEmail}
+                  onChange={(e) => setProvisionForm(p => ({ ...p, adminEmail: e.target.value }))}
+                  style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.6rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                    Initial Tier Plan
+                  </label>
+                  <select 
+                    value={provisionForm.planTier}
+                    onChange={(e) => setProvisionForm(p => ({ ...p, planTier: e.target.value }))}
+                    style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                  >
+                    <option value="basic">Basic (50 limit)</option>
+                    <option value="standard">Standard (250 limit)</option>
+                    <option value="premium">Premium (1000 limit)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                    Share Price (Shs)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={provisionForm.sharePrice}
+                    onChange={(e) => setProvisionForm(p => ({ ...p, sharePrice: e.target.value }))}
+                    style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "1.2rem", marginTop: "1.5rem" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowProvisionModal(false)}
+                  style={{ padding: "1rem 1.8rem", borderRadius: "0.8rem", background: "#334155", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ padding: "1rem 2rem", borderRadius: "0.8rem", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
+                >
+                  Provision SACCO <i className="fa-solid fa-arrow-right" style={{ marginLeft: "0.6rem" }}></i>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Change Tier Modal */}
+      {showTierModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          background: "rgba(11, 15, 25, 0.85)",
+          backdropFilter: "blur(8px)",
+          zIndex: 10000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem"
+        }}>
+          <div style={{
+            background: "#1e293b",
+            border: "0.1rem solid #334155",
+            borderRadius: "1.6rem",
+            padding: "3rem",
+            width: "100%",
+            maxWidth: "460px",
+            boxShadow: "0 2rem 4rem rgba(0, 0, 0, 0.5)",
+            color: "#f8fafc"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.8rem" }}>
+              <h3 style={{ fontSize: "1.8rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>
+                <i className="fa-solid fa-sliders" style={{ marginRight: "1rem", color: "#3b82f6" }}></i>
+                Update Tier for {tierForm.saccoName}
+              </h3>
+              <button 
+                onClick={() => setShowTierModal(false)}
+                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "2rem", cursor: "pointer" }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTier} style={{ display: "flex", flexDirection: "column", gap: "1.6rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
+                  Select Subscription Plan Tier
+                </label>
+                <select 
+                  value={tierForm.planTier}
+                  onChange={(e) => setTierForm(t => ({ ...t, planTier: e.target.value }))}
+                  style={{ width: "100%", padding: "1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
+                >
+                  <option value="basic">Basic (Max 50 Members)</option>
+                  <option value="standard">Standard (Max 250 Members)</option>
+                  <option value="premium">Premium (Max 1,000 Members)</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "1.2rem", marginTop: "1rem" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowTierModal(false)}
+                  style={{ padding: "1rem 1.8rem", borderRadius: "0.8rem", background: "#334155", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ padding: "1rem 2rem", borderRadius: "0.8rem", background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
+                >
+                  Update Plan <i className="fa-solid fa-check" style={{ marginLeft: "0.6rem" }}></i>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
