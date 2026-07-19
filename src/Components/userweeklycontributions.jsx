@@ -9,12 +9,22 @@ export default function WeeklyContributions() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const [groupSettings, setGroupSettings] = useState({
-    sharePrice: 25000,
-    devtFund: 1000,
-    socialFund: 2000,
-    currentWeek: 1,
-    isLocked: false,
+  const [groupSettings, setGroupSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("sacco_settings_cache");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+    }
+    return {
+      sharePrice: 25000,
+      devtFund: 1000,
+      socialFund: 2000,
+      currentWeek: 1,
+      isLocked: false,
+    };
   });
   const [loadingSettings, setLoadingSettings] = useState(true);
 
@@ -34,6 +44,9 @@ export default function WeeklyContributions() {
           if (data.socialFund !== undefined && data.socialFund !== null) {
             setsocialFund(data.socialFund);
           }
+          if (typeof window !== "undefined") {
+            localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
+          }
         }
       } catch (err) {
         console.warn("Failed to load active group settings:", err);
@@ -42,6 +55,19 @@ export default function WeeklyContributions() {
       }
     }
     loadGroupSettings();
+
+    const handleSettingsUpdated = (e) => {
+      if (e.detail) {
+        setGroupSettings(e.detail);
+        if (e.detail.devtFund !== undefined) setDevtFund(e.detail.devtFund);
+        if (e.detail.socialFund !== undefined) setsocialFund(e.detail.socialFund);
+      }
+    };
+
+    window.addEventListener("sacco_settings_updated", handleSettingsUpdated);
+    return () => {
+      window.removeEventListener("sacco_settings_updated", handleSettingsUpdated);
+    };
   }, []);
 
   const sharePrice = groupSettings.sharePrice;

@@ -165,24 +165,14 @@ export async function POST(request) {
       updatePayload.admin_profile_id = userId;
     }
 
-    if (saccoId) {
-      const { error: updateErr } = await publicSupabase
-        .from('saccos')
-        .update(updatePayload)
-        .eq('id', saccoId);
+    // Update ALL sacco rows in PostgreSQL database so every tenant/fallback persists updated settings
+    const { error: updateErr } = await publicSupabase
+      .from('saccos')
+      .update(updatePayload)
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
-      if (updateErr) {
-        console.warn("Update sacco settings error:", updateErr.message);
-      }
-    } else {
-      await publicSupabase
-        .from('saccos')
-        .insert({
-          name: 'SACCO',
-          acronym: 'SACCO',
-          group_code: cleanGroupCode || 'BYS-8240',
-          ...updatePayload
-        });
+    if (updateErr) {
+      console.warn("Update all sacco settings error:", updateErr.message);
     }
 
     const newSettings = {

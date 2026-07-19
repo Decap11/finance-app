@@ -261,6 +261,7 @@ export default function SaccoSettings() {
       setMessage("Settings saved successfully!");
       if (typeof window !== "undefined") {
         localStorage.setItem("sacco_settings_cache", JSON.stringify(settings));
+        window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: settings }));
       }
       await loadSettings();
       setTimeout(() => setMessage(""), 3000);
