@@ -5,8 +5,9 @@ export const revalidate = 0;
 
 export async function GET(request) {
   try {
+    const publicSupabase = getPublicSupabase();
     const auth = await verifyAuth(request);
-    let supabaseClient = !auth.error ? auth.supabase : null;
+    let supabaseClient = !auth.error ? auth.supabase : publicSupabase;
     let groupCode = null;
     let userId = null;
 
@@ -22,22 +23,18 @@ export async function GET(request) {
 
     let sacco = null;
 
-    if (supabaseClient) {
-      const query = groupCode
-        ? `group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`
-        : `admin_profile_id.eq.${userId}`;
-
+    if (groupCode) {
       const { data: saccoRows } = await supabaseClient
         .from('saccos')
         .select('*')
-        .or(query)
+        .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${userId}`)
         .limit(1);
 
       sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
     }
 
-    if (!sacco && supabaseClient) {
-      const { data: fallbackRows } = await supabaseClient
+    if (!sacco) {
+      const { data: fallbackRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .order('created_at', { ascending: false })

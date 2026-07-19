@@ -259,11 +259,13 @@ export default function SaccoSettings() {
       if (!res.ok) throw new Error(data.error || "Failed to update settings.");
 
       setMessage("Settings saved successfully!");
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sacco_settings_cache", JSON.stringify(settings));
-        window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: settings }));
+      if (data.settings) {
+        setSettings(data.settings);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sacco_settings_cache", JSON.stringify(data.settings));
+          window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: data.settings }));
+        }
       }
-      await loadSettings();
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
       setMessage(`Error: ${err.message}`);
