@@ -15,41 +15,39 @@ export async function GET(request) {
         .single();
 
       const cleanGroupCode = (profile?.group_id || '').trim();
+      let sacco = null;
 
       if (cleanGroupCode) {
-        // Query saccos table case-insensitively
         const { data: saccoRows } = await supabase
           .from('saccos')
           .select('*')
-          .ilike('group_code', cleanGroupCode)
+          .or(`group_code.ilike.${cleanGroupCode},admin_profile_id.eq.${user.id}`)
           .limit(1);
 
-        let sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+        sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+      }
 
-        // Fallback: If group_code didn't match, check by admin_profile_id or first sacco
-        if (!sacco) {
-          const { data: fallbackRows } = await supabase
-            .from('saccos')
-            .select('*')
-            .limit(1);
-          if (fallbackRows && fallbackRows.length > 0) {
-            sacco = fallbackRows[0];
-          }
-        }
+      if (!sacco) {
+        const { data: fallbackRows } = await supabase
+          .from('saccos')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        if (sacco) {
-          return Response.json({
-            sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
-            devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
-            socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
-            currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
-            isLocked: Boolean(sacco.is_locked)
-          });
-        }
+        sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
+      }
+
+      if (sacco) {
+        return Response.json({
+          sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
+          devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
+          socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
+          currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
+          isLocked: Boolean(sacco.is_locked)
+        });
       }
     }
 
-    // Default fallback if unauthenticated or sacco settings not yet initialized
     return Response.json({
       sharePrice: 25000,
       devtFund: 1000,
@@ -95,40 +93,27 @@ export async function POST(request) {
       return Response.json({ error: 'Current week must be an integer between 1 and 52.' }, { status: 400 });
     }
 
-    // Fetch admin's linked SACCO group_id
+    // 1. Fetch admin's profile group_id
     const { data: profile } = await supabase
       .from('profiles')
-      .select('group_id')
+      .select('group_id, full_name')
       .eq('id', user.id)
       .single();
 
-    if (!profile?.group_id) {
-      return Response.json({ error: 'Could not find your associated SACCO group.' }, { status: 400 });
-    }
+    const groupCode = (profile?.group_id || 'BYS-8240').trim();
 
-    const cleanGroupCode = (profile.group_id || '').trim();
-
-    // 1. Try updating matching group_code in public.saccos table
-    const { data: updateData, error: updateErr } = await supabase
+    // 2. Find target SACCO row by group_code or admin_profile_id
+    const { data: existingSaccos } = await supabase
       .from('saccos')
-      .update({
-        share_price: parsedSharePrice,
-        devt_fund: parsedDevtFund,
-        social_fund: parsedSocialFund,
-        current_week: parsedCurrentWeek,
-        is_locked: Boolean(isLocked),
-        updated_at: new Date().toISOString()
-      })
-      .ilike('group_code', cleanGroupCode)
-      .select();
+      .select('id, group_code')
+      .or(`group_code.ilike.${groupCode},admin_profile_id.eq.${user.id}`)
+      .limit(1);
 
-    if (updateErr) {
-      console.warn("Database saccos table settings update warning:", updateErr.message);
-    }
+    let saccoId = existingSaccos && existingSaccos.length > 0 ? existingSaccos[0].id : null;
 
-    // 2. If 0 rows were updated by group_code, attempt update by admin_profile_id
-    if (!updateData || updateData.length === 0) {
-      await supabase
+    if (saccoId) {
+      // Update existing SACCO record by primary key ID
+      const { error: updateErr } = await supabase
         .from('saccos')
         .update({
           share_price: parsedSharePrice,
@@ -136,9 +121,35 @@ export async function POST(request) {
           social_fund: parsedSocialFund,
           current_week: parsedCurrentWeek,
           is_locked: Boolean(isLocked),
+          admin_profile_id: user.id,
           updated_at: new Date().toISOString()
         })
-        .eq('admin_profile_id', user.id);
+        .eq('id', saccoId);
+
+      if (updateErr) {
+        console.warn("Database update error by saccoId:", updateErr.message);
+      }
+    } else {
+      // Insert new SACCO record if none exists yet
+      const { data: newSacco, error: insertErr } = await supabase
+        .from('saccos')
+        .insert({
+          name: `${profile?.full_name || 'Admin'}'s SACCO`,
+          acronym: 'SACCO',
+          group_code: groupCode,
+          admin_profile_id: user.id,
+          share_price: parsedSharePrice,
+          devt_fund: parsedDevtFund,
+          social_fund: parsedSocialFund,
+          current_week: parsedCurrentWeek,
+          is_locked: Boolean(isLocked)
+        })
+        .select()
+        .single();
+
+      if (insertErr) {
+        console.warn("Database insert error for sacco record:", insertErr.message);
+      }
     }
 
     const newSettings = {
