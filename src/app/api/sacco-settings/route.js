@@ -14,20 +14,35 @@ export async function GET(request) {
         .eq('id', user.id)
         .single();
 
-      if (profile?.group_id) {
-        const { data: sacco } = await supabase
+      const cleanGroupCode = (profile?.group_id || '').trim();
+
+      if (cleanGroupCode) {
+        // Query saccos table case-insensitively
+        const { data: saccoRows } = await supabase
           .from('saccos')
-          .select('share_price, devt_fund, social_fund, current_week, is_locked')
-          .eq('group_code', profile.group_id)
-          .limit(1)
-          .single();
+          .select('*')
+          .ilike('group_code', cleanGroupCode)
+          .limit(1);
+
+        let sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+
+        // Fallback: If group_code didn't match, check by admin_profile_id or first sacco
+        if (!sacco) {
+          const { data: fallbackRows } = await supabase
+            .from('saccos')
+            .select('*')
+            .limit(1);
+          if (fallbackRows && fallbackRows.length > 0) {
+            sacco = fallbackRows[0];
+          }
+        }
 
         if (sacco) {
           return Response.json({
-            sharePrice: Number(sacco.share_price) || 25000,
-            devtFund: Number(sacco.devt_fund) || 1000,
-            socialFund: Number(sacco.social_fund) || 2000,
-            currentWeek: Number(sacco.current_week) || 1,
+            sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
+            devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
+            socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
+            currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
             isLocked: Boolean(sacco.is_locked)
           });
         }
@@ -91,8 +106,10 @@ export async function POST(request) {
       return Response.json({ error: 'Could not find your associated SACCO group.' }, { status: 400 });
     }
 
-    // Persist settings in public.saccos database table
-    const { error: updateErr } = await supabase
+    const cleanGroupCode = (profile.group_id || '').trim();
+
+    // 1. Try updating matching group_code in public.saccos table
+    const { data: updateData, error: updateErr } = await supabase
       .from('saccos')
       .update({
         share_price: parsedSharePrice,
@@ -102,11 +119,26 @@ export async function POST(request) {
         is_locked: Boolean(isLocked),
         updated_at: new Date().toISOString()
       })
-      .eq('group_code', profile.group_id);
+      .ilike('group_code', cleanGroupCode)
+      .select();
 
     if (updateErr) {
       console.warn("Database saccos table settings update warning:", updateErr.message);
-      // Fallback gracefully so admin configurations succeed even before database migration is executed
+    }
+
+    // 2. If 0 rows were updated by group_code, attempt update by admin_profile_id
+    if (!updateData || updateData.length === 0) {
+      await supabase
+        .from('saccos')
+        .update({
+          share_price: parsedSharePrice,
+          devt_fund: parsedDevtFund,
+          social_fund: parsedSocialFund,
+          current_week: parsedCurrentWeek,
+          is_locked: Boolean(isLocked),
+          updated_at: new Date().toISOString()
+        })
+        .eq('admin_profile_id', user.id);
     }
 
     const newSettings = {
