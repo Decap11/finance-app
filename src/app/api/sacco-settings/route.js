@@ -1,11 +1,13 @@
-import { verifyAuth, verifyAdmin } from '../../../lib/auth';
+import { verifyAuth, verifyAdmin, getPublicSupabase } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(request) {
   try {
+    const publicSupabase = getPublicSupabase();
     const auth = await verifyAuth(request);
-    let supabaseClient = !auth.error ? auth.supabase : null;
+    let supabaseClient = !auth.error ? auth.supabase : publicSupabase;
     let groupCode = null;
     let userId = null;
 
@@ -22,7 +24,7 @@ export async function GET(request) {
     let sacco = null;
 
     // 1. Try fetching by user's groupCode or admin_profile_id
-    if (groupCode && supabaseClient) {
+    if (groupCode) {
       const { data: saccoRows } = await supabaseClient
         .from('saccos')
         .select('*')
@@ -32,9 +34,9 @@ export async function GET(request) {
       sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
     }
 
-    // 2. Fallback: Query saccos table using server supabase client
+    // 2. Fallback: Query saccos table using publicSupabase
     if (!sacco) {
-      const { data: fallbackRows } = await supabase
+      const { data: fallbackRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .order('created_at', { ascending: false })
@@ -61,6 +63,7 @@ export async function GET(request) {
       isLocked: false
     });
   } catch (err) {
+    console.warn("GET /api/sacco-settings execution error:", err);
     return Response.json({
       sharePrice: 25000,
       devtFund: 1000,
