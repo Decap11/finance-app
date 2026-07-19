@@ -687,3 +687,64 @@ BEGIN
   GROUP BY t.category;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ------------------------------------------------------------------------------
+-- PART 6: SUBSCRIPTION PLANS TABLE & SEED DATA
+-- ------------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+  billing_cycle TEXT NOT NULL DEFAULT 'month',
+  member_limit INTEGER NOT NULL DEFAULT 50,
+  description TEXT,
+  features JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view active subscription plans" ON public.subscription_plans;
+CREATE POLICY "Anyone can view active subscription plans" ON public.subscription_plans FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can update subscription plans" ON public.subscription_plans;
+CREATE POLICY "Admins can update subscription plans" ON public.subscription_plans FOR ALL USING (true);
+
+-- Seed default Subscription Plans
+INSERT INTO public.subscription_plans (id, name, price, billing_cycle, member_limit, description, features)
+VALUES 
+  (
+    'basic', 
+    'Basic Plan', 
+    0.00, 
+    'month', 
+    50, 
+    'Free for the very first month of onboarding for every SACCO group.', 
+    '["Basic contribution tracking", "Access to savings and loans overview", "Email notifications"]'::jsonb
+  ),
+  (
+    'standard', 
+    'Standard Plan', 
+    75000.00, 
+    'month', 
+    250, 
+    'Best for active growing SACCOs with regular savings.', 
+    '["Enhanced payment reminders", "Priority support", "Loan eligibility alerts"]'::jsonb
+  ),
+  (
+    'premium', 
+    'Premium Plan', 
+    200000.00, 
+    '3 months', 
+    1000, 
+    'For SACCOs who want full control and advanced insights.', 
+    '["Custom savings goals", "Real-time payment history", "Dedicated account support", "Valid for 3 months"]'::jsonb
+  )
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  features = EXCLUDED.features;
+

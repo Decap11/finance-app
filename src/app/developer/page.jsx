@@ -133,6 +133,21 @@ export default function DeveloperPortal() {
         setLogs(mappedLogs);
       }
 
+      // 4. Fetch Live Database Subscription Plans
+      try {
+        const planRes = await fetch('/api/subscription-plans');
+        const planData = await planRes.json();
+        if (planData.plans && planData.plans.length > 0) {
+          const planObj = {};
+          planData.plans.forEach(p => {
+            planObj[p.id] = p;
+          });
+          setPlans(prev => ({ ...prev, ...planObj }));
+        }
+      } catch (planErr) {
+        console.warn("Could not load database subscription plans:", planErr);
+      }
+
     } catch (err) {
       console.error("Error fetching developer portal database data:", err);
     } finally {
@@ -230,18 +245,36 @@ export default function DeveloperPortal() {
   };
 
   const savePlanSettings = async (planKey) => {
-    const planName = plans[planKey].name;
-    const price = plans[planKey].price;
+    const plan = plans[planKey];
+    if (!plan) return;
 
-    // Log the event locally
-    const newLog = {
-      id: Date.now(),
-      type: "info",
-      msg: `Billing rate updated for '${planName}' to Shs ${price.toLocaleString()}/mo`,
-      time: "Just now"
-    };
-    setLogs(prev => [newLog, ...prev]);
-    showSuccess(`Subscription plan '${planName}' configurations saved locally!`);
+    try {
+      const res = await fetch('/api/subscription-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: planKey,
+          price: plan.price,
+          memberLimit: plan.member_limit || plan.memberLimit,
+          billingCycle: plan.billing_cycle || 'month'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Log audit event
+      const newLog = {
+        id: Date.now(),
+        type: "info",
+        msg: `Billing rate updated in database for '${plan.name}' to Shs ${Number(plan.price).toLocaleString()}`,
+        time: "Just now"
+      };
+      setLogs(prev => [newLog, ...prev]);
+      showSuccess(`Subscription plan '${plan.name}' saved to database successfully!`);
+    } catch (err) {
+      showError(`Failed to save plan to database: ${err.message}`);
+    }
   };
 
   // Calculate platform totals
