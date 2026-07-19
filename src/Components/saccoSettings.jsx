@@ -51,7 +51,7 @@ export default function SaccoSettings() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
+      const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
 
       const res = await fetch("/api/sacco-settings", { headers });
       const data = await res.json();

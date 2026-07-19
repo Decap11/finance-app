@@ -30,7 +30,13 @@ export default function UserHeader() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
+        const token = session.access_token;
+        const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
+
+        // Automatic repair: If token is bloated (> 3000 bytes), clear auth metadata
+        if (token && token.length >= 3000) {
+          supabase.auth.updateUser({ data: { avatar_url: null } }).then(() => {});
+        }
 
         const res = await fetch("/api/profile", { headers });
         const text = await res.text();
