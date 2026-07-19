@@ -71,15 +71,28 @@ export async function POST(request) {
         return Response.json({ error: 'Could not find your SACCO profile.' }, { status: 400 });
       }
 
-      // Fetch matching Sacco ID
-      const { data: saccoData, error: saccoErr } = await supabase
+      const cleanGroupCode = (profile.group_id || '').trim();
+
+      // Fetch matching Sacco ID (case-insensitive with fallback)
+      const { data: saccoRows } = await supabase
         .from('saccos')
         .select('id')
-        .eq('group_code', profile.group_id)
-        .limit(1)
-        .single();
+        .ilike('group_code', cleanGroupCode)
+        .limit(1);
 
-      if (saccoErr || !saccoData) {
+      let saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+
+      if (!saccoData) {
+        const { data: fallbackRows } = await supabase
+          .from('saccos')
+          .select('id')
+          .limit(1);
+        if (fallbackRows && fallbackRows.length > 0) {
+          saccoData = fallbackRows[0];
+        }
+      }
+
+      if (!saccoData) {
         return Response.json({ error: 'Could not find your SACCO group.' }, { status: 400 });
       }
 

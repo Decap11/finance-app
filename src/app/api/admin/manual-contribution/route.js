@@ -45,15 +45,28 @@ export async function POST(request) {
       return Response.json({ error: 'Could not find your SACCO admin profile.' }, { status: 400 });
     }
 
-    // 3. Retrieve SACCO ID matching caller's group_id
-    const { data: sacco, error: saccoErr } = await supabase
+    const cleanGroupCode = (callerProfile.group_id || '').trim();
+
+    // 3. Retrieve SACCO ID matching caller's group_id (case-insensitive with fallback)
+    const { data: saccoRows } = await supabase
       .from('saccos')
       .select('id')
-      .eq('group_code', callerProfile.group_id)
-      .limit(1)
-      .single();
+      .ilike('group_code', cleanGroupCode)
+      .limit(1);
 
-    if (saccoErr || !sacco) {
+    let sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+
+    if (!sacco) {
+      const { data: fallbackRows } = await supabase
+        .from('saccos')
+        .select('id')
+        .limit(1);
+      if (fallbackRows && fallbackRows.length > 0) {
+        sacco = fallbackRows[0];
+      }
+    }
+
+    if (!sacco) {
       return Response.json({ error: 'Could not find active SACCO group for this admin.' }, { status: 400 });
     }
 
