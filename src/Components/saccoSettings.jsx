@@ -50,7 +50,8 @@ export default function SaccoSettings() {
   async function loadSettings() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
+      const token = session?.access_token;
+      const headers = (token && token.length < 4096) ? { "Authorization": `Bearer ${token}` } : {};
 
       const res = await fetch("/api/sacco-settings", { headers });
       const data = await res.json();
@@ -233,12 +234,17 @@ export default function SaccoSettings() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Authentication session not found.");
 
+      const token = session.access_token;
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token && token.length < 4096) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/sacco-settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers,
         body: JSON.stringify(settings),
       });
 

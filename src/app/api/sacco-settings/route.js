@@ -77,7 +77,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const auth = await verifyAdmin(request);
+    const auth = await verifyAuth(request);
     if (auth.error) return auth.error;
 
     const { user, supabase: userSupabase } = auth;

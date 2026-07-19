@@ -155,13 +155,15 @@ export default function Settings({ isAdminView = false }) {
         console.warn("Database profiles table avatar_url update warning:", dbErr.message);
       }
 
-      // 3. Save to auth user metadata
-      try {
-        await supabase.auth.updateUser({
-          data: { avatar_url: finalUrl }
-        });
-      } catch (e) {
-        // Ignore metadata update errors
+      // 3. Save to auth user metadata (only if short HTTPS URL, to prevent bloated JWT tokens)
+      if (finalUrl && !finalUrl.startsWith("data:image")) {
+        try {
+          await supabase.auth.updateUser({
+            data: { avatar_url: finalUrl }
+          });
+        } catch (e) {
+          // Ignore metadata update errors
+        }
       }
 
       // 4. Save locally for instant UI update
