@@ -227,9 +227,14 @@ export default function UserHeader() {
     }
   };
 
-  // Close notifications dropdown on click outside
+  const profileRef = useRef(null);
+
+  // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(event) {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
@@ -323,7 +328,7 @@ export default function UserHeader() {
             )}
           </div>
 
-          <div className="user-profile" onClick={toggleProfileDropdown}>
+          <div className="user-profile" ref={profileRef} onClick={toggleProfileDropdown}>
             {avatarUrl ? (
               <img src={avatarUrl} alt="User Avatar" />
             ) : (
