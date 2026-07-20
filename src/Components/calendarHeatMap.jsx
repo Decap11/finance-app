@@ -11,6 +11,8 @@ export default function CalendarHeatMap() {
   const [socialFundConsistency, setSocialFundConsistency] = useState(100);
   const [weekContributions, setWeekContributions] = useState({});
   const [weekShares, setWeekShares] = useState({});
+  const [weekFinancialData, setWeekFinancialData] = useState({});
+  const [activeTooltip, setActiveTooltip] = useState(null);
   const [currentWeek, setCurrentWeek] = useState(1);
 
   // Balanced mapping of weeks to months (total 52 weeks)
@@ -39,6 +41,18 @@ export default function CalendarHeatMap() {
   };
 
   useEffect(() => {
+    function handleClickOutside() {
+      setActiveTooltip(null);
+    }
+    window.addEventListener("click", handleClickOutside);
+    window.addEventListener("scroll", handleClickOutside);
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+      window.removeEventListener("scroll", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
     async function loadContributionHabits() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -65,9 +79,18 @@ export default function CalendarHeatMap() {
         // Group transaction types and shares count by week number
         const tempWeekContributions = {};
         const tempWeekShares = {};
+        const tempWeekFinancialData = {};
         for (let w = 1; w <= 52; w++) {
           tempWeekContributions[w] = new Set();
           tempWeekShares[w] = 0;
+          tempWeekFinancialData[w] = {
+            sharesAmount: 0,
+            sharesCount: 0,
+            devtAmount: 0,
+            socialAmount: 0,
+            txDates: [],
+            totalAmount: 0
+          };
         }
 
         transactions.forEach(tx => {
@@ -82,15 +105,34 @@ export default function CalendarHeatMap() {
 
           if (weekNum >= 1 && weekNum <= 52) {
             tempWeekContributions[weekNum].add(tx.category);
+            const amt = Number(tx.amount) || 0;
+            const wData = tempWeekFinancialData[weekNum];
+            wData.totalAmount += amt;
+
+            if (tx.created_at) {
+              const d = new Date(tx.created_at);
+              const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              if (!wData.txDates.includes(dateStr)) {
+                wData.txDates.push(dateStr);
+              }
+            }
+
             if (tx.category === 'shares') {
-              const numShares = Math.floor((Number(tx.amount) || 0) / (settings.sharePrice || 25000));
+              const numShares = Math.floor(amt / (settings.sharePrice || 25000));
               tempWeekShares[weekNum] += numShares;
+              wData.sharesAmount += amt;
+              wData.sharesCount += numShares;
+            } else if (tx.category === 'development_fund') {
+              wData.devtAmount += amt;
+            } else if (tx.category === 'social_fund') {
+              wData.socialAmount += amt;
             }
           }
         });
 
         setWeekContributions(tempWeekContributions);
         setWeekShares(tempWeekShares);
+        setWeekFinancialData(tempWeekFinancialData);
 
         // Helper to calculate consistency percentage
         const calcConsistency = (weeksContributed) => {
@@ -282,7 +324,65 @@ export default function CalendarHeatMap() {
                         key={weekNum}
                         className={`heatmap-day ${levelClass}`}
                         style={inlineStyle}
-                        title={tooltipText}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
+                          
+                          let dateLabel = "";
+                          if (finData.txDates && finData.txDates.length > 0) {
+                            dateLabel = finData.txDates.join(", ");
+                          } else {
+                            const year = new Date().getFullYear();
+                            const jan1 = new Date(year, 0, 1);
+                            const startDay = new Date(jan1);
+                            startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
+                            const endDay = new Date(startDay);
+                            endDay.setDate(startDay.getDate() + 6);
+                            
+                            const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                            const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                            dateLabel = `${month.name} Week ${weekNum - month.weeks[0] + 1} (${startStr} – ${endStr})`;
+                          }
+
+                          setActiveTooltip({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top,
+                            dateLabel,
+                            finData,
+                            isUpcoming: weekNum > currentWeek,
+                            isMissed: weekNum <= currentWeek && finData.totalAmount === 0
+                          });
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
+                          
+                          let dateLabel = "";
+                          if (finData.txDates && finData.txDates.length > 0) {
+                            dateLabel = finData.txDates.join(", ");
+                          } else {
+                            const year = new Date().getFullYear();
+                            const jan1 = new Date(year, 0, 1);
+                            const startDay = new Date(jan1);
+                            startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
+                            const endDay = new Date(startDay);
+                            endDay.setDate(startDay.getDate() + 6);
+                            
+                            const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                            const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                            dateLabel = `${month.name} Week ${weekNum - month.weeks[0] + 1} (${startStr} – ${endStr})`;
+                          }
+
+                          setActiveTooltip({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top,
+                            dateLabel,
+                            finData,
+                            isUpcoming: weekNum > currentWeek,
+                            isMissed: weekNum <= currentWeek && finData.totalAmount === 0
+                          });
+                        }}
                       />
                     );
                   })}
@@ -308,6 +408,62 @@ export default function CalendarHeatMap() {
           </div>
         </div>
       </div>
+
+      {/* Floating Interactive Tooltip Popover */}
+      {activeTooltip && (
+        <div
+          className="heatmap-popover-tooltip"
+          style={{
+            position: "fixed",
+            left: `${activeTooltip.x}px`,
+            top: `${activeTooltip.y - 12}px`,
+            transform: "translate(-50%, -100%)",
+            zIndex: 100000
+          }}
+        >
+          <div className="tooltip-header">
+            <i className="fa-solid fa-calendar-day tooltip-icon"></i>
+            <span className="tooltip-date-highlight">{activeTooltip.dateLabel}</span>
+          </div>
+
+          <div className="tooltip-body">
+            {activeTooltip.isUpcoming ? (
+              <div className="tooltip-status-badge upcoming">
+                <i className="fa-solid fa-clock"></i> Upcoming Period
+              </div>
+            ) : activeTooltip.isMissed ? (
+              <div className="tooltip-status-badge missed">
+                <i className="fa-solid fa-triangle-exclamation"></i> No transactions on this date (Missed)
+              </div>
+            ) : (
+              <div className="tooltip-financial-list">
+                {activeTooltip.finData.sharesAmount > 0 && (
+                  <div className="tooltip-fin-row">
+                    <span className="tooltip-fin-label">Shares Contribution:</span>
+                    <span className="tooltip-fin-value">Shs {activeTooltip.finData.sharesAmount.toLocaleString()} ({activeTooltip.finData.sharesCount} shares)</span>
+                  </div>
+                )}
+                {activeTooltip.finData.devtAmount > 0 && (
+                  <div className="tooltip-fin-row">
+                    <span className="tooltip-fin-label">Development Fund:</span>
+                    <span className="tooltip-fin-value">Shs {activeTooltip.finData.devtAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                {activeTooltip.finData.socialAmount > 0 && (
+                  <div className="tooltip-fin-row">
+                    <span className="tooltip-fin-label">Social Fund:</span>
+                    <span className="tooltip-fin-value">Shs {activeTooltip.finData.socialAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="tooltip-fin-total">
+                  <span>Total Contributed:</span>
+                  <span>Shs {activeTooltip.finData.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
