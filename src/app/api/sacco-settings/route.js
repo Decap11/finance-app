@@ -56,6 +56,7 @@ export async function GET(request) {
         devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
         socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
         currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
+        meetingDay: sacco.meeting_day || "Wednesday",
         isLocked: Boolean(sacco.is_locked)
       });
     }
@@ -65,6 +66,7 @@ export async function GET(request) {
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
+      meetingDay: "Wednesday",
       isLocked: false
     });
   } catch (err) {
@@ -74,6 +76,7 @@ export async function GET(request) {
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
+      meetingDay: "Wednesday",
       isLocked: false
     });
   }
@@ -88,12 +91,13 @@ export async function POST(request) {
     const supabaseClient = (!auth.error && auth.supabase) ? auth.supabase : publicSupabase;
 
     const body = await request.json();
-    const { sharePrice, devtFund, socialFund, currentWeek, isLocked } = body;
+    const { sharePrice, devtFund, socialFund, currentWeek, isLocked, meetingDay } = body;
 
     const parsedSharePrice = Number(sharePrice);
     const parsedDevtFund = Number(devtFund);
     const parsedSocialFund = Number(socialFund);
     const parsedCurrentWeek = Number(currentWeek);
+    const cleanMeetingDay = (meetingDay || "Wednesday").trim();
 
     if (isNaN(parsedSharePrice) || parsedSharePrice < 0) {
       return Response.json({ error: 'Share price must be a non-negative number.' }, { status: 400 });
@@ -126,6 +130,7 @@ export async function POST(request) {
       devt_fund: parsedDevtFund,
       social_fund: parsedSocialFund,
       current_week: parsedCurrentWeek,
+      meeting_day: cleanMeetingDay,
       is_locked: Boolean(isLocked),
       updated_at: new Date().toISOString()
     };
@@ -185,6 +190,7 @@ export async function POST(request) {
       devtFund: parsedDevtFund,
       socialFund: parsedSocialFund,
       currentWeek: parsedCurrentWeek,
+      meetingDay: cleanMeetingDay,
       isLocked: Boolean(isLocked)
     };
 

@@ -20,6 +20,7 @@ export default function SaccoSettings() {
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
+      meetingDay: "Wednesday",
       isLocked: false,
     };
   });
@@ -380,6 +381,24 @@ export default function SaccoSettings() {
               onChange={handleChange}
               placeholder="e.g. 2000"
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="meetingDay">Weekly Meeting Day</label>
+            <CustomSelect
+              value={settings.meetingDay || "Wednesday"}
+              options={[
+                { value: "Monday", label: "Monday" },
+                { value: "Tuesday", label: "Tuesday" },
+                { value: "Wednesday", label: "Wednesday" },
+                { value: "Thursday", label: "Thursday" },
+                { value: "Friday", label: "Friday" },
+                { value: "Saturday", label: "Saturday" },
+                { value: "Sunday", label: "Sunday" },
+              ]}
+              onChange={(val) => setSettings((prev) => ({ ...prev, meetingDay: val }))}
+              minWidth="100%"
             />
           </div>
         </div>

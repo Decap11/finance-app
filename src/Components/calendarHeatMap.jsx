@@ -3,42 +3,66 @@ import { supabase } from "../supabaseClient.js";
 import "../styles/calendarHeatMap.css";
 import "../styles/UserProgressTracker.css";
 
+const DAY_INDICES = {
+  "Sunday": 0,
+  "Monday": 1,
+  "Tuesday": 2,
+  "Wednesday": 3,
+  "Thursday": 4,
+  "Friday": 5,
+  "Saturday": 6
+};
+
+// Generate exact meeting dates for every month of the specified year based on meetingDay
+function getMonthlyMeetingDates(year, meetingDayName) {
+  const targetDayIndex = DAY_INDICES[meetingDayName] !== undefined ? DAY_INDICES[meetingDayName] : 3;
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  const monthlyData = [];
+  let globalMeetingCounter = 0;
+
+  monthNames.forEach((name, monthIdx) => {
+    const meetingsInMonth = [];
+    const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, monthIdx, d);
+      if (dateObj.getDay() === targetDayIndex) {
+        globalMeetingCounter++;
+        meetingsInMonth.push({
+          globalMeetingIndex: globalMeetingCounter,
+          monthMeetingIndex: meetingsInMonth.length + 1,
+          date: dateObj,
+          monthName: name,
+          fullDateString: dateObj.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
+          shortDateString: dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        });
+      }
+    }
+
+    monthlyData.push({
+      name,
+      monthIdx,
+      meetings: meetingsInMonth
+    });
+  });
+
+  return { monthlyData, totalMeetings: globalMeetingCounter };
+}
+
 export default function CalendarHeatMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sharesConsistency, setSharesConsistency] = useState(100);
   const [devFundConsistency, setDevFundConsistency] = useState(100);
   const [socialFundConsistency, setSocialFundConsistency] = useState(100);
-  const [weekContributions, setWeekContributions] = useState({});
-  const [weekShares, setWeekShares] = useState({});
-  const [weekFinancialData, setWeekFinancialData] = useState({});
+  const [meetingFinancialData, setMeetingFinancialData] = useState({});
+  const [meetingContributions, setMeetingContributions] = useState({});
+  const [meetingShares, setMeetingShares] = useState({});
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [currentWeek, setCurrentWeek] = useState(1);
-
-  // Balanced mapping of weeks to months (total 52 weeks)
-  const monthWeeks = [
-    { name: "Jan", weeks: [1, 2, 3, 4, 5] },
-    { name: "Feb", weeks: [6, 7, 8, 9] },
-    { name: "Mar", weeks: [10, 11, 12, 13] },
-    { name: "Apr", weeks: [14, 15, 16, 17] },
-    { name: "May", weeks: [18, 19, 20, 21, 22] },
-    { name: "Jun", weeks: [23, 24, 25, 26] },
-    { name: "Jul", weeks: [27, 28, 29, 30] },
-    { name: "Aug", weeks: [31, 32, 33, 34, 35] },
-    { name: "Sep", weeks: [36, 37, 38, 39] },
-    { name: "Oct", weeks: [40, 41, 42, 43, 44] },
-    { name: "Nov", weeks: [45, 46, 47, 48] },
-    { name: "Dec", weeks: [49, 50, 51, 52] }
-  ];
-
-  // Helper to get week number of the year (1-52)
-  const getWeekOfYear = (dateStr) => {
-    const date = new Date(dateStr);
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const diffInMs = date - startOfYear;
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    return Math.floor(diffInDays / 7) + 1;
-  };
+  const [meetingDay, setMeetingDay] = useState("Wednesday");
+  const [monthlyMeetingsStructure, setMonthlyMeetingsStructure] = useState([]);
 
   useEffect(() => {
     function handleClickOutside() {
@@ -71,19 +95,25 @@ export default function CalendarHeatMap() {
 
         const transactions = data.transactions || [];
         const settings = data.settings || {};
+        const configuredDay = settings.meetingDay || "Wednesday";
+        setMeetingDay(configuredDay);
 
-        // Calculate weeks elapsed
-        const weeksElapsed = settings.currentWeek || getWeekOfYear(new Date());
+        const currentYear = new Date().getFullYear();
+        const { monthlyData, totalMeetings } = getMonthlyMeetingDates(currentYear, configuredDay);
+        setMonthlyMeetingsStructure(monthlyData);
+
+        const weeksElapsed = settings.currentWeek || 1;
         setCurrentWeek(weeksElapsed);
 
-        // Group transaction types and shares count by week number
-        const tempWeekContributions = {};
-        const tempWeekShares = {};
-        const tempWeekFinancialData = {};
-        for (let w = 1; w <= 52; w++) {
-          tempWeekContributions[w] = new Set();
-          tempWeekShares[w] = 0;
-          tempWeekFinancialData[w] = {
+        // Group financial activity by globalMeetingIndex (1 to 52)
+        const tempFinancialData = {};
+        const tempContributions = {};
+        const tempShares = {};
+
+        for (let mIdx = 1; mIdx <= totalMeetings; mIdx++) {
+          tempContributions[mIdx] = new Set();
+          tempShares[mIdx] = 0;
+          tempFinancialData[mIdx] = {
             sharesAmount: 0,
             sharesCount: 0,
             devtAmount: 0,
@@ -93,61 +123,74 @@ export default function CalendarHeatMap() {
           };
         }
 
-        transactions.forEach(tx => {
-          let weekNum = null;
+        // Map transactions to closest meeting date window
+        transactions.forEach((tx) => {
+          let meetingIndex = null;
           const match = tx.description?.match(/\|\s*Week\s*(\d+)/i);
           if (match) {
-            weekNum = parseInt(match[1], 10);
-          }
-          if (!weekNum) {
-            weekNum = getWeekOfYear(tx.created_at);
+            meetingIndex = parseInt(match[1], 10);
           }
 
-          if (weekNum >= 1 && weekNum <= 52) {
-            tempWeekContributions[weekNum].add(tx.category);
+          if (!meetingIndex && tx.created_at) {
+            const txDate = new Date(tx.created_at);
+            // Find matching meeting item by date threshold
+            monthlyData.forEach(month => {
+              month.meetings.forEach(m => {
+                const diffDays = Math.abs((txDate - m.date) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 4 && (!meetingIndex || diffDays < Math.abs((txDate - meetingIndex) / (1000 * 60 * 60 * 24)))) {
+                  meetingIndex = m.globalMeetingIndex;
+                }
+              });
+            });
+          }
+
+          if (!meetingIndex) {
+            meetingIndex = 1;
+          }
+
+          if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
+            tempContributions[meetingIndex].add(tx.category);
             const amt = Number(tx.amount) || 0;
-            const wData = tempWeekFinancialData[weekNum];
-            wData.totalAmount += amt;
+            const mData = tempFinancialData[meetingIndex];
+            mData.totalAmount += amt;
 
             if (tx.created_at) {
               const d = new Date(tx.created_at);
               const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              if (!wData.txDates.includes(dateStr)) {
-                wData.txDates.push(dateStr);
+              if (!mData.txDates.includes(dateStr)) {
+                mData.txDates.push(dateStr);
               }
             }
 
             if (tx.category === 'shares') {
               const numShares = Math.floor(amt / (settings.sharePrice || 25000));
-              tempWeekShares[weekNum] += numShares;
-              wData.sharesAmount += amt;
-              wData.sharesCount += numShares;
+              tempShares[meetingIndex] += numShares;
+              mData.sharesAmount += amt;
+              mData.sharesCount += numShares;
             } else if (tx.category === 'development_fund') {
-              wData.devtAmount += amt;
+              mData.devtAmount += amt;
             } else if (tx.category === 'social_fund') {
-              wData.socialAmount += amt;
+              mData.socialAmount += amt;
             }
           }
         });
 
-        setWeekContributions(tempWeekContributions);
-        setWeekShares(tempWeekShares);
-        setWeekFinancialData(tempWeekFinancialData);
+        setMeetingContributions(tempContributions);
+        setMeetingShares(tempShares);
+        setMeetingFinancialData(tempFinancialData);
 
-        // Helper to calculate consistency percentage
-        const calcConsistency = (weeksContributed) => {
-          const ratio = weeksContributed / (weeksElapsed || 1);
-          return ratio * 100;
+        const calcConsistency = (contributedCount) => {
+          const ratio = contributedCount / (weeksElapsed || 1);
+          return Math.min(100, Math.round(ratio * 100));
         };
 
-        // Extract contributed week counts per pool type
-        const shareWeeksCount = Object.keys(tempWeekContributions).filter(w => tempWeekContributions[w].has('shares')).length;
-        const devFundWeeksCount = Object.keys(tempWeekContributions).filter(w => tempWeekContributions[w].has('development_fund')).length;
-        const socialFundWeeksCount = Object.keys(tempWeekContributions).filter(w => tempWeekContributions[w].has('social_fund')).length;
+        const shareCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('shares')).length;
+        const devCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('development_fund')).length;
+        const socialCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('social_fund')).length;
 
-        setSharesConsistency(calcConsistency(shareWeeksCount));
-        setDevFundConsistency(calcConsistency(devFundWeeksCount));
-        setSocialFundConsistency(calcConsistency(socialFundWeeksCount));
+        setSharesConsistency(calcConsistency(shareCount));
+        setDevFundConsistency(calcConsistency(devCount));
+        setSocialFundConsistency(calcConsistency(socialCount));
       } catch (err) {
         console.error("Error loading contribution habits:", err);
         setError(err.message);
@@ -159,32 +202,15 @@ export default function CalendarHeatMap() {
     loadContributionHabits();
   }, []);
 
-  const triggerTooltip = (e, weekNum, monthName) => {
+  const triggerTooltip = (e, meetingItem) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
-    
-    let dateLabel = "";
-    if (finData.txDates && finData.txDates.length > 0) {
-      dateLabel = finData.txDates.join(", ");
-    } else {
-      const year = new Date().getFullYear();
-      const jan1 = new Date(year, 0, 1);
-      const startDay = new Date(jan1);
-      startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
-      const endDay = new Date(startDay);
-      endDay.setDate(startDay.getDate() + 6);
-      
-      const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      const monthWeekObj = monthWeeks.find(m => m.name === monthName);
-      const weekOffset = monthWeekObj ? weekNum - monthWeekObj.weeks[0] + 1 : 1;
-      dateLabel = `${monthName} Week ${weekOffset} (${startStr} – ${endStr})`;
-    }
+    const finData = meetingFinancialData[meetingItem.globalMeetingIndex] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
+
+    const dateLabel = `${meetingItem.fullDateString} (Meeting ${meetingItem.monthMeetingIndex} of ${meetingItem.monthName})`;
 
     const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 360;
     const estimatedWidth = Math.min(280, viewportWidth - 24);
-    
-    // Clamp horizontal position so tooltip never clips left or right screen edge
+
     let clampedX = rect.left + rect.width / 2;
     if (clampedX - estimatedWidth / 2 < 12) {
       clampedX = 12 + estimatedWidth / 2;
@@ -192,7 +218,6 @@ export default function CalendarHeatMap() {
       clampedX = viewportWidth - 12 - estimatedWidth / 2;
     }
 
-    // Flip vertical position if too close to top of viewport
     const positionBelow = rect.top < 160;
     const clampedY = positionBelow ? rect.bottom + 8 : rect.top - 8;
 
@@ -202,8 +227,8 @@ export default function CalendarHeatMap() {
       positionBelow,
       dateLabel,
       finData,
-      isUpcoming: weekNum > currentWeek,
-      isMissed: weekNum <= currentWeek && finData.totalAmount === 0
+      isUpcoming: meetingItem.globalMeetingIndex > currentWeek,
+      isMissed: meetingItem.globalMeetingIndex <= currentWeek && finData.totalAmount === 0
     });
   };
 
@@ -213,100 +238,34 @@ export default function CalendarHeatMap() {
         <h3 className="section-title">Contribution Habits</h3>
       </div>
       <div style={{ marginTop: "15px", paddingBottom: "5px" }}>
-        <h4
-          style={{
-            fontSize: "1.8rem",
-            color: "var(--text-dark)",
-            marginBottom: "1.2rem",
-          }}
-        >
+        <h4 style={{ fontSize: "1.8rem", color: "var(--text-dark)", marginBottom: "1.2rem" }}>
           Shares Pool Consistency
           <span style={{ float: "right", color: "#253b8e" }}>
-            {loading ? "..." : `${Math.round(sharesConsistency)}%`}
+            {loading ? "..." : `${sharesConsistency}%`}
           </span>
         </h4>
-        <div
-          style={{
-            width: "100%",
-            height: "8px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "4px",
-            overflow: "hidden",
-            marginBottom: "20px",
-          }}
-        >
-          <div
-            style={{
-              width: loading ? "0%" : `${Math.min(100, Math.round(sharesConsistency))}%`,
-              height: "100%",
-              backgroundColor: "#253b8e",
-              transition: "width 0.5s ease-in-out",
-            }}
-          ></div>
+        <div style={{ width: "100%", height: "8px", backgroundColor: "#f1f5f9", borderRadius: "4px", overflow: "hidden", marginBottom: "20px" }}>
+          <div style={{ width: loading ? "0%" : `${sharesConsistency}%`, height: "100%", backgroundColor: "#253b8e", transition: "width 0.5s ease-in-out" }} />
         </div>
 
-        <h4
-          style={{
-            fontSize: "1.8rem",
-            color: "var(--text-dark)",
-            marginBottom: "1.2rem",
-          }}
-        >
+        <h4 style={{ fontSize: "1.8rem", color: "var(--text-dark)", marginBottom: "1.2rem" }}>
           Dev Fund Obligations
           <span style={{ float: "right", color: "var(--success)" }}>
-            {loading ? "..." : `${Math.round(devFundConsistency)}%`}
+            {loading ? "..." : `${devFundConsistency}%`}
           </span>
         </h4>
-        <div
-          style={{
-            width: "100%",
-            height: "8px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "4px",
-            overflow: "hidden",
-            marginBottom: "20px",
-          }}
-        >
-          <div
-            style={{
-              width: loading ? "0%" : `${Math.min(100, Math.round(devFundConsistency))}%`,
-              height: "100%",
-              backgroundColor: "var(--success)",
-              transition: "width 0.5s ease-in-out",
-            }}
-          ></div>
+        <div style={{ width: "100%", height: "8px", backgroundColor: "#f1f5f9", borderRadius: "4px", overflow: "hidden", marginBottom: "20px" }}>
+          <div style={{ width: loading ? "0%" : `${devFundConsistency}%`, height: "100%", backgroundColor: "var(--success)", transition: "width 0.5s ease-in-out" }} />
         </div>
 
-        <h4
-          style={{
-            fontSize: "1.8rem",
-            color: "var(--text-dark)",
-            marginBottom: "1.2rem",
-          }}
-        >
+        <h4 style={{ fontSize: "1.8rem", color: "var(--text-dark)", marginBottom: "1.2rem" }}>
           Social Fund Activity
           <span style={{ float: "right", color: "#ef4444" }}>
-            {loading ? "..." : `${Math.round(socialFundConsistency)}%`}
+            {loading ? "..." : `${socialFundConsistency}%`}
           </span>
         </h4>
-        <div
-          style={{
-            width: "100%",
-            height: "8px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "4px",
-            overflow: "hidden",
-            marginBottom: "20px",
-          }}
-        >
-          <div
-            style={{
-              width: loading ? "0%" : `${Math.min(100, Math.round(socialFundConsistency))}%`,
-              height: "100%",
-              backgroundColor: "#ef4444",
-              transition: "width 0.5s ease-in-out",
-            }}
-          ></div>
+        <div style={{ width: "100%", height: "8px", backgroundColor: "#f1f5f9", borderRadius: "4px", overflow: "hidden", marginBottom: "20px" }}>
+          <div style={{ width: loading ? "0%" : `${socialFundConsistency}%`, height: "100%", backgroundColor: "#ef4444", transition: "width 0.5s ease-in-out" }} />
         </div>
 
         {/* Calendar Heatmap */}
@@ -314,68 +273,50 @@ export default function CalendarHeatMap() {
           <div className="heatmap-header">
             <div>
               <h4>Contribution Habit Tracker</h4>
-              <p>Visualize your shares consistency over the year.</p>
+              <p>Visualizing meeting obligations for every <strong>{meetingDay}</strong> across the year.</p>
             </div>
             <span>Green = contributed, Red = missed</span>
           </div>
-          
+
           <div className="heatmap-months">
-            {monthWeeks.map((month) => (
+            {monthlyMeetingsStructure.map((month) => (
               <div key={month.name} className="heatmap-month">
                 <span>{month.name}</span>
                 <div className="heatmap-weekdays">
-                  {month.weeks.map((weekNum) => {
-                    const contributions = weekContributions[weekNum] || new Set();
-                    const sharesCount = weekShares[weekNum] || 0;
-                    
+                  {month.meetings.map((mItem) => {
+                    const idx = mItem.globalMeetingIndex;
+                    const contributions = meetingContributions[idx] || new Set();
+                    const sharesCount = meetingShares[idx] || 0;
+
                     let levelClass = "";
                     let inlineStyle = {};
-                    let tooltipText = `${month.name} Week ${weekNum - month.weeks[0] + 1}`;
 
-                    if (weekNum > currentWeek) {
-                      // Future upcoming weeks are colored light grey
+                    if (idx > currentWeek) {
                       inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
-                      tooltipText += " (Upcoming)";
                     } else {
-                      // Past/active weeks colored based on shares count bucket
                       if (sharesCount === 0) {
                         levelClass = "level-0";
-                        tooltipText += ": Missed shares contribution";
+                      } else if (sharesCount <= 2) {
+                        levelClass = "level-1";
+                      } else if (sharesCount <= 4) {
+                        levelClass = "level-2";
+                      } else if (sharesCount <= 7) {
+                        levelClass = "level-3";
                       } else {
-                        // 1-2 shares: level-1
-                        // 3-4 shares: level-2
-                        // 5-7 shares: level-3
-                        // 8-10 shares: level-4
-                        if (sharesCount <= 2) {
-                          levelClass = "level-1";
-                        } else if (sharesCount <= 4) {
-                          levelClass = "level-2";
-                        } else if (sharesCount <= 7) {
-                          levelClass = "level-3";
-                        } else {
-                          levelClass = "level-4";
-                        }
-                        tooltipText += `: Contributed ${sharesCount} share(s)`;
-                      }
-
-                      // Append Dev and Social details if contributed
-                      const otherTypes = [];
-                      if (contributions.has('development_fund')) otherTypes.push('Dev Fund');
-                      if (contributions.has('social_fund')) otherTypes.push('Social Fund');
-                      if (otherTypes.length > 0) {
-                        tooltipText += ` (plus ${otherTypes.join(', ')})`;
+                        levelClass = "level-4";
                       }
                     }
 
                     return (
                       <div
-                        key={weekNum}
+                        key={mItem.globalMeetingIndex}
                         className={`heatmap-day ${levelClass}`}
                         style={inlineStyle}
-                        onMouseEnter={(e) => triggerTooltip(e, weekNum, month.name)}
+                        title={mItem.fullDateString}
+                        onMouseEnter={(e) => triggerTooltip(e, mItem)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          triggerTooltip(e, weekNum, month.name);
+                          triggerTooltip(e, mItem);
                         }}
                       />
                     );
@@ -387,16 +328,13 @@ export default function CalendarHeatMap() {
 
           <div className="heatmap-legend">
             <div className="heatmap-key">
-              <span
-                className="heatmap-key-dot level-0"
-                title="Missed (0 shares)"
-              ></span>
+              <span className="heatmap-key-dot level-0" title="Missed (0 shares)"></span>
               <span className="heatmap-key-label">Missed</span>
               <span className="heatmap-key-label">Less</span>
-              <span className="heatmap-key-dot level-1" title="1-2 shares (Underperformance)"></span>
-              <span className="heatmap-key-dot level-2" title="3-4 shares (Fair)"></span>
-              <span className="heatmap-key-dot level-3" title="5-7 shares (Good)"></span>
-              <span className="heatmap-key-dot level-4" title="8-10 shares (Excellent)"></span>
+              <span className="heatmap-key-dot level-1" title="1-2 shares"></span>
+              <span className="heatmap-key-dot level-2" title="3-4 shares"></span>
+              <span className="heatmap-key-dot level-3" title="5-7 shares"></span>
+              <span className="heatmap-key-dot level-4" title="8-10 shares"></span>
               <span className="heatmap-key-label">More</span>
             </div>
           </div>
@@ -423,11 +361,11 @@ export default function CalendarHeatMap() {
           <div className="tooltip-body">
             {activeTooltip.isUpcoming ? (
               <div className="tooltip-status-badge upcoming">
-                <i className="fa-solid fa-clock"></i> Upcoming Period
+                <i className="fa-solid fa-clock"></i> Scheduled Meeting Date
               </div>
             ) : activeTooltip.isMissed ? (
               <div className="tooltip-status-badge missed">
-                <i className="fa-solid fa-triangle-exclamation"></i> No transactions on this date (Missed)
+                <i className="fa-solid fa-triangle-exclamation"></i> No transactions on this meeting date (Missed)
               </div>
             ) : (
               <div className="tooltip-financial-list">

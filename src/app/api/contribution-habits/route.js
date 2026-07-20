@@ -16,6 +16,7 @@ export async function GET(request) {
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
+      meetingDay: "Wednesday",
       isLocked: false
     };
 
@@ -28,7 +29,7 @@ export async function GET(request) {
     if (profile?.group_id) {
       const { data: sacco } = await supabase
         .from('saccos')
-        .select('share_price, devt_fund, social_fund, current_week, is_locked')
+        .select('share_price, devt_fund, social_fund, current_week, meeting_day, is_locked')
         .eq('group_code', profile.group_id)
         .limit(1)
         .single();
@@ -39,6 +40,7 @@ export async function GET(request) {
           devtFund: Number(sacco.devt_fund) || 1000,
           socialFund: Number(sacco.social_fund) || 2000,
           currentWeek: Number(sacco.current_week) || 1,
+          meetingDay: sacco.meeting_day || "Wednesday",
           isLocked: Boolean(sacco.is_locked)
         };
       }
