@@ -135,20 +135,29 @@ export default function SaccoSettings() {
     if (allMembers.length === 0) return;
 
     const rows = allMembers.map((member) => {
-      // Find matching transactions for the selected week/month/year
+      // Find matching transactions for the selected week & year
       const memberTxs = allTransactions.filter((tx) => {
         if (tx.profile_id !== member.id) return false;
 
+        // 1. Extract SACCO Week Number from database row or description text
+        let txWeek = Number(tx.week_number) || Number(tx.week);
+        if (!txWeek && tx.description) {
+          const match = tx.description.match(/\|\s*Week\s*(\d+)/i);
+          if (match) {
+            txWeek = parseInt(match[1], 10);
+          }
+        }
+        if (!txWeek && tx.created_at) {
+          const txDate = new Date(tx.created_at);
+          txWeek = Math.ceil(txDate.getDate() / 7);
+        }
+
         const txDate = new Date(tx.created_at);
         const txYear = txDate.getFullYear();
-        const txMonth = txDate.getMonth();
-        const txDay = txDate.getDate();
-        const txWeek = Math.ceil(txDay / 7);
 
         return (
-          txYear === Number(filterYear) &&
-          txMonth === Number(filterMonth) &&
-          txWeek === Number(filterWeek)
+          Number(txWeek) === Number(filterWeek) &&
+          txYear === Number(filterYear)
         );
       });
 
@@ -402,10 +411,11 @@ export default function SaccoSettings() {
             </div>
             <div className="filter-group">
               <select value={filterWeek} onChange={(e) => setFilterWeek(Number(e.target.value))}>
-                <option value="1">Week 1</option>
-                <option value="2">Week 2</option>
-                <option value="3">Week 3</option>
-                <option value="4">Week 4</option>
+                {Array.from({ length: Math.max(52, settings.currentWeek) }, (_, i) => i + 1).map((w) => (
+                  <option key={w} value={w}>
+                    Week {w} {w === settings.currentWeek ? "(Active)" : ""}
+                  </option>
+                ))}
               </select>
             </div>
             <button onClick={handlePrintReport} className="btn-print-report">
