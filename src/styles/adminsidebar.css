@@ -1,74 +1,69 @@
-.admin-dark-theme .admin-sidebar,
-.admin-dark-theme .sidebar {
+.sidebar {
   width: 28rem;
   height: 100vh;
-  background-color: #0f172a !important;
-  padding: 3rem 2rem;
+  background-color: var(--white);
+  padding: 3rem 2.4rem;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-  box-shadow: none !important;
+  box-shadow: 0.1rem 0 2rem rgba(0, 0, 0, 0.02);
   transition: all 0.3s ease;
   z-index: 100;
+  border-right: none;
 }
 
-.admin-dark-theme .logo-container {
+.logo-container {
   display: flex;
   align-items: center;
-  margin-bottom: 4rem;
+  margin-bottom: 5rem;
   padding: 0 1rem;
 }
 
-.admin-dark-theme .logo-container img {
+.logo-container img {
   width: 3.5rem;
   margin-right: 1.5rem;
-  border-radius: 0.8rem;
 }
 
-.admin-dark-theme .logo-container h2 {
-  color: #ffffff !important;
-  font-size: 2.2rem;
+.logo-container h2 {
+  color: var(--text-dark);
+  font-size: 2.4rem;
   font-weight: 800;
   letter-spacing: -0.05rem;
 }
 
-.admin-dark-theme .nav-links {
+.nav-links {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  padding: 0;
-  margin: 0;
 }
 
-.admin-dark-theme .nav-links li a {
+.nav-links li a {
   display: flex;
   align-items: center;
   text-decoration: none;
-  color: #94a3b8 !important;
+  color: var(--text-light);
   font-weight: 600;
-  padding: 1.4rem 1.8rem;
-  border-radius: 1.2rem;
+  padding: 1.6rem 2rem;
+  border-radius: 1.4rem;
   transition: all 0.2s ease;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
 }
 
-.admin-dark-theme .nav-links li a i {
-  margin-right: 1.4rem;
-  font-size: 1.6rem;
+.nav-links li a i {
+  margin-right: 1.6rem;
+  font-size: 1.8rem;
   width: 2.4rem;
   text-align: center;
 }
 
-.admin-dark-theme .nav-links li a:hover {
-  background: rgba(59, 130, 246, 0.1) !important;
-  color: #3b82f6 !important;
+.nav-links li a:hover {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
   transform: translateX(0.4rem);
 }
 
-.admin-dark-theme .nav-links li a.active {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: #3b82f6 !important;
-  border: 1px solid rgba(59, 130, 246, 0.3) !important;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.2) !important;
+.nav-links li a.active {
+  background-color: var(--primary-color);
+  color: var(--white);
+  box-shadow: 0 0.8rem 1.6rem rgba(37, 59, 142, 0.25);
 }
