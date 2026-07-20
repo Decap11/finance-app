@@ -1,6 +1,20 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
+import CustomSelect from "./CustomSelect.jsx";
 import "../styles/featureArea.css";
+
+const fundTypeOptions = [
+  { value: "shares", label: "Shares Contribution" },
+  { value: "development_fund", label: "Development Fund" },
+  { value: "social_fund", label: "Social Fund" },
+  { value: "fines", label: "Fines / Penalties" },
+  { value: "loan_disbursement", label: "Loan Disbursement (Issue Loan)" }
+];
+
+const loanTypeOptions = [
+  { value: "normal", label: "Normal Loan (5% p.m.)" },
+  { value: "social_fund", label: "Social Fund Emergency (0%)" }
+];
 
 export default function ManualContributionLog({ allMembers }) {
   const [addMember, setAddMember] = useState("");
@@ -16,6 +30,16 @@ export default function ManualContributionLog({ allMembers }) {
   const [termMonths, setTermMonths] = useState(1);
   const [loanType, setLoanType] = useState("normal");
   const [purpose, setPurpose] = useState("Onboarded historical loan");
+
+  const memberOptions = (allMembers || []).map((m) => ({
+    value: m.id,
+    label: `${m.name} (${m.memberId || m.phone || "Member"})`
+  }));
+
+  const targetWeekOptions = Array.from({ length: 52 }, (_, i) => ({
+    value: i + 1,
+    label: `Week ${i + 1}${i + 1 === currentWeek ? " (Current Active Week)" : ""}`
+  }));
 
   useEffect(() => {
     async function loadSettings() {

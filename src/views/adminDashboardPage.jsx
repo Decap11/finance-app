@@ -186,10 +186,10 @@ export default function AdminDashboardPage() {
 
       if (error) throw error;
 
-      showSuccess("Member successfully promoted to admin!");
+      alert("Member successfully promoted to admin!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin' } : m));
     } catch (err) {
-      showError("Failed to make member admin: " + err.message);
+      alert("Failed to make member admin: " + err.message);
     }
   };
 
@@ -204,11 +204,11 @@ export default function AdminDashboardPage() {
 
       if (error) throw error;
 
-      showSuccess("Member and all associated data deleted successfully!");
+      alert("Member and all associated data deleted successfully!");
       setAllMembers(prev => prev.filter(m => m.id !== memberId));
       setMetrics(prev => ({ ...prev, totalMembers: Math.max(0, prev.totalMembers - 1) }));
     } catch (err) {
-      showError("Failed to delete member: " + err.message);
+      alert("Failed to delete member: " + err.message);
     }
   };
 
