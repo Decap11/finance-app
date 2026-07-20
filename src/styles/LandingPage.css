@@ -275,7 +275,7 @@ body {
   box-shadow: 0 1.5rem 3rem rgba(37, 59, 142, 0.3);
 }
 
-/* .btn-secondary {
+.btn-secondary {
   background: var(--white);
   color: var(--primary-color);
   font-size: 1.6rem;
@@ -293,9 +293,9 @@ body {
 
 .btn-secondary:hover {
   border-color: var(--primary-color);
-  background: rgba(37, 59, 142, 0.02);
+  background: rgba(37, 59, 142, 0.04);
   transform: translateY(-0.4rem);
-} */
+}
 
 /* --- Hero Image Visual --- */
 .hero-visual {

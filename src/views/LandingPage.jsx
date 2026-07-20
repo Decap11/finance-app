@@ -24,9 +24,38 @@ export default function LandingPage() {
             </span>
             <span className="logo-badge">SaaS v1.0</span>
           </a>
-          <Link href="/register-sacco" className="nav-cta">
-            Create Workspace
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <Link 
+              href="/login" 
+              style={{ 
+                fontSize: "1.4rem", 
+                fontWeight: 600, 
+                color: "var(--text-dark)", 
+                textDecoration: "none", 
+                padding: "0.8rem 1.4rem" 
+              }}
+            >
+              Log In
+            </Link>
+            <Link href="/signup" className="nav-cta" style={{ background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%)" }}>
+              Sign Up <i className="fa-solid fa-user-plus" style={{ marginLeft: "0.6rem" }}></i>
+            </Link>
+            <Link 
+              href="/register-sacco" 
+              style={{ 
+                fontSize: "1.4rem", 
+                fontWeight: 600, 
+                color: "var(--primary-color)", 
+                background: "rgba(37, 59, 142, 0.08)", 
+                padding: "1rem 1.8rem", 
+                borderRadius: "var(--input-radius)", 
+                textDecoration: "none",
+                border: "0.1rem solid rgba(37, 59, 142, 0.2)"
+              }}
+            >
+              Create SACCO
+            </Link>
+          </div>
         </nav>
 
         {/* Hero Section */}
@@ -43,12 +72,12 @@ export default function LandingPage() {
               multi-tenant workspace.
             </p>
             <div className="hero-btn-group">
-              <Link href="/register-sacco" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                Register Organization <i className="fa-solid fa-arrow-right" style={{ marginLeft: '0.8rem' }}></i>
+              <Link href="/signup" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                Sign Up Now <i className="fa-solid fa-arrow-right" style={{ marginLeft: '0.8rem' }}></i>
               </Link>
-              {/* <button href="sacco-link.html" className="btn-secondary">
-                Connect Workspace <i className="fa-solid fa-network-wired"></i>
-              </button> */}
+              <Link href="/register-sacco" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                Register SACCO <i className="fa-solid fa-building-columns" style={{ marginLeft: '0.8rem' }}></i>
+              </Link>
             </div>
           </div>
 
@@ -721,6 +750,65 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* CTA Sign Up Banner */}
+        <section 
+          style={{ 
+            padding: "8rem 8%", 
+            background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%)", 
+            textAlign: "center", 
+            color: "#ffffff", 
+            borderRadius: "var(--border-radius)", 
+            margin: "6rem 8% 8rem 8%",
+            boxShadow: "0 2rem 5rem rgba(37, 59, 142, 0.25)"
+          }}
+        >
+          <h2 style={{ fontSize: "3.6rem", fontWeight: 800, marginBottom: "1.5rem", letterSpacing: "-0.05rem" }}>
+            Ready to Join Your SACCO Cooperative?
+          </h2>
+          <p style={{ fontSize: "1.8rem", color: "#cbd5e1", maxWidth: "60rem", margin: "0 auto 3.5rem", lineHeight: 1.6 }}>
+            Create your personal member account in seconds and start tracking your shares, savings, and loan applications effortlessly.
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "1.6rem", flexWrap: "wrap" }}>
+            <Link 
+              href="/signup" 
+              style={{ 
+                display: "inline-flex", 
+                alignItems: "center", 
+                gap: "0.8rem", 
+                background: "#ffffff", 
+                color: "var(--primary-color)", 
+                fontSize: "1.6rem", 
+                fontWeight: 700, 
+                padding: "1.6rem 3.6rem", 
+                borderRadius: "var(--input-radius)", 
+                textDecoration: "none", 
+                boxShadow: "0 1rem 3rem rgba(0, 0, 0, 0.2)",
+                transition: "var(--transition)"
+              }}
+            >
+              Sign Up Now <i className="fa-solid fa-user-plus"></i>
+            </Link>
+            <Link 
+              href="/login" 
+              style={{ 
+                display: "inline-flex", 
+                alignItems: "center", 
+                gap: "0.8rem", 
+                background: "rgba(255, 255, 255, 0.1)", 
+                color: "#ffffff", 
+                fontSize: "1.6rem", 
+                fontWeight: 600, 
+                padding: "1.6rem 3.2rem", 
+                borderRadius: "var(--input-radius)", 
+                textDecoration: "none", 
+                border: "0.1rem solid rgba(255, 255, 255, 0.2)",
+                transition: "var(--transition)"
+              }}
+            >
+              Member Log In <i className="fa-solid fa-arrow-right-to-bracket"></i>
+            </Link>
+          </div>
+        </section>
 
         <footer>
           <a href="#" className="footer-logo">
