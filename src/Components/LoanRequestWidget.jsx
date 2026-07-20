@@ -174,6 +174,7 @@ export default function LoanRequestWidget() {
       setMessage(err.message || "An error occurred.");
     } finally {
       setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -202,20 +203,11 @@ export default function LoanRequestWidget() {
         <div className="form-group">
           <label htmlFor="loan-type">Loan Type</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-layer-group"></i>
-            <select
-              id="loan-type"
+            <CustomSelect
               value={loanType}
+              options={loanTypeOptions}
               onChange={handleTypeChange}
-              required
-            >
-              <option value="normal">Normal Loan (5% interest p.m.)</option>
-              <option value="social_fund">Social Fund Loan (Interest-free)</option>
-            </select>
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+            />
           </div>
         </div>
 
@@ -231,9 +223,7 @@ export default function LoanRequestWidget() {
             <input
               type="number"
               id="loan-amount"
-              placeholder={loanType === "social_fund" ? "e.g. 30000" : "e.g. 500000"}
-              min="1000"
-              max={maxAllowedAmount}
+              placeholder="Enter amount"
               value={loanAmount}
               onChange={handleAmountChange}
               required
@@ -244,53 +234,24 @@ export default function LoanRequestWidget() {
         <div className="form-group">
           <label htmlFor="repayment-period">Repayment Period</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-calendar-days"></i>
-            {loanType === "social_fund" ? (
-              <select id="repayment-period" value="2w" disabled>
-                <option value="2w">2 Weeks (Fixed)</option>
-              </select>
-            ) : (
-              <select
-                id="repayment-period"
-                value={repaymentPeriod}
-                onChange={handlePeriodChange}
-                required
-              >
-                <option value="1">1 Month</option>
-                <option value="2">2 Months</option>
-                <option value="3">3 Months</option>
-              </select>
-            )}
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+            <CustomSelect
+              value={loanType === "social_fund" ? "2w" : repaymentPeriod}
+              options={loanType === "social_fund" ? socialPeriodOptions : periodOptions}
+              onChange={(val) => setRepaymentPeriod(val)}
+              disabled={loanType === "social_fund"}
+            />
           </div>
         </div>
 
         <div className="form-group">
           <label htmlFor="loan-reason">Reason for Loan</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-pen-to-square"></i>
-            <select
-              id="loan-reason"
+            <CustomSelect
               value={loanReason}
-              onChange={handleReasonChange}
-              required
-            >
-              <option value="" disabled>
-                Select a reason...
-              </option>
-              <option value="business">Business / Development</option>
-              <option value="education">Education / School Fees</option>
-              <option value="medical">Medical Emergency</option>
-              <option value="personal">Personal / Home</option>
-              <option value="other">Other</option>
-            </select>
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+              options={reasonOptions}
+              onChange={(val) => setLoanReason(val)}
+              placeholder="Select a reason..."
+            />
           </div>
         </div>
 

@@ -1,59 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import CustomSelect from "./CustomSelect.jsx";
 import "../styles/saccoSettings.css";
-
-function CustomSelect({ value, options, onChange, placeholder, minWidth = "160px" }) {
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find((opt) => String(opt.value) === String(value));
-
-  return (
-    <div className="custom-select-wrapper" ref={dropdownRef} style={{ minWidth }}>
-      <button
-        type="button"
-        className={`custom-select-trigger ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
-      >
-        <span className="custom-select-label">{selectedOption ? selectedOption.label : placeholder}</span>
-        <i className={`fa-solid fa-chevron-down custom-select-arrow ${open ? "open" : ""}`}></i>
-      </button>
-
-      {open && (
-        <div className="custom-select-dropdown">
-          {options.map((opt) => {
-            const isSelected = String(opt.value) === String(value);
-            return (
-              <div
-                key={opt.value}
-                className={`custom-select-option ${isSelected ? "selected" : ""}`}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-              >
-                <span>{opt.label}</span>
-                {isSelected && <i className="fa-solid fa-check check-icon"></i>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function SaccoSettings() {
   const [settings, setSettings] = useState(() => {

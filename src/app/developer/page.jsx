@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { useToast } from "../../context/ToastContext";
+import CustomSelect from "../../Components/CustomSelect";
 import "../../styles/developerPortal.css";
 
 export default function DeveloperPortal() {
@@ -902,15 +903,16 @@ export default function DeveloperPortal() {
                   <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
                     Initial Tier Plan
                   </label>
-                  <select 
+                  <CustomSelect 
                     value={provisionForm.planTier}
-                    onChange={(e) => setProvisionForm(p => ({ ...p, planTier: e.target.value }))}
-                    style={{ width: "100%", padding: "1rem 1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
-                  >
-                    <option value="basic">Basic (50 limit)</option>
-                    <option value="standard">Standard (250 limit)</option>
-                    <option value="premium">Premium (1000 limit)</option>
-                  </select>
+                    options={[
+                      { value: "basic", label: "Basic (50 limit)" },
+                      { value: "standard", label: "Standard (250 limit)" },
+                      { value: "premium", label: "Premium (1000 limit)" }
+                    ]}
+                    onChange={(val) => setProvisionForm(p => ({ ...p, planTier: val }))}
+                    darkTheme={true}
+                  />
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
@@ -989,15 +991,16 @@ export default function DeveloperPortal() {
                 <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.6rem", color: "#cbd5e1" }}>
                   Select Subscription Plan Tier
                 </label>
-                <select 
+                <CustomSelect 
                   value={tierForm.planTier}
-                  onChange={(e) => setTierForm(t => ({ ...t, planTier: e.target.value }))}
-                  style={{ width: "100%", padding: "1.2rem", background: "#0f172a", border: "0.1rem solid #334155", borderRadius: "0.8rem", color: "#fff", fontSize: "1.3rem" }}
-                >
-                  <option value="basic">Basic (Max 50 Members)</option>
-                  <option value="standard">Standard (Max 250 Members)</option>
-                  <option value="premium">Premium (Max 1,000 Members)</option>
-                </select>
+                  options={[
+                    { value: "basic", label: "Basic (Max 50 Members)" },
+                    { value: "standard", label: "Standard (Max 250 Members)" },
+                    { value: "premium", label: "Premium (Max 1,000 Members)" }
+                  ]}
+                  onChange={(val) => setTierForm(t => ({ ...t, planTier: val }))}
+                  darkTheme={true}
+                />
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "1.2rem", marginTop: "1rem" }}>

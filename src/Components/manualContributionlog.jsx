@@ -143,10 +143,9 @@ export default function ManualContributionLog({ allMembers }) {
           Backfilling paper records for past weeks.
         </div>
       )}
-      
+
       {message && (
         <div style={{
-          marginBottom: '1.2rem',
           padding: '0.8rem',
           borderRadius: '0.8rem',
           background: message.includes('successfully') ? '#d1fae5' : '#fee2e2',
@@ -161,34 +160,21 @@ export default function ManualContributionLog({ allMembers }) {
 
       <div className="admin-form-group admin-form-group-member">
         <label className="admin-label-member">Select Member</label>
-        <select
-          className="admin-select-member"
+        <CustomSelect
           value={addMember}
-          onChange={(e) => setAddMember(e.target.value)}
-          required
-        >
-          <option value="">-- Select Member --</option>
-          {allMembers.map(({ id, name, memberId }) => (
-            <option key={id} value={id}>
-              {name} ({memberId})
-            </option>
-          ))}
-        </select>
+          options={memberOptions}
+          onChange={(val) => setAddMember(val)}
+          placeholder="-- Select Member --"
+        />
       </div>
 
       <div className="admin-form-group admin-form-group-fund">
         <label className="admin-label-fund">Fund Pool / Transaction Type</label>
-        <select
-          className="admin-select-fund"
+        <CustomSelect
           value={addFundType}
-          onChange={(e) => setAddFundType(e.target.value)}
-          required
-        >
-          <option value="shares">Shares Pool</option>
-          <option value="development_fund">Development Fund</option>
-          <option value="social_fund">Social Fund</option>
-          <option value="loan_disbursement">Loan Disbursement (New Loan)</option>
-        </select>
+          options={fundTypeOptions}
+          onChange={(val) => setAddFundType(val)}
+        />
       </div>
 
       {/* Dynamic Loan Fields */}
@@ -196,14 +182,11 @@ export default function ManualContributionLog({ allMembers }) {
         <>
           <div className="admin-form-group">
             <label>Loan Type</label>
-            <select
+            <CustomSelect
               value={loanType}
-              onChange={(e) => setLoanType(e.target.value)}
-              required
-            >
-              <option value="normal">Normal Loan (5% p.m. interest)</option>
-              <option value="social_fund">Social Fund Loan (Interest-free, 2 weeks)</option>
-            </select>
+              options={loanTypeOptions}
+              onChange={(val) => setLoanType(val)}
+            />
           </div>
 
           <div className="admin-form-group">
@@ -233,28 +216,11 @@ export default function ManualContributionLog({ allMembers }) {
       {loggingMode === "historical" ? (
         <div className="admin-form-group">
           <label>Target Week</label>
-          <select
+          <CustomSelect
             value={selectedWeek}
-            onChange={(e) => setSelectedWeek(Number(e.target.value))}
-            style={{
-              width: "100%",
-              padding: "1rem",
-              fontSize: "1.3rem",
-              border: "0.1rem solid var(--border-color)",
-              borderRadius: "0.8rem",
-              backgroundColor: "var(--white)",
-              color: "var(--text-dark)",
-              outline: "none"
-            }}
-            required
-          >
-            {/* Allow selecting any week from Week 1 to currentWeek - 1 for onboarding */}
-            {Array.from({ length: currentWeek - 1 }, (_, i) => i + 1).map((w) => (
-              <option key={w} value={w}>
-                Week {w}
-              </option>
-            ))}
-          </select>
+            options={targetWeekOptions}
+            onChange={(val) => setSelectedWeek(Number(val))}
+          />
         </div>
       ) : (
         <div className="admin-form-group" style={{ marginBottom: "1.6rem" }}>

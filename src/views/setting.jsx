@@ -5,6 +5,7 @@ import UserHeader from "../Components/userHeader";
 import MemberLayout from "../layout/MemberLayout";
 import { supabase } from "../supabaseClient.js";
 import Loader from "../Components/loader.jsx";
+import CustomSelect from "../Components/CustomSelect.jsx";
 import "../styles/settings.css";
 
 export default function Settings({ isAdminView = false }) {
@@ -662,20 +663,17 @@ export default function Settings({ isAdminView = false }) {
                   Phone Number
                 </label>
                 <div style={{ display: "flex", gap: "1rem" }}>
-                  <select
-                    defaultValue="+256"
-                    style={{
-                      padding: "1.2rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-dark)",
-                      fontFamily: "inherit",
-                      background: "white",
-                    }}
-                  >
-                    <option value="+256">+256</option>
-                  </select>
+                  <CustomSelect
+                    value="+256"
+                    options={[
+                      { value: "+256", label: "+256" },
+                      { value: "+254", label: "+254" },
+                      { value: "+255", label: "+255" },
+                      { value: "+250", label: "+250" }
+                    ]}
+                    onChange={() => {}}
+                    minWidth="100px"
+                  />
                   <input
                     type="tel"
                     value={phone}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import CustomSelect from "./CustomSelect.jsx";
 import "../styles/loans.css";
 
 export default function LoanRepaymentWidget() {
@@ -128,21 +129,16 @@ export default function LoanRepaymentWidget() {
           <div className="form-group">
             <label htmlFor="payment-source">Payment Source</label>
             <div className="input-wrapper">
-              <i className="fa-solid fa-wallet"></i>
-              <select
-                id="payment-source"
+              <CustomSelect
                 value={paymentSource}
-                onChange={handleSourceChange}
-                required
-              >
-                <option value="">Select source...</option>
-                <option value="mobile_money">Mobile Money</option>
-                <option value="bank">Bank Transfer</option>
-              </select>
-              <i
-                className="fa-solid fa-chevron-down"
-                style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-              ></i>
+                options={[
+                  { value: "", label: "Select source..." },
+                  { value: "mobile_money", label: "Mobile Money" },
+                  { value: "bank", label: "Bank Transfer" }
+                ]}
+                onChange={(val) => setPaymentSource(val)}
+                placeholder="Select source..."
+              />
             </div>
           </div>
 
