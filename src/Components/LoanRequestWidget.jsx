@@ -1,6 +1,30 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
+import CustomSelect from "./CustomSelect.jsx";
 import "../styles/loans.css";
+
+const loanTypeOptions = [
+  { value: "normal", label: "Normal Loan (5% p.m.)" },
+  { value: "social_fund", label: "Social Fund Emergency (0%)" }
+];
+
+const periodOptions = [
+  { value: "1", label: "1 Month" },
+  { value: "2", label: "2 Months" },
+  { value: "3", label: "3 Months" }
+];
+
+const socialPeriodOptions = [
+  { value: "2w", label: "2 Weeks (Interest-Free)" }
+];
+
+const reasonOptions = [
+  { value: "business", label: "Business Expansion" },
+  { value: "emergency", label: "Emergency / Healthcare" },
+  { value: "school_fees", label: "School Fees" },
+  { value: "agriculture", label: "Agricultural / Farm Inputs" },
+  { value: "personal", label: "Personal Needs" }
+];
 
 export default function LoanRequestWidget() {
   const [loanType, setLoanType] = useState("normal"); // "normal" or "social_fund"
@@ -87,8 +111,7 @@ export default function LoanRequestWidget() {
     setDbDueDate(`${yyyy}-${mm}-${dd}`);
   };
 
-  const handleTypeChange = (e) => {
-    const selectedType = e.target.value;
+  const handleTypeChange = (selectedType) => {
     setLoanType(selectedType);
     
     // Set default periods
@@ -104,14 +127,13 @@ export default function LoanRequestWidget() {
     calculateLoan(amount, loanType, repaymentPeriod);
   };
 
-  const handlePeriodChange = (e) => {
-    const selectedPeriod = e.target.value;
+  const handlePeriodChange = (selectedPeriod) => {
     setRepaymentPeriod(selectedPeriod);
     calculateLoan(parseFloat(loanAmount) || "", loanType, selectedPeriod);
   };
 
-  const handleReasonChange = (e) => {
-    setLoanReason(e.target.value);
+  const handleReasonChange = (selectedReason) => {
+    setLoanReason(selectedReason);
   };
 
   const maxAllowedAmount = loanType === "social_fund" ? 50000 : sharesBalance * 2;
@@ -174,7 +196,6 @@ export default function LoanRequestWidget() {
       setMessage(err.message || "An error occurred.");
     } finally {
       setIsLoading(false);
-      setSubmitting(false);
     }
   };
 
