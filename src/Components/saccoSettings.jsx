@@ -100,15 +100,15 @@ export default function SaccoSettings() {
       if (!sacco) return;
       setSaccoInfo(sacco);
 
-      // 1. Fetch Sacco profiles
-      const { data: profilesList } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("group_id", profileData.group_id);
+      // Parallelize profile list and transaction list lookups
+      const [profilesRes, txsRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("group_id", profileData.group_id),
+        supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"])
+      ]);
 
-      if (profilesList) {
+      if (profilesRes.data) {
         setAllMembers(
-          profilesList.map((m) => ({
+          profilesRes.data.map((m) => ({
             id: m.id,
             name: m.full_name || "Unknown",
             memberId: m.member_number || "N/A",
@@ -116,15 +116,8 @@ export default function SaccoSettings() {
         );
       }
 
-      // 2. Fetch all Sacco transactions of status completed/approved/pending
-      const { data: txsList } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("sacco_id", sacco.id)
-        .in("status", ["approved", "completed", "pending"]);
-
-      if (txsList) {
-        setAllTransactions(txsList);
+      if (txsRes.data) {
+        setAllTransactions(txsRes.data);
       }
     } catch (err) {
       console.warn("Failed to load database data:", err);
@@ -134,8 +127,7 @@ export default function SaccoSettings() {
   }
 
   useEffect(() => {
-    loadSettings();
-    loadDatabaseData();
+    Promise.all([loadSettings(), loadDatabaseData()]);
   }, []);
 
   // Compute Weekly Table and overall totals dynamically
