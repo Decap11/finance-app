@@ -3,6 +3,30 @@ import { verifyAdmin } from '../../../../lib/auth';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function getMeetingDateForWeek(year, meetingDayName, weekNum) {
+  const DAY_INDICES = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  const targetDayIndex = DAY_INDICES[meetingDayName] !== undefined ? DAY_INDICES[meetingDayName] : 3;
+
+  let meetingCount = 0;
+  const isLeap = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+  const daysInYear = isLeap ? 366 : 365;
+
+  let targetDate = new Date(year, 0, 1, 10, 0, 0); // 10:00 AM on meeting day
+
+  for (let d = 1; d <= daysInYear; d++) {
+    const current = new Date(year, 0, d, 10, 0, 0);
+    if (current.getDay() === targetDayIndex) {
+      meetingCount++;
+      if (meetingCount === weekNum) {
+        targetDate = current;
+        break;
+      }
+    }
+  }
+
+  return targetDate.toISOString();
+}
+
 export async function POST(request) {
   try {
     // 1. Authenticate caller and verify admin role
@@ -50,10 +74,10 @@ export async function POST(request) {
 
     const cleanGroupCode = (callerProfile.group_id || '').trim();
 
-    // 3. Retrieve SACCO ID matching caller's group_id (case-insensitive with fallback)
+    // 3. Retrieve SACCO record matching caller's group_id
     const { data: saccoRows } = await supabase
       .from('saccos')
-      .select('id')
+      .select('id, meeting_day')
       .ilike('group_code', cleanGroupCode)
       .limit(1);
 
@@ -62,7 +86,7 @@ export async function POST(request) {
     if (!sacco) {
       const { data: fallbackRows } = await supabase
         .from('saccos')
-        .select('id')
+        .select('id, meeting_day')
         .limit(1);
       if (fallbackRows && fallbackRows.length > 0) {
         sacco = fallbackRows[0];
@@ -72,6 +96,11 @@ export async function POST(request) {
     if (!sacco) {
       return Response.json({ error: 'Could not find active SACCO group for this admin.' }, { status: 400 });
     }
+
+    // Calculate exact meeting date timestamp for this weekNum
+    const currentYear = new Date().getFullYear();
+    const meetingDayName = sacco.meeting_day || "Wednesday";
+    const targetMeetingDateIso = getMeetingDateForWeek(currentYear, meetingDayName, parsedWeekNum);
 
     // 4. Duplicate Check: Ensure member has no existing completed/approved transaction of this type in this week
     const weekPattern = `%| Week ${parsedWeekNum}`;
@@ -135,7 +164,7 @@ export async function POST(request) {
       const parsedLoanType = loanType || 'normal';
       const interestRate = parsedLoanType === 'social_fund' ? 0.00 : 5.00;
 
-      // Insert Loan record
+      // Insert Loan record with exact target meeting timestamp
       const { data: newLoan, error: loanInsertErr } = await supabase
         .from('loans')
         .insert({
@@ -149,10 +178,11 @@ export async function POST(request) {
           purpose: parsedPurpose,
           loan_type: parsedLoanType,
           status: 'issued',
-          requested_at: new Date().toISOString(),
+          created_at: targetMeetingDateIso,
+          requested_at: targetMeetingDateIso,
           approved_by: user.id,
-          approved_at: new Date().toISOString(),
-          disbursed_at: new Date().toISOString()
+          approved_at: targetMeetingDateIso,
+          disbursed_at: targetMeetingDateIso
         })
         .select('id')
         .single();
@@ -161,7 +191,7 @@ export async function POST(request) {
         return Response.json({ error: 'Failed to create loan record: ' + (loanInsertErr?.message || 'Unknown error') }, { status: 500 });
       }
 
-      // Insert corresponding Completed Transaction
+      // Insert corresponding Completed Transaction with exact target meeting timestamp
       const newTx = {
         sacco_id: sacco.id,
         profile_id: memberId,
@@ -172,10 +202,11 @@ export async function POST(request) {
         category: 'loan_disbursement',
         status: 'completed',
         description: `Manual loan onboarding: ${parsedLoanType === 'social_fund' ? 'Social Fund' : 'Normal'} | Week ${parsedWeekNum}`,
+        created_at: targetMeetingDateIso,
         requested_by: user.id,
         approved_by: user.id,
-        approved_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
+        approved_at: targetMeetingDateIso,
+        completed_at: targetMeetingDateIso
       };
 
       const { data: txResult, error: insertErr } = await supabase
@@ -214,7 +245,7 @@ export async function POST(request) {
         return Response.json({ error: `Could not find an initialized ${category} account for the selected member.` }, { status: 400 });
       }
 
-      // 6. Insert dynamic completed transaction
+      // 6. Insert dynamic completed transaction with exact target meeting timestamp
       const newTx = {
         sacco_id: sacco.id,
         profile_id: memberId,
@@ -224,6 +255,7 @@ export async function POST(request) {
         category: category,
         status: 'completed',
         description: `Manual contribution log by admin: ${category === 'shares' ? 'Shares' : category === 'development_fund' ? 'Development Fund' : 'Social Fund'} | Week ${parsedWeekNum}`,
+        created_at: targetMeetingDateIso,
         requested_by: user.id
       };
 

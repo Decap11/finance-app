@@ -21,6 +21,7 @@ export default function ManualContributionLog({ allMembers }) {
   const [addFundType, setAddFundType] = useState("shares");
   const [addAmount, setAddAmount] = useState("");
   const [currentWeek, setCurrentWeek] = useState(1);
+  const [meetingDay, setMeetingDay] = useState("Wednesday");
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [loggingMode, setLoggingMode] = useState("current"); // "current" or "historical"
   const [loading, setLoading] = useState(false);
@@ -36,10 +37,39 @@ export default function ManualContributionLog({ allMembers }) {
     label: `${m.name} (${m.memberId || m.phone || "Member"})`
   }));
 
-  const targetWeekOptions = Array.from({ length: 52 }, (_, i) => ({
-    value: i + 1,
-    label: `Week ${i + 1}${i + 1 === currentWeek ? " (Current Active Week)" : ""}`
-  }));
+  function getMeetingDateLabel(year, meetingDayName, weekNum) {
+    const DAY_INDICES = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    const targetDayIndex = DAY_INDICES[meetingDayName] !== undefined ? DAY_INDICES[meetingDayName] : 3;
+
+    let meetingCount = 0;
+    const isLeap = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+    const daysInYear = isLeap ? 366 : 365;
+
+    let targetDate = new Date(year, 0, 1);
+
+    for (let d = 1; d <= daysInYear; d++) {
+      const current = new Date(year, 0, d);
+      if (current.getDay() === targetDayIndex) {
+        meetingCount++;
+        if (meetingCount === weekNum) {
+          targetDate = current;
+          break;
+        }
+      }
+    }
+
+    return targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  const currentYear = new Date().getFullYear();
+  const targetWeekOptions = Array.from({ length: 52 }, (_, i) => {
+    const weekNum = i + 1;
+    const dateLabel = getMeetingDateLabel(currentYear, meetingDay, weekNum);
+    return {
+      value: weekNum,
+      label: `Week ${weekNum} (${dateLabel})${weekNum === currentWeek ? " [Active]" : ""}`
+    };
+  });
 
   useEffect(() => {
     async function loadSettings() {
@@ -52,9 +82,13 @@ export default function ManualContributionLog({ allMembers }) {
           }
         });
         const data = await res.json();
-        if (res.ok && data.settings) {
-          const cw = Number(data.settings.currentWeek) || 1;
+        if (res.ok) {
+          const settingsObj = data.settings || data;
+          const cw = Number(settingsObj.currentWeek) || 1;
           setCurrentWeek(cw);
+          if (settingsObj.meetingDay) {
+            setMeetingDay(settingsObj.meetingDay);
+          }
           if (loggingMode === "current") {
             setSelectedWeek(cw);
           }
