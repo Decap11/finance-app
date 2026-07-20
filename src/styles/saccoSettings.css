@@ -345,6 +345,209 @@ input:checked + .slider:before {
   font-weight: 900;
 }
 
+/* Mobile Scroll Hint Styling */
+.mobile-scroll-hint {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .report-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.6rem;
+  }
+}
+
+@media (max-width: 440px) {
+  .sacco-settings-container {
+    gap: 1.6rem;
+  }
+
+  .sacco-settings-card {
+    padding: 1.4rem 1.2rem;
+    border-radius: 1.2rem;
+  }
+
+  .settings-title {
+    font-size: 1.6rem;
+    line-height: 1.3;
+  }
+
+  .settings-subtitle {
+    font-size: 1.15rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+    gap: 1.4rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .toggle-group {
+    flex-direction: row;
+    padding: 1.2rem 1.4rem;
+    gap: 1.2rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toggle-label {
+    font-size: 1.3rem;
+  }
+
+  .toggle-desc {
+    font-size: 1.1rem;
+  }
+
+  .btn-save-settings {
+    width: 100%;
+    padding: 1.2rem;
+    font-size: 1.35rem;
+    border-radius: 1rem;
+    text-align: center;
+  }
+
+  /* Cooperative Performance Report Mobile Layout (440px & below) */
+  .report-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.4rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .report-filters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+    width: 100%;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .report-filters select {
+    width: 100%;
+    font-size: 1.15rem;
+    padding: 0.8rem 0.4rem;
+    border-radius: 0.8rem;
+    text-align: center;
+    background-position: right 0.4rem center;
+  }
+
+  .btn-print-report {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+    padding: 1.1rem 1.6rem;
+    font-size: 1.3rem;
+    border-radius: 0.8rem;
+    margin-top: 0.4rem;
+  }
+
+  .report-period-badge {
+    width: 100%;
+    font-size: 1.15rem;
+    padding: 0.8rem 1rem;
+    border-radius: 0.8rem;
+    text-align: center;
+    display: block;
+    margin-bottom: 1.4rem;
+    box-sizing: border-box;
+  }
+
+  .mobile-scroll-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px dashed #bfdbfe;
+    padding: 0.7rem 1rem;
+    border-radius: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .report-table-wrapper {
+    margin-bottom: 2rem;
+    border-radius: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .report-table {
+    min-width: 620px;
+  }
+
+  .report-table th {
+    padding: 1rem 1.2rem;
+    font-size: 1.1rem;
+  }
+
+  .report-table td {
+    padding: 1rem 1.2rem;
+    font-size: 1.2rem;
+    white-space: nowrap;
+  }
+
+  .report-table th:nth-child(2),
+  .report-table td:nth-child(2) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background-color: #ffffff;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.04);
+  }
+
+  .report-table th:nth-child(2) {
+    background-color: #f8fafc;
+  }
+
+  .report-table .totals-row td:nth-child(2) {
+    background-color: #f1f5f9;
+  }
+
+  .overall-summary-title {
+    font-size: 1.4rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .report-grid {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+  }
+
+  .report-box {
+    padding: 1.5rem;
+    border-radius: 1rem;
+  }
+
+  .report-box .value {
+    font-size: 2rem;
+  }
+
+  .overall-grand-total-box {
+    flex-direction: column;
+    gap: 0.8rem;
+    text-align: center;
+    padding: 1.8rem 1.4rem;
+    border-radius: 1.2rem;
+  }
+
+  .overall-grand-total-box span {
+    font-size: 1.3rem;
+  }
+
+  .overall-grand-total-box strong {
+    font-size: 2.2rem;
+  }
+}
+
 /* Print Specific Rules */
 .print-only-header,
 .print-only-footer {

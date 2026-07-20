@@ -376,7 +376,7 @@ export default function SaccoSettings() {
           </div>
           
           {/* Filters controls */}
-          <div className="report-filters no-print" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="report-filters no-print">
             <div className="filter-group">
               <select value={filterYear} onChange={(e) => setFilterYear(Number(e.target.value))}>
                 <option value="2025">2025</option>
@@ -425,6 +425,11 @@ export default function SaccoSettings() {
 
           <div className="report-period-badge">
             <span>Active Operational Period: <strong>Week {filterWeek} ({getMonthName(filterMonth)} {filterYear})</strong></span>
+          </div>
+
+          {/* Mobile Swipe Hint Banner */}
+          <div className="mobile-scroll-hint no-print">
+            <i className="fa-solid fa-arrows-left-right"></i> Scroll table horizontally to view full ledger breakdown
           </div>
 
           {/* Tabular performance display */}
