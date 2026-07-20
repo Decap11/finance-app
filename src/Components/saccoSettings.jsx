@@ -1,8 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient.js";
 import "../styles/saccoSettings.css";
+
+function CustomSelect({ value, options, onChange, placeholder, minWidth = "160px" }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt) => String(opt.value) === String(value));
+
+  return (
+    <div className="custom-select-wrapper" ref={dropdownRef} style={{ minWidth }}>
+      <button
+        type="button"
+        className={`custom-select-trigger ${open ? "active" : ""}`}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="custom-select-label">{selectedOption ? selectedOption.label : placeholder}</span>
+        <i className={`fa-solid fa-chevron-down custom-select-arrow ${open ? "open" : ""}`}></i>
+      </button>
+
+      {open && (
+        <div className="custom-select-dropdown">
+          {options.map((opt) => {
+            const isSelected = String(opt.value) === String(value);
+            return (
+              <div
+                key={opt.value}
+                className={`custom-select-option ${isSelected ? "selected" : ""}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <i className="fa-solid fa-check check-icon"></i>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SaccoSettings() {
   const [settings, setSettings] = useState(() => {
@@ -291,6 +342,34 @@ export default function SaccoSettings() {
     month: "long",
     day: "numeric",
   });
+  const yearOptions = [
+    { value: 2025, label: "2025" },
+    { value: 2026, label: "2026" },
+    { value: 2027, label: "2027" },
+  ];
+
+  const monthOptions = [
+    { value: 0, label: "January" },
+    { value: 1, label: "February" },
+    { value: 2, label: "March" },
+    { value: 3, label: "April" },
+    { value: 4, label: "May" },
+    { value: 5, label: "June" },
+    { value: 6, label: "July" },
+    { value: 7, label: "August" },
+    { value: 8, label: "September" },
+    { value: 9, label: "October" },
+    { value: 10, label: "November" },
+    { value: 11, label: "December" },
+  ];
+
+  const weekOptions = Array.from(
+    { length: Math.max(52, settings.currentWeek) },
+    (_, i) => i + 1
+  ).map((w) => ({
+    value: w,
+    label: `Week ${w}${w === settings.currentWeek ? " (Active)" : ""}`,
+  }));
 
   return (
     <div className="sacco-settings-container">
@@ -387,36 +466,28 @@ export default function SaccoSettings() {
           {/* Filters controls */}
           <div className="report-filters no-print">
             <div className="filter-group">
-              <select value={filterYear} onChange={(e) => setFilterYear(Number(e.target.value))}>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-                <option value="2027">2027</option>
-              </select>
+              <CustomSelect
+                value={filterYear}
+                options={yearOptions}
+                onChange={(val) => setFilterYear(Number(val))}
+                minWidth="100px"
+              />
             </div>
             <div className="filter-group">
-              <select value={filterMonth} onChange={(e) => setFilterMonth(Number(e.target.value))}>
-                <option value="0">January</option>
-                <option value="1">February</option>
-                <option value="2">March</option>
-                <option value="3">April</option>
-                <option value="4">May</option>
-                <option value="5">June</option>
-                <option value="6">July</option>
-                <option value="7">August</option>
-                <option value="8">September</option>
-                <option value="9">October</option>
-                <option value="10">November</option>
-                <option value="11">December</option>
-              </select>
+              <CustomSelect
+                value={filterMonth}
+                options={monthOptions}
+                onChange={(val) => setFilterMonth(Number(val))}
+                minWidth="135px"
+              />
             </div>
             <div className="filter-group">
-              <select value={filterWeek} onChange={(e) => setFilterWeek(Number(e.target.value))}>
-                {Array.from({ length: Math.max(52, settings.currentWeek) }, (_, i) => i + 1).map((w) => (
-                  <option key={w} value={w}>
-                    Week {w} {w === settings.currentWeek ? "(Active)" : ""}
-                  </option>
-                ))}
-              </select>
+              <CustomSelect
+                value={filterWeek}
+                options={weekOptions}
+                onChange={(val) => setFilterWeek(Number(val))}
+                minWidth="165px"
+              />
             </div>
             <button onClick={handlePrintReport} className="btn-print-report">
               <i className="fa-solid fa-print"></i> Print Report
