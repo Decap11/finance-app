@@ -90,7 +90,7 @@ body {
   }
 }
 
-/* Universal Sticky Header across all views & screen sizes */
+/* Universal Non-Overflowing Sticky Header across all views & screen sizes */
 header,
 .admin-header,
 .payment-header,
@@ -98,6 +98,9 @@ header,
   position: -webkit-sticky !important;
   position: sticky !important;
   top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   z-index: 99999 !important;
   box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.15) !important;
 }
