@@ -159,6 +159,54 @@ export default function CalendarHeatMap() {
     loadContributionHabits();
   }, []);
 
+  const triggerTooltip = (e, weekNum, monthName) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
+    
+    let dateLabel = "";
+    if (finData.txDates && finData.txDates.length > 0) {
+      dateLabel = finData.txDates.join(", ");
+    } else {
+      const year = new Date().getFullYear();
+      const jan1 = new Date(year, 0, 1);
+      const startDay = new Date(jan1);
+      startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
+      const endDay = new Date(startDay);
+      endDay.setDate(startDay.getDate() + 6);
+      
+      const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const monthWeekObj = monthWeeks.find(m => m.name === monthName);
+      const weekOffset = monthWeekObj ? weekNum - monthWeekObj.weeks[0] + 1 : 1;
+      dateLabel = `${monthName} Week ${weekOffset} (${startStr} – ${endStr})`;
+    }
+
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 360;
+    const estimatedWidth = Math.min(280, viewportWidth - 24);
+    
+    // Clamp horizontal position so tooltip never clips left or right screen edge
+    let clampedX = rect.left + rect.width / 2;
+    if (clampedX - estimatedWidth / 2 < 12) {
+      clampedX = 12 + estimatedWidth / 2;
+    } else if (clampedX + estimatedWidth / 2 > viewportWidth - 12) {
+      clampedX = viewportWidth - 12 - estimatedWidth / 2;
+    }
+
+    // Flip vertical position if too close to top of viewport
+    const positionBelow = rect.top < 160;
+    const clampedY = positionBelow ? rect.bottom + 8 : rect.top - 8;
+
+    setActiveTooltip({
+      x: clampedX,
+      y: clampedY,
+      positionBelow,
+      dateLabel,
+      finData,
+      isUpcoming: weekNum > currentWeek,
+      isMissed: weekNum <= currentWeek && finData.totalAmount === 0
+    });
+  };
+
   return (
     <div className="quick-actions">
       <div className="section-header">
@@ -324,64 +372,10 @@ export default function CalendarHeatMap() {
                         key={weekNum}
                         className={`heatmap-day ${levelClass}`}
                         style={inlineStyle}
-                        onMouseEnter={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
-                          
-                          let dateLabel = "";
-                          if (finData.txDates && finData.txDates.length > 0) {
-                            dateLabel = finData.txDates.join(", ");
-                          } else {
-                            const year = new Date().getFullYear();
-                            const jan1 = new Date(year, 0, 1);
-                            const startDay = new Date(jan1);
-                            startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
-                            const endDay = new Date(startDay);
-                            endDay.setDate(startDay.getDate() + 6);
-                            
-                            const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                            const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                            dateLabel = `${month.name} Week ${weekNum - month.weeks[0] + 1} (${startStr} – ${endStr})`;
-                          }
-
-                          setActiveTooltip({
-                            x: rect.left + rect.width / 2,
-                            y: rect.top,
-                            dateLabel,
-                            finData,
-                            isUpcoming: weekNum > currentWeek,
-                            isMissed: weekNum <= currentWeek && finData.totalAmount === 0
-                          });
-                        }}
+                        onMouseEnter={(e) => triggerTooltip(e, weekNum, month.name)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const finData = weekFinancialData[weekNum] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
-                          
-                          let dateLabel = "";
-                          if (finData.txDates && finData.txDates.length > 0) {
-                            dateLabel = finData.txDates.join(", ");
-                          } else {
-                            const year = new Date().getFullYear();
-                            const jan1 = new Date(year, 0, 1);
-                            const startDay = new Date(jan1);
-                            startDay.setDate(jan1.getDate() + (weekNum - 1) * 7);
-                            const endDay = new Date(startDay);
-                            endDay.setDate(startDay.getDate() + 6);
-                            
-                            const startStr = startDay.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                            const endStr = endDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                            dateLabel = `${month.name} Week ${weekNum - month.weeks[0] + 1} (${startStr} – ${endStr})`;
-                          }
-
-                          setActiveTooltip({
-                            x: rect.left + rect.width / 2,
-                            y: rect.top,
-                            dateLabel,
-                            finData,
-                            isUpcoming: weekNum > currentWeek,
-                            isMissed: weekNum <= currentWeek && finData.totalAmount === 0
-                          });
+                          triggerTooltip(e, weekNum, month.name);
                         }}
                       />
                     );
