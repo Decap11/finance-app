@@ -47,8 +47,7 @@
     font-size: 58%;
   }
   .dashboard-body {
-    padding-left: 2.4rem;
-    padding-right: 2.4rem;
+    padding: 0 !important;
   }
 
   .dashboard-grid,
@@ -156,7 +155,7 @@
   }
 
   .dashboard-body {
-    padding: 1.6rem;
+    padding: 0 !important;
   }
 
   .sidebar-overlay {
