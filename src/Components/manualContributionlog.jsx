@@ -98,6 +98,26 @@ export default function ManualContributionLog({ allMembers }) {
       }
     }
     loadSettings();
+
+    function handleSettingsUpdate(e) {
+      if (e.detail) {
+        if (e.detail.meetingDay) {
+          setMeetingDay(e.detail.meetingDay);
+        }
+        if (e.detail.currentWeek) {
+          setCurrentWeek(Number(e.detail.currentWeek));
+        }
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
+      }
+    };
   }, [loggingMode]);
 
   // Adjust selected week based on logging mode selection

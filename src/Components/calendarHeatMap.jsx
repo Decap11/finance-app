@@ -199,7 +199,23 @@ export default function CalendarHeatMap() {
       }
     }
 
-    loadContributionHabits();
+        loadContributionHabits();
+
+    function handleSettingsUpdate(e) {
+      if (e.detail && e.detail.meetingDay) {
+        setMeetingDay(e.detail.meetingDay);
+        loadContributionHabits();
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
+      }
+    };
   }, []);
 
   const triggerTooltip = (e, meetingItem) => {
