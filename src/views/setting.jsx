@@ -21,6 +21,8 @@ export default function Settings({ isAdminView = false }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordUpdating, setPasswordUpdating] = useState(false);
   const [passwordSuccessMsg, setPasswordSuccessMsg] = useState("");
   const [passwordErrorMsg, setPasswordErrorMsg] = useState("");
@@ -792,23 +794,47 @@ export default function Settings({ isAdminView = false }) {
                     >
                       New Password
                     </label>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password (at least 6 characters)"
-                      required
-                      minLength={6}
-                      style={{
-                        width: "100%",
-                        padding: "1.2rem 1.5rem",
-                        border: "0.1rem solid #e2e8f0",
-                        borderRadius: "0.8rem",
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        fontFamily: "inherit",
-                      }}
-                    />
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (at least 6 characters)"
+                        required
+                        minLength={6}
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 4rem 1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "1.2rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#64748b",
+                          fontSize: "1.4rem",
+                          padding: "0.4rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
+                        title={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        <i className={showNewPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"} />
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ marginBottom: "3rem" }}>
@@ -823,23 +849,47 @@ export default function Settings({ isAdminView = false }) {
                     >
                       Confirm New Password
                     </label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      required
-                      minLength={6}
-                      style={{
-                        width: "100%",
-                        padding: "1.2rem 1.5rem",
-                        border: "0.1rem solid #e2e8f0",
-                        borderRadius: "0.8rem",
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        fontFamily: "inherit",
-                      }}
-                    />
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                        required
+                        minLength={6}
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 4rem 1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "1.2rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#64748b",
+                          fontSize: "1.4rem",
+                          padding: "0.4rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
+                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        <i className={showConfirmPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"} />
+                      </button>
+                    </div>
                   </div>
 
                   <div
