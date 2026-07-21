@@ -18,6 +18,45 @@ export default function Settings({ isAdminView = false }) {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const [activeTab, setActiveTab] = useState("profile");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState("");
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState("");
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      setPasswordUpdating(true);
+      setPasswordSuccessMsg("");
+      setPasswordErrorMsg("");
+
+      if (!newPassword || newPassword.length < 6) {
+        throw new Error("Password must be at least 6 characters long.");
+      }
+
+      if (newPassword !== confirmPassword) {
+        throw new Error("New password and confirm password do not match.");
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccessMsg("Your password has been updated successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.warn("Error resetting password:", err);
+      setPasswordErrorMsg(err.message || "Failed to reset password.");
+    } finally {
+      setPasswordUpdating(false);
+    }
+  };
+
   useEffect(() => {
     async function loadUserProfile() {
       try {
@@ -415,18 +454,23 @@ export default function Settings({ isAdminView = false }) {
               style={{ listStyle: "none", padding: 0 }}
             >
               <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("profile")}
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    width: "100%",
                     padding: "1.2rem 1.5rem",
+                    border: "none",
                     textDecoration: "none",
-                    color: "var(--primary-color)",
-                    background: "var(--bg-color)",
+                    color: activeTab === "profile" ? "var(--primary-color)" : "var(--text-dark)",
+                    background: activeTab === "profile" ? "var(--bg-color)" : "transparent",
                     borderRadius: "1rem",
-                    fontWeight: 600,
+                    fontWeight: activeTab === "profile" ? 600 : 500,
                     fontSize: "1.4rem",
+                    cursor: "pointer",
+                    textAlign: "left"
                   }}
                 >
                   <i
@@ -434,73 +478,34 @@ export default function Settings({ isAdminView = false }) {
                     style={{ width: "2.5rem" }}
                   />
                   Edit Profile
-                </a>
+                </button>
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("security")}
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    width: "100%",
                     padding: "1.2rem 1.5rem",
+                    border: "none",
                     textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
+                    color: activeTab === "security" ? "var(--primary-color)" : "var(--text-dark)",
+                    background: activeTab === "security" ? "var(--bg-color)" : "transparent",
                     borderRadius: "1rem",
+                    fontWeight: activeTab === "security" ? 600 : 500,
+                    fontSize: "1.4rem",
+                    cursor: "pointer",
+                    textAlign: "left"
                   }}
                 >
                   <i
                     className="fa-solid fa-shield-halved"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
+                    style={{ width: "2.5rem", color: activeTab === "security" ? "var(--primary-color)" : "var(--text-light)" }}
                   />
-                  Security
-                </a>
-              </li>
-              <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "1.2rem 1.5rem",
-                    textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
-                    borderRadius: "1rem",
-                  }}
-                >
-                  <i
-                    className="fa-solid fa-bell"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
-                  />
-                  Notifications
-                </a>
-              </li>
-              <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "1.2rem 1.5rem",
-                    textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
-                    borderRadius: "1rem",
-                  }}
-                >
-                  <i
-                    className="fa-solid fa-building-columns"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
-                  />
-                  Linked Accounts
-                </a>
+                  Security & Password
+                </button>
               </li>
             </ul>
           </div>
@@ -515,378 +520,359 @@ export default function Settings({ isAdminView = false }) {
               boxShadow: "var(--card-shadow)",
             }}
           >
-            <h2
-              style={{
-                fontSize: "2rem",
-                color: "var(--text-dark)",
-                marginBottom: "2.5rem",
-              }}
-            >
-              Personal Information
-            </h2>
-
-            {/* Notification Badges */}
-            {successMsg && (
-              <div
-                style={{
-                  background: "#d1e7dd",
-                  color: "#0f5132",
-                  padding: "1.2rem 1.5rem",
-                  borderRadius: "0.8rem",
-                  fontSize: "1.4rem",
-                  marginBottom: "2rem",
-                  fontWeight: 500,
-                }}
-              >
-                <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
-                {successMsg}
-              </div>
-            )}
-            {errorMsg && (
-              <div
-                style={{
-                  background: "#f8d7da",
-                  color: "#842029",
-                  padding: "1.2rem 1.5rem",
-                  borderRadius: "0.8rem",
-                  fontSize: "1.4rem",
-                  marginBottom: "2rem",
-                  fontWeight: 500,
-                }}
-              >
-                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div className="settings-form-grid">
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "1.3rem",
-                      fontWeight: 600,
-                      color: "var(--text-dark)",
-                      marginBottom: "0.8rem",
-                    }}
-                  >
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    disabled
-                    style={{
-                      width: "100%",
-                      padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-light)",
-                      fontFamily: "inherit",
-                      background: "#f8fafc",
-                      cursor: "not-allowed",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "1.3rem",
-                      fontWeight: 600,
-                      color: "var(--text-dark)",
-                      marginBottom: "0.8rem",
-                    }}
-                  >
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    disabled
-                    style={{
-                      width: "100%",
-                      padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-light)",
-                      fontFamily: "inherit",
-                      background: "#f8fafc",
-                      cursor: "not-allowed",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "2rem" }}>
-                <label
+            {activeTab === "profile" && (
+              <>
+                <h2
                   style={{
-                    display: "block",
-                    fontSize: "1.3rem",
-                    fontWeight: 600,
+                    fontSize: "2rem",
+                    color: "var(--text-dark)",
+                    marginBottom: "2.5rem",
+                  }}
+                >
+                  Personal Information
+                </h2>
+
+                {/* Notification Badges */}
+                {successMsg && (
+                  <div
+                    style={{
+                      background: "#d1e7dd",
+                      color: "#0f5132",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
+                    {successMsg}
+                  </div>
+                )}
+                {errorMsg && (
+                  <div
+                    style={{
+                      background: "#f8d7da",
+                      color: "#842029",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
+                    {errorMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  <div className="settings-form-grid">
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "1.3rem",
+                          fontWeight: 600,
+                          color: "var(--text-dark)",
+                          marginBottom: "0.8rem",
+                        }}
+                      >
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        value={firstName}
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-light)",
+                          fontFamily: "inherit",
+                          background: "#f8fafc",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "1.3rem",
+                          fontWeight: 600,
+                          color: "var(--text-dark)",
+                          marginBottom: "0.8rem",
+                        }}
+                      >
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        value={lastName}
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-light)",
+                          fontFamily: "inherit",
+                          background: "#f8fafc",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "2rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "1.2rem 1.5rem",
+                        border: "0.1rem solid #e2e8f0",
+                        borderRadius: "0.8rem",
+                        fontSize: "1.4rem",
+                        color: "var(--text-dark)",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: "3rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Phone Number
+                    </label>
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      <CustomSelect
+                        value="+256"
+                        options={[
+                          { value: "+256", label: "+256" },
+                          { value: "+254", label: "+254" },
+                          { value: "+255", label: "+255" },
+                          { value: "+250", label: "+250" }
+                        ]}
+                        onChange={() => {}}
+                        minWidth="100px"
+                      />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                        style={{
+                          flex: 1,
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      paddingTop: "2rem",
+                      borderTop: "0.1rem solid #f1f5f9",
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      disabled={updating}
+                      style={{
+                        padding: "1.2rem 2.4rem",
+                        background: "var(--primary-color)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.8rem",
+                        fontWeight: 600,
+                        fontSize: "1.4rem",
+                        cursor: updating ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.8rem",
+                        opacity: updating ? 0.7 : 1,
+                      }}
+                    >
+                      {updating ? "Saving..." : "Save Changes"} <i className="fa-solid fa-check" />
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {activeTab === "security" && (
+              <div>
+                <h2
+                  style={{
+                    fontSize: "2rem",
                     color: "var(--text-dark)",
                     marginBottom: "0.8rem",
                   }}
                 >
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "1.2rem 1.5rem",
-                    border: "0.1rem solid #e2e8f0",
-                    borderRadius: "0.8rem",
-                    fontSize: "1.4rem",
-                    color: "var(--text-dark)",
-                    fontFamily: "inherit",
-                  }}
-                />
-              </div>
+                  Security & Password Reset
+                </h2>
+                <p style={{ fontSize: "1.3rem", color: "var(--text-light)", marginBottom: "2.5rem" }}>
+                  Reset and update your login password to secure your SACCO member account.
+                </p>
 
-              <div style={{ marginBottom: "3rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "1.3rem",
-                    fontWeight: 600,
-                    color: "var(--text-dark)",
-                    marginBottom: "0.8rem",
-                  }}
-                >
-                  Phone Number
-                </label>
-                <div style={{ display: "flex", gap: "1rem" }}>
-                  <CustomSelect
-                    value="+256"
-                    options={[
-                      { value: "+256", label: "+256" },
-                      { value: "+254", label: "+254" },
-                      { value: "+255", label: "+255" },
-                      { value: "+250", label: "+250" }
-                    ]}
-                    onChange={() => {}}
-                    minWidth="100px"
-                  />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
+                {passwordSuccessMsg && (
+                  <div
                     style={{
-                      flex: 1,
+                      background: "#d1e7dd",
+                      color: "#0f5132",
                       padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
                       borderRadius: "0.8rem",
                       fontSize: "1.4rem",
-                      color: "var(--text-dark)",
-                      fontFamily: "inherit",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <h2
-                style={{
-                  fontSize: "2rem",
-                  color: "var(--text-dark)",
-                  marginBottom: "2.5rem",
-                  paddingTop: "2rem",
-                  borderTop: "0.1rem solid #f1f5f9",
-                }}
-              >
-                Preferences
-              </h2>
-
-              <div style={{ marginBottom: "3rem" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "1.5rem",
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        marginBottom: "0.3rem",
-                      }}
-                    >
-                      Monthly Statements
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: "1.2rem",
-                        color: "var(--text-light)",
-                      }}
-                    >
-                      Receive PDF statements of your pool balances via email.
-                    </p>
-                  </div>
-                  <label
-                    style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: "4.8rem",
-                      height: "2.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        cursor: "pointer",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: "var(--primary-color)",
-                        transition: ".4s",
-                        borderRadius: "3.4rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: "absolute",
-                          height: "1.8rem",
-                          width: "1.8rem",
-                          left: "2.6rem",
-                          bottom: "0.3rem",
-                          backgroundColor: "white",
-                          transition: ".4s",
-                          borderRadius: "50%",
-                        }}
-                      />
-                    </span>
-                  </label>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        marginBottom: "0.3rem",
-                      }}
-                    >
-                      SMS Alerts
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: "1.2rem",
-                        color: "var(--text-light)",
-                      }}
-                    >
-                      Get instant texts when admin approves a contribution.
-                    </p>
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
+                    {passwordSuccessMsg}
                   </div>
-                  <label
+                )}
+                {passwordErrorMsg && (
+                  <div
                     style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: "4.8rem",
-                      height: "2.4rem",
+                      background: "#f8d7da",
+                      color: "#842029",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
+                    {passwordErrorMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handlePasswordReset}>
+                  <div style={{ marginBottom: "2rem" }}>
+                    <label
                       style={{
-                        position: "absolute",
-                        cursor: "pointer",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: "var(--primary-color)",
-                        transition: ".4s",
-                        borderRadius: "3.4rem",
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
                       }}
                     >
-                      <span
-                        style={{
-                          position: "absolute",
-                          height: "1.8rem",
-                          width: "1.8rem",
-                          left: "2.6rem",
-                          bottom: "0.3rem",
-                          backgroundColor: "white",
-                          transition: ".4s",
-                          borderRadius: "50%",
-                        }}
-                      />
-                    </span>
-                  </label>
-                </div>
-              </div>
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (at least 6 characters)"
+                      required
+                      minLength={6}
+                      style={{
+                        width: "100%",
+                        padding: "1.2rem 1.5rem",
+                        border: "0.1rem solid #e2e8f0",
+                        borderRadius: "0.8rem",
+                        fontSize: "1.4rem",
+                        color: "var(--text-dark)",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
 
-              <div
-                style={{
-                  textAlign: "right",
-                  paddingTop: "2rem",
-                  borderTop: "0.1rem solid #f1f5f9",
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    padding: "1.2rem 2.4rem",
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--text-light)",
-                    fontWeight: 600,
-                    fontSize: "1.4rem",
-                    cursor: "pointer",
-                    marginRight: "1rem",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating}
-                  style={{
-                    padding: "1.2rem 2.4rem",
-                    background: "var(--primary-color)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "0.8rem",
-                    fontWeight: 600,
-                    fontSize: "1.4rem",
-                    cursor: updating ? "not-allowed" : "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.8rem",
-                    opacity: updating ? 0.7 : 1,
-                  }}
-                >
-                  {updating ? "Saving..." : "Save Changes"} <i className="fa-solid fa-check" />
-                </button>
+                  <div style={{ marginBottom: "3rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      required
+                      minLength={6}
+                      style={{
+                        width: "100%",
+                        padding: "1.2rem 1.5rem",
+                        border: "0.1rem solid #e2e8f0",
+                        borderRadius: "0.8rem",
+                        fontSize: "1.4rem",
+                        color: "var(--text-dark)",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      paddingTop: "2rem",
+                      borderTop: "0.1rem solid #f1f5f9",
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      disabled={passwordUpdating}
+                      style={{
+                        padding: "1.2rem 2.4rem",
+                        background: "var(--primary-color)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.8rem",
+                        fontWeight: 600,
+                        fontSize: "1.4rem",
+                        cursor: passwordUpdating ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.8rem",
+                        opacity: passwordUpdating ? 0.7 : 1,
+                      }}
+                    >
+                      {passwordUpdating ? "Updating..." : "Reset Password"} <i className="fa-solid fa-key" />
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            )}
           </div>
         </section>
   );
