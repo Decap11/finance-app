@@ -133,11 +133,12 @@ export default function CalendarHeatMap() {
 
           if (!meetingIndex && tx.created_at) {
             const txDate = new Date(tx.created_at);
-            // Find matching meeting item by date threshold
+            let minDiff = Infinity;
             monthlyData.forEach(month => {
               month.meetings.forEach(m => {
                 const diffDays = Math.abs((txDate - m.date) / (1000 * 60 * 60 * 24));
-                if (diffDays <= 4 && (!meetingIndex || diffDays < Math.abs((txDate - meetingIndex) / (1000 * 60 * 60 * 24)))) {
+                if (diffDays < minDiff) {
+                  minDiff = diffDays;
                   meetingIndex = m.globalMeetingIndex;
                 }
               });
@@ -145,7 +146,7 @@ export default function CalendarHeatMap() {
           }
 
           if (!meetingIndex) {
-            meetingIndex = 1;
+            meetingIndex = weeksElapsed || 1;
           }
 
           if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
