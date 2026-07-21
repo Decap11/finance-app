@@ -110,19 +110,23 @@ function TransactionsList() {
       
       <section className="recent-transactions-section" style={{ marginTop: "2.5rem" }}>
         <div className="quick-actions">
-          <div className="section-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-            <h3 className="section-title">All Transactions History</h3>
+          <div className="section-header" style={{ marginBottom: "2rem", display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
             <Link href="/dashboard" style={{
               color: "var(--primary-color)",
               textDecoration: "none",
-              fontSize: "1.6rem",
+              fontSize: "1.5rem",
               fontWeight: "600",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "0.5rem"
+              gap: "0.6rem",
+              padding: "0.6rem 1.2rem",
+              borderRadius: "0.8rem",
+              backgroundColor: "#f1f5f9",
+              transition: "all 0.2s ease"
             }}>
-              <i className="fa-solid fa-arrow-left"></i> Back to Dashboard
+              <i className="fa-solid fa-arrow-left"></i> Back
             </Link>
+            <h3 className="section-title" style={{ margin: 0 }}>All Transactions History</h3>
           </div>
 
           {/* Interactive Category Filter Pills */}
