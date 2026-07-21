@@ -14,6 +14,7 @@ function TransactionTypeBadge({ type }) {
     Development: { color: "#10b981", backgroundColor: "#10b9811a" },
     "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
+    Savings: { color: "#2563eb", backgroundColor: "#dbeafe" }
   };
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
   const currentStyle = typeStyles[type] || defaultStyle;
@@ -36,6 +37,7 @@ function TransactionTypeBadge({ type }) {
 function TransactionsList() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("all");
 
   async function fetchTransactions() {
     try {
@@ -83,18 +85,37 @@ function TransactionsList() {
     };
   }, []);
 
+  // Filter category matching function
+  const filteredTransactions = transactions.filter((tx) => {
+    if (activeFilter === "all") return true;
+    const cat = (tx.category || "").toLowerCase();
+    if (activeFilter === "shares") return cat === "shares";
+    if (activeFilter === "development_fund") return cat === "development_fund" || cat === "devt" || cat === "devt_fund";
+    if (activeFilter === "social_fund") return cat === "social_fund" || cat === "social";
+    if (activeFilter === "loan_disbursement") return cat === "loan_disbursement" || cat === "loan";
+    return true;
+  });
+
+  const filterTabs = [
+    { id: "all", label: "All Transactions", icon: "fa-solid fa-list-check" },
+    { id: "shares", label: "Shares", icon: "fa-solid fa-chart-pie" },
+    { id: "development_fund", label: "Development Fund", icon: "fa-solid fa-seedling" },
+    { id: "social_fund", label: "Social Fund", icon: "fa-solid fa-handshake-angle" },
+    { id: "loan_disbursement", label: "Loans", icon: "fa-solid fa-hand-holding-dollar" },
+  ];
+
   return (
     <div className="dashboard-body">
       <UserHeader />
       
       <section className="recent-transactions-section" style={{ marginTop: "2.5rem" }}>
         <div className="quick-actions">
-          <div className="section-header" style={{ marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="section-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
             <h3 className="section-title">All Transactions History</h3>
             <Link href="/dashboard" style={{
               color: "var(--primary-color)",
               textDecoration: "none",
-              fontSize: "1.8rem",
+              fontSize: "1.6rem",
               fontWeight: "600",
               display: "flex",
               alignItems: "center",
@@ -103,6 +124,66 @@ function TransactionsList() {
               <i className="fa-solid fa-arrow-left"></i> Back to Dashboard
             </Link>
           </div>
+
+          {/* Interactive Category Filter Pills */}
+          <div className="transaction-filters-bar" style={{
+            display: "flex",
+            gap: "1rem",
+            flexWrap: "wrap",
+            marginBottom: "2.4rem",
+            paddingBottom: "1.2rem",
+            borderBottom: "1px solid #f1f5f9"
+          }}>
+            {filterTabs.map((tab) => {
+              const count = transactions.filter(tx => {
+                if (tab.id === "all") return true;
+                const cat = (tx.category || "").toLowerCase();
+                if (tab.id === "shares") return cat === "shares";
+                if (tab.id === "development_fund") return cat === "development_fund" || cat === "devt" || cat === "devt_fund";
+                if (tab.id === "social_fund") return cat === "social_fund" || cat === "social";
+                if (tab.id === "loan_disbursement") return cat === "loan_disbursement" || cat === "loan";
+                return false;
+              }).length;
+
+              const isActive = activeFilter === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveFilter(tab.id)}
+                  style={{
+                    padding: "0.8rem 1.6rem",
+                    borderRadius: "1.2rem",
+                    border: isActive ? "1px solid #253b8e" : "1px solid #e2e8f0",
+                    backgroundColor: isActive ? "#253b8e" : "#ffffff",
+                    color: isActive ? "#ffffff" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "1.3rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                    transition: "all 0.25s ease",
+                    boxShadow: isActive ? "0 4px 12px rgba(37, 59, 142, 0.2)" : "none"
+                  }}
+                >
+                  <i className={tab.icon}></i>
+                  <span>{tab.label}</span>
+                  <span style={{
+                    padding: "0.2rem 0.6rem",
+                    borderRadius: "1rem",
+                    fontSize: "1.1rem",
+                    backgroundColor: isActive ? "rgba(255, 255, 255, 0.2)" : "#f1f5f9",
+                    color: isActive ? "#ffffff" : "#475569"
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="recent-transactions-table">
             <table className="transactions-table">
               <thead>
@@ -121,14 +202,14 @@ function TransactionsList() {
                       Loading transactions...
                     </td>
                   </tr>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan="5" style={{ textAlign: "center", padding: "2rem" }}>
-                      No transactions found.
+                      No {activeFilter === "all" ? "" : activeFilter.replace("_", " ")} transactions found.
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((transaction) => {
+                  filteredTransactions.map((transaction) => {
                     const dateObj = new Date(transaction.created_at);
                     const day = dateObj.getDate();
                     const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
@@ -158,10 +239,11 @@ function TransactionsList() {
                     const formattedDate = `${day}${getOrdinal(day)} ${month}, week ${weekNum}`;
                     
                     let displayType = transaction.category;
-                    if (displayType === "social_fund") displayType = "Social Fund";
-                    if (displayType === "development_fund") displayType = "Development";
+                    if (displayType === "social_fund" || displayType === "social") displayType = "Social Fund";
+                    if (displayType === "development_fund" || displayType === "devt" || displayType === "devt_fund") displayType = "Development";
                     if (displayType === "shares") displayType = "Shares";
                     if (displayType === "savings") displayType = "Savings";
+                    if (displayType === "loan_disbursement" || displayType === "loan") displayType = "Loan Request";
 
                     return (
                       <tr key={transaction.id}>
