@@ -278,7 +278,12 @@
     font-size: 48%;
   }
 
-  .dashboard-body,
+  .dashboard-body {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+    overflow: visible !important;
+  }
+
   .main-content,
   .dashboard-container {
     overflow: visible !important;
@@ -290,7 +295,7 @@
     position: -webkit-sticky !important;
     position: sticky !important;
     top: 0 !important;
-    z-index: 99999 !important;
+    z-index: 100 !important;
     box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.25) !important;
   }
 
