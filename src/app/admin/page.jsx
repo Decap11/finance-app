@@ -1,12 +1,12 @@
 "use client";
 
-import ProtectedRoute from "../../Components/ProtectedRoute";
+import AdminRoute from "../../Components/AdminRoute";
 import AdminDashboardPage from "../../views/adminDashboardPage";
 
 export default function Page() {
   return (
-    <ProtectedRoute>
+    <AdminRoute>
       <AdminDashboardPage />
-    </ProtectedRoute>
+    </AdminRoute>
   );
 }
