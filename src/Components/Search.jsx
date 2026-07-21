@@ -22,10 +22,45 @@ export default function Search({ placeholder = "Search operations, transactions,
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [results, setResults] = useState({ navs: [], txs: [], loans: [] });
-  
-  const containerRef = useRef(null);
-  const inputRef = useRef(null);
-  const router = useRouter();
+  const [kbdLabel, setKbdLabel] = useState("Ctrl K");
+
+  // Detect OS platform & Listen for global Ctrl+K / Cmd+K / '/' hotkeys
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0 || navigator.userAgent.includes("Macintosh");
+      setKbdLabel(isMac ? "⌘K" : "Ctrl K");
+    }
+
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsExpanded(true);
+        setShowDropdown(true);
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 50);
+      } else if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA" &&
+        !document.activeElement?.isContentEditable
+      ) {
+        e.preventDefault();
+        setIsExpanded(true);
+        setShowDropdown(true);
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 50);
+      } else if (e.key === "Escape") {
+        setShowDropdown(false);
+        setIsExpanded(false);
+        inputRef.current?.blur();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // Search trigger on query input changes
   useEffect(() => {
@@ -174,8 +209,12 @@ export default function Search({ placeholder = "Search operations, transactions,
             setQuery(e.target.value);
             setShowDropdown(true);
           }}
-          onFocus={() => setShowDropdown(true)}
+          onFocus={() => {
+            setIsExpanded(true);
+            setShowDropdown(true);
+          }}
         />
+        <kbd className="search-kbd">{kbdLabel}</kbd>
         {isExpanded && (
           <button
             type="button"

@@ -50,6 +50,27 @@
   color: #cbd5e1;
 }
 
+.search-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.6rem;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 0.1rem solid #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.1rem 0.2rem rgba(0, 0, 0, 0.05);
+  user-select: none;
+  white-space: nowrap;
+  margin-left: 0.6rem;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
 .search-clear-btn {
   background: none;
   border: none;
