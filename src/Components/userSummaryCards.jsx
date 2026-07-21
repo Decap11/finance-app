@@ -11,40 +11,83 @@ export default function UserSummaryCards() {
     social_fund: 0,
   });
 
-  useEffect(() => {
-    async function fetchBalances() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+  async function fetchBalances() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-        const res = await fetch("/api/user-balances", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
+      const res = await fetch("/api/user-balances", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      if (data.accounts) {
+        const newBalances = {
+          shares: 0,
+          development_fund: 0,
+          social_fund: 0,
+        };
+        data.accounts.forEach((acc) => {
+          if (newBalances[acc.account_type] !== undefined) {
+            newBalances[acc.account_type] = Number(acc.balance) || 0;
           }
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-
-        if (data.accounts) {
-          const newBalances = {
-            shares: 0,
-            development_fund: 0,
-            social_fund: 0,
-          };
-          data.accounts.forEach((acc) => {
-            if (newBalances[acc.account_type] !== undefined) {
-              newBalances[acc.account_type] = acc.balance;
-            }
-          });
-          setBalances(newBalances);
-        }
-      } catch (err) {
-        console.warn("Error loading user balances:", err);
-      } finally {
-        setLoading(false);
+        setBalances(newBalances);
       }
+    } catch (err) {
+      console.warn("Error loading user balances:", err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchBalances();
+
+    // Subscribe to real-time database changes on the transactions and accounts tables
+    const channel = supabase
+      .channel('user-summary-cards-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions'
+        },
+        () => {
+          fetchBalances();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts'
+        },
+        () => {
+          fetchBalances();
+        }
+      )
+      .subscribe();
+
+    function handleTransactionUpdate() {
+      fetchBalances();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      }
+    };
   }, []);
 
   const totalCapital =
@@ -90,6 +133,7 @@ export default function UserSummaryCards() {
     </section>
   );
 }
+
 function Card({ title, icon, info, subInfo, color, backgroundColor }) {
   return (
     <div className="card">
