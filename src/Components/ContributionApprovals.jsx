@@ -181,7 +181,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
           <div className="col-member">Member ID</div>
           <div className="col-type">Request Type</div>
           <div className="col-amount">Amount</div>
-          <div className="col-date">Date</div>
+          <div className="col-date">Week</div>
           <div className="col-action" style={{ textAlign: "center" }}>Action</div>
         </div>
         <ul className="admin-list">
@@ -192,8 +192,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
           ) : (
             requests.map((request) => {
               const dateObj = new Date(request.created_at);
-              const day = dateObj.getDate();
-              const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
+              const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
               
               let weekNum = null;
               const match = request.description?.match(/\|\s*Week\s*(\d+)/i);
@@ -207,18 +206,6 @@ export default function ContributionApprovals({ limit, showViewAll }) {
                 weekNum = Math.floor(diffInDays / 7) + 1;
               }
 
-              const getOrdinal = (d) => {
-                if (d > 3 && d < 21) return 'th';
-                switch (d % 10) {
-                  case 1:  return "st";
-                  case 2:  return "nd";
-                  case 3:  return "rd";
-                  default: return "th";
-                }
-              };
-              const datePrefix = `${day}${getOrdinal(day)} ${month}, `;
-              const dateSuffix = `week ${weekNum}`;
-              
               let displayType = request.category;
               if (displayType === "social_fund") displayType = "Social Fund";
               if (displayType === "development_fund") displayType = "Dev Fund";
@@ -251,10 +238,10 @@ export default function ContributionApprovals({ limit, showViewAll }) {
                     </strong>
                   </div>
                   <div className="col-date">
-                    <span className="date-text">
-                      <span className="date-day-month">{datePrefix}</span>
-                      <span className="date-week-label">{dateSuffix}</span>
-                    </span>
+                    <div className="week-cell">
+                      <span className="week-number-tag">Week {weekNum}</span>
+                      <span className="date-sub-text">{formattedDate}</span>
+                    </div>
                   </div>
                   <div className="col-action">
                     <div className="table-actions" style={{ display: "flex", justifyContent: "center" }}>

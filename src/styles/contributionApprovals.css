@@ -87,8 +87,8 @@
 }
 
 .col-date {
-  flex: 2;
-  min-width: 160px;
+  flex: 1.2;
+  min-width: 120px;
 }
 
 .col-action {
@@ -152,16 +152,29 @@
   color: #d97706;
 }
 
-/* Text Formatting */
 .amount-text {
   font-size: 1.4rem;
   font-weight: 700;
   color: #0f172a;
 }
 
-.date-text {
-  font-size: 1.3rem;
+/* Week & Date Cell Layout */
+.week-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.week-number-tag {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.date-sub-text {
+  font-size: 1.1rem;
   color: #64748b;
+  font-weight: 500;
 }
 
 /* Table Actions */
