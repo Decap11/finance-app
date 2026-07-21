@@ -95,8 +95,8 @@ export default function RegisterSacco() {
       localStorage.setItem("rememberedPassword", password);
     }
 
-    // 3. Navigate to admin dashboard
-    router.push("/admin");
+    // 3. Navigate to admin settings route to make initial group configurations
+    router.push("/admin?tab=settings");
   }
 
   return (
