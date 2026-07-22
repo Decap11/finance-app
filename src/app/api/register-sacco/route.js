@@ -100,26 +100,40 @@ export async function POST(request) {
       console.warn("Profile upsert warning:", profileErr.message);
     }
 
-    // 4. Create New SACCO Row in saccos table
-    const { data: newSacco, error: saccoErr } = await publicSupabase
+    // 4. Create New SACCO Row in saccos table with schema tolerance
+    const saccoPayload = {
+      name: cleanSaccoName,
+      acronym: generatedAcronym,
+      group_code: cleanGroupCode,
+      admin_profile_id: userId,
+      status: 'active',
+      share_price: 5000,
+      devt_fund: 1000,
+      social_fund: 2000,
+      current_week: 1,
+      meeting_day: 'Wednesday',
+      is_locked: false,
+      member_limit: 50,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    let { data: newSacco, error: saccoErr } = await publicSupabase
       .from('saccos')
-      .insert({
-        name: cleanSaccoName,
-        acronym: generatedAcronym,
-        group_code: cleanGroupCode,
-        admin_profile_id: userId,
-        status: 'active',
-        share_price: 5000,
-        devt_fund: 1000,
-        social_fund: 2000,
-        current_week: 1,
-        is_locked: false,
-        member_limit: 50,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(saccoPayload)
       .select('*')
       .single();
+
+    if (saccoErr && saccoErr.message?.includes('meeting_day')) {
+      delete saccoPayload.meeting_day;
+      const fallbackRes = await publicSupabase
+        .from('saccos')
+        .insert(saccoPayload)
+        .select('*')
+        .single();
+      newSacco = fallbackRes.data;
+      saccoErr = fallbackRes.error;
+    }
 
     if (saccoErr) {
       return Response.json({ error: `Failed to create SACCO record: ${saccoErr.message}` }, { status: 500 });

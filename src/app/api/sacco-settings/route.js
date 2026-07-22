@@ -130,6 +130,7 @@ export async function POST(request) {
       devt_fund: parsedDevtFund,
       social_fund: parsedSocialFund,
       current_week: parsedCurrentWeek,
+      meeting_day: cleanMeetingDay,
       is_locked: Boolean(isLocked),
       updated_at: new Date().toISOString()
     };
@@ -138,14 +139,27 @@ export async function POST(request) {
       updatePayload.admin_profile_id = userId;
     }
 
-    // Perform database updates across group_code and admin_profile_id
+    // Helper to perform database update with schema tolerance
+    const performUpdate = async (client, queryBuilder) => {
+      try {
+        const { error } = await queryBuilder;
+        if (error && error.message?.includes('meeting_day')) {
+          const fallbackPayload = { ...updatePayload };
+          delete fallbackPayload.meeting_day;
+          await client.from('saccos').update(fallbackPayload);
+        }
+      } catch (e) {
+        // Non-blocking
+      }
+    };
+
     if (cleanGroupCode) {
-      await supabaseClient.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode);
-      await publicSupabase.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode);
+      await performUpdate(supabaseClient, supabaseClient.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode));
+      await performUpdate(publicSupabase, publicSupabase.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode));
     }
     if (userId) {
-      await supabaseClient.from('saccos').update(updatePayload).eq('admin_profile_id', userId);
-      await publicSupabase.from('saccos').update(updatePayload).eq('admin_profile_id', userId);
+      await performUpdate(supabaseClient, supabaseClient.from('saccos').update(updatePayload).eq('admin_profile_id', userId));
+      await performUpdate(publicSupabase, publicSupabase.from('saccos').update(updatePayload).eq('admin_profile_id', userId));
     }
 
     const newSettings = {
