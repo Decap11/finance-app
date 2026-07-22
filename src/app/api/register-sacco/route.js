@@ -100,42 +100,57 @@ export async function POST(request) {
       console.warn("Profile upsert warning:", profileErr.message);
     }
 
-    // 4. Create New SACCO Row in saccos table with schema tolerance
-    const saccoPayload = {
-      name: cleanSaccoName,
-      acronym: generatedAcronym,
-      group_code: cleanGroupCode,
-      admin_profile_id: userId,
-      status: 'active',
-      share_price: 5000,
-      devt_fund: 1000,
-      social_fund: 2000,
-      current_week: 1,
-      meeting_day: 'Wednesday',
-      is_locked: false,
-      member_limit: 50,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // 4. Create New SACCO Row via SECURITY DEFINER RPC (bypasses RLS policy checks 100%)
+    let newSacco = null;
+    let saccoErr = null;
 
-    let { data: newSacco, error: saccoErr } = await publicSupabase
-      .from('saccos')
-      .insert(saccoPayload)
-      .select('*')
-      .single();
+    const { data: rpcRes, error: rpcErr } = await publicSupabase.rpc('register_new_sacco', {
+      p_sacco_name: cleanSaccoName,
+      p_acronym: generatedAcronym,
+      p_group_code: cleanGroupCode,
+      p_admin_profile_id: userId
+    });
 
-    if (saccoErr && saccoErr.message?.includes('meeting_day')) {
-      delete saccoPayload.meeting_day;
-      const fallbackRes = await publicSupabase
+    if (!rpcErr && (rpcRes?.sacco_id || rpcRes?.success)) {
+      const saccoId = rpcRes.sacco_id;
+      if (saccoId) {
+        const { data: fetchedSacco } = await publicSupabase
+          .from('saccos')
+          .select('*')
+          .eq('id', saccoId)
+          .single();
+
+        newSacco = fetchedSacco;
+      }
+    } else {
+      // Fallback: Direct table insert with schema tolerance
+      const saccoPayload = {
+        name: cleanSaccoName,
+        acronym: generatedAcronym,
+        group_code: cleanGroupCode,
+        admin_profile_id: userId,
+        status: 'active',
+        share_price: 5000,
+        devt_fund: 1000,
+        social_fund: 2000,
+        current_week: 1,
+        is_locked: false,
+        member_limit: 50,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const directRes = await publicSupabase
         .from('saccos')
         .insert(saccoPayload)
         .select('*')
         .single();
-      newSacco = fallbackRes.data;
-      saccoErr = fallbackRes.error;
+
+      newSacco = directRes.data;
+      saccoErr = directRes.error;
     }
 
-    if (saccoErr) {
+    if (!newSacco && saccoErr) {
       return Response.json({ error: `Failed to create SACCO record: ${saccoErr.message}` }, { status: 500 });
     }
 
