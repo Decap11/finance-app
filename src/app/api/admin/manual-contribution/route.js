@@ -1,4 +1,4 @@
-import { verifyAdmin } from '../../../../lib/auth';
+import { verifyAdmin, getPublicSupabase } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
