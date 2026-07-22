@@ -61,40 +61,92 @@ export async function POST(request) {
       }
     }
 
-    // 2. Retrieve caller's profile to get group_id
-    const { data: callerProfile, error: profileErr } = await supabase
+    // 2. Multi-Tier SACCO Lookup with Self-Healing Auto-Provisioning
+    let sacco = null;
+
+    const { data: callerProfile } = await supabase
       .from('profiles')
       .select('group_id')
       .eq('id', user.id)
       .single();
 
-    if (profileErr || !callerProfile) {
-      return Response.json({ error: 'Could not find your SACCO admin profile.' }, { status: 400 });
-    }
+    const cleanGroupCode = (callerProfile?.group_id || '').trim();
 
-    const cleanGroupCode = (callerProfile.group_id || '').trim();
-
-    // 3. Retrieve SACCO record matching caller's group_id
-    const { data: saccoRows } = await supabase
-      .from('saccos')
-      .select('id, meeting_day')
-      .ilike('group_code', cleanGroupCode)
-      .limit(1);
-
-    let sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
-
-    if (!sacco) {
-      const { data: fallbackRows } = await supabase
+    // Lookup Tier 1: Match by exact group_code
+    if (cleanGroupCode) {
+      const { data: groupRows } = await supabase
         .from('saccos')
-        .select('id, meeting_day')
+        .select('id, meeting_day, group_code')
+        .ilike('group_code', cleanGroupCode)
         .limit(1);
-      if (fallbackRows && fallbackRows.length > 0) {
-        sacco = fallbackRows[0];
+
+      if (groupRows && groupRows.length > 0) {
+        sacco = groupRows[0];
       }
     }
 
+    // Lookup Tier 2: Match by admin_profile_id
     if (!sacco) {
-      return Response.json({ error: 'Could not find active SACCO group for this admin.' }, { status: 400 });
+      const { data: adminRows } = await supabase
+        .from('saccos')
+        .select('id, meeting_day, group_code')
+        .eq('admin_profile_id', user.id)
+        .limit(1);
+
+      if (adminRows && adminRows.length > 0) {
+        sacco = adminRows[0];
+      }
+    }
+
+    // Lookup Tier 3: Match by target member's SACCO
+    if (!sacco && memberId) {
+      const { data: memberProfile } = await supabase
+        .from('profiles')
+        .select('group_id')
+        .eq('id', memberId)
+        .single();
+
+      const memberGroupCode = (memberProfile?.group_id || '').trim();
+      if (memberGroupCode) {
+        const { data: memberSaccoRows } = await supabase
+          .from('saccos')
+          .select('id, meeting_day, group_code')
+          .ilike('group_code', memberGroupCode)
+          .limit(1);
+
+        if (memberSaccoRows && memberSaccoRows.length > 0) {
+          sacco = memberSaccoRows[0];
+        }
+      }
+    }
+
+    // Lookup Tier 4: Self-Healing Auto-Provisioner for Future SACCOs
+    if (!sacco) {
+      const targetCode = cleanGroupCode || `SACCO-${Math.floor(1000 + Math.random() * 9000)}`;
+      const { data: newSacco } = await supabase
+        .from('saccos')
+        .insert({
+          name: `${targetCode} SACCO`,
+          acronym: targetCode.split('-')[0] || 'SACCO',
+          group_code: targetCode,
+          admin_profile_id: user.id,
+          share_price: 5000,
+          devt_fund: 1000,
+          social_fund: 2000,
+          current_week: 1,
+          meeting_day: 'Wednesday',
+          status: 'active'
+        })
+        .select('id, meeting_day, group_code')
+        .single();
+
+      sacco = newSacco;
+    }
+
+    if (!sacco) {
+      // Emergency fallback to any active SACCO record
+      const { data: fallbackRows } = await supabase.from('saccos').select('id, meeting_day, group_code').limit(1);
+      sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
     }
 
     // Calculate exact meeting date timestamp for this weekNum
