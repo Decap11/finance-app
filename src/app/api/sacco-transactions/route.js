@@ -32,15 +32,25 @@ export async function GET(request) {
 
     let saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
 
-    if (!saccoData) {
-      const { data: fallbackRows } = await supabase
+    if (!saccoData && cleanGroupCode) {
+      const { data: newSacco } = await supabase
         .from('saccos')
+        .insert({
+          name: `${cleanGroupCode} SACCO`,
+          acronym: cleanGroupCode.split('-')[0] || 'SACCO',
+          group_code: cleanGroupCode,
+          admin_profile_id: user.id,
+          share_price: 5000,
+          devt_fund: 1000,
+          social_fund: 2000,
+          current_week: 1,
+          meeting_day: 'Wednesday',
+          status: 'active'
+        })
         .select('*')
-        .limit(1);
+        .single();
 
-      if (fallbackRows && fallbackRows.length > 0) {
-        saccoData = fallbackRows[0];
-      }
+      saccoData = newSacco;
     }
 
     if (!saccoData) {
