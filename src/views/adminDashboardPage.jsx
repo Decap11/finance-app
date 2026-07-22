@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
               email: m.email || "N/A",
               joinedDate: m.created_at ? new Date(m.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "N/A",
               role: m.role || "member",
-              status: m.status || "pending",
+              status: m.status ? m.status.toLowerCase() : "active",
               avatarUrl: avatarUrl,
             };
           }),
@@ -223,6 +223,26 @@ export default function AdminDashboardPage() {
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
     } catch (err) {
       alert("Failed to approve member: " + err.message);
+    }
+  };
+
+  const handleUnapproveMember = async (memberId) => {
+    const confirmUnapprove = window.confirm("Are you sure you want to unapprove / revoke dashboard access for this member?");
+    if (!confirmUnapprove) return;
+
+    try {
+      // Direct table update to set status='pending' permanently in database
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ status: 'pending' })
+        .eq('id', memberId);
+
+      if (updateErr) throw updateErr;
+
+      alert("Member access revoked! Account status set to pending.");
+      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
+    } catch (err) {
+      alert("Failed to unapprove member: " + err.message);
     }
   };
 
@@ -458,7 +478,28 @@ export default function AdminDashboardPage() {
                         >
                           <i className="fa-solid fa-user-check"></i> Approve
                         </button>
-                      ) : member.role !== "admin" ? (
+                      ) : (
+                        <button
+                          onClick={() => handleUnapproveMember(member.id)}
+                          style={{
+                            background: "#fee2e2",
+                            border: "none",
+                            color: "#ef4444",
+                            fontSize: "1.2rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.6rem 1.2rem",
+                            borderRadius: "0.6rem"
+                          }}
+                        >
+                          <i className="fa-solid fa-user-minus"></i> Unapprove
+                        </button>
+                      )}
+
+                      {member.role !== "admin" ? (
                         <button
                           onClick={() => handleMakeAdmin(member.id)}
                           style={{

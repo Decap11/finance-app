@@ -26,7 +26,8 @@ export default function ProtectedRoute({ children }) {
         .single();
 
       const userRole = (profile?.role || '').toLowerCase();
-      const userStatus = (profile?.status || 'approved').toLowerCase();
+      const rawStatus = profile?.status;
+      const userStatus = rawStatus ? String(rawStatus).trim().toLowerCase() : 'active';
 
       // Admin or Super Admin bypass
       if (userRole === 'admin' || userRole === 'super_admin') {
@@ -35,8 +36,8 @@ export default function ProtectedRoute({ children }) {
         return;
       }
 
-      // Member status check: must be active or approved
-      if (userStatus === 'approved' || userStatus === 'active') {
+      // Member status check: must be active or approved or null/undefined default
+      if (!rawStatus || userStatus === 'approved' || userStatus === 'active') {
         setProfileStatus("active");
       } else {
         setProfileStatus(userStatus);
