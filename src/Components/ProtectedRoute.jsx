@@ -36,8 +36,12 @@ export default function ProtectedRoute({ children }) {
         return;
       }
 
-      // Member status check: must be active or approved or null/undefined default
+      // Member status check: must be active or approved or default null
       if (!rawStatus || userStatus === 'approved' || userStatus === 'active') {
+        // Sync own profile row to status='active' (RLS allows users to update their own profile row!)
+        if (rawStatus !== 'active') {
+          supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id).then(() => {});
+        }
         setProfileStatus("active");
       } else {
         setProfileStatus(userStatus);
