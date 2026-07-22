@@ -35,7 +35,20 @@ export async function GET(request) {
       return Response.json({ error: listErr.message }, { status: 500 });
     }
 
-    return Response.json({ profiles, group_id: userProfile.group_id });
+    const cleanProfiles = (profiles || []).map(p => {
+      const statusRaw = (p.status || '').toLowerCase().trim();
+      // Only keep 'suspended', 'rejected', or 'pending' if explicitly set; otherwise active
+      const effectiveStatus = (statusRaw === 'suspended' || statusRaw === 'rejected' || statusRaw === 'pending')
+        ? statusRaw
+        : 'active';
+
+      return {
+        ...p,
+        status: effectiveStatus
+      };
+    });
+
+    return Response.json({ profiles: cleanProfiles, group_id: userProfile.group_id });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
