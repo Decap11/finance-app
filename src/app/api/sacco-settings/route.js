@@ -130,7 +130,6 @@ export async function POST(request) {
       devt_fund: parsedDevtFund,
       social_fund: parsedSocialFund,
       current_week: parsedCurrentWeek,
-      meeting_day: cleanMeetingDay,
       is_locked: Boolean(isLocked),
       updated_at: new Date().toISOString()
     };

@@ -77,7 +77,7 @@ export async function POST(request) {
     if (cleanGroupCode) {
       const { data: groupRows } = await publicSupabase
         .from('saccos')
-        .select('id, meeting_day, group_code')
+        .select('id, group_code')
         .ilike('group_code', cleanGroupCode)
         .limit(1);
 
@@ -90,7 +90,7 @@ export async function POST(request) {
     if (!sacco) {
       const { data: adminRows } = await publicSupabase
         .from('saccos')
-        .select('id, meeting_day, group_code')
+        .select('id, group_code')
         .eq('admin_profile_id', user.id)
         .limit(1);
 
@@ -111,7 +111,7 @@ export async function POST(request) {
       if (memberGroupCode) {
         const { data: memberSaccoRows } = await publicSupabase
           .from('saccos')
-          .select('id, meeting_day, group_code')
+          .select('id, group_code')
           .ilike('group_code', memberGroupCode)
           .limit(1);
 
@@ -125,7 +125,7 @@ export async function POST(request) {
     if (!sacco) {
       const { data: fallbackRows } = await publicSupabase
         .from('saccos')
-        .select('id, meeting_day, group_code')
+        .select('id, group_code')
         .order('created_at', { ascending: true })
         .limit(1);
 
@@ -148,10 +148,9 @@ export async function POST(request) {
           devt_fund: 1000,
           social_fund: 2000,
           current_week: 1,
-          meeting_day: 'Wednesday',
           status: 'active'
         })
-        .select('id, meeting_day, group_code');
+        .select('id, group_code');
 
       sacco = newSaccoRows && newSaccoRows.length > 0 ? newSaccoRows[0] : null;
     }

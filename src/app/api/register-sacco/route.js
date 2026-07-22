@@ -113,7 +113,6 @@ export async function POST(request) {
         devt_fund: 1000,
         social_fund: 2000,
         current_week: 1,
-        meeting_day: 'Wednesday',
         is_locked: false,
         member_limit: 50,
         created_at: new Date().toISOString(),

@@ -44,7 +44,6 @@ export async function GET(request) {
           devt_fund: 1000,
           social_fund: 2000,
           current_week: 1,
-          meeting_day: 'Wednesday',
           status: 'active'
         })
         .select('*')
