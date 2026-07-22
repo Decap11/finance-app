@@ -376,7 +376,22 @@ export async function POST(request) {
         account = newAcc;
       }
 
-      // 6. Insert dynamic completed transaction with exact target meeting timestamp
+      const txDesc = `Manual contribution log by admin: ${category === 'shares' ? 'Shares' : category === 'development_fund' ? 'Development Fund' : 'Social Fund'} | Week ${parsedWeekNum}`;
+
+      // 6a. Primary Strategy: Execute native PostgreSQL stored procedure 'log_manual_contribution'
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('log_manual_contribution', {
+        p_amount: parsedAmount,
+        p_category: category,
+        p_description: txDesc,
+        p_member_id: memberId,
+        p_sacco_id: sacco.id
+      });
+
+      if (!rpcErr) {
+        return Response.json({ success: true, transactionId: rpcRes || 'OK' });
+      }
+
+      // 6b. Secondary Strategy: Insert transaction record directly
       const newTx = {
         sacco_id: sacco.id,
         profile_id: memberId,
@@ -385,15 +400,12 @@ export async function POST(request) {
         direction: 'credit',
         category: category,
         status: 'completed',
-        description: `Manual contribution log by admin: ${category === 'shares' ? 'Shares' : category === 'development_fund' ? 'Development Fund' : 'Social Fund'} | Week ${parsedWeekNum}`,
+        description: txDesc,
         created_at: targetMeetingDateIso,
         requested_by: user.id
       };
 
-      // Try insert via both supabase & publicSupabase for guaranteed write
       let txResult = null;
-      let insertErr = null;
-
       const { data: userTx, error: userErr } = await supabase
         .from('transactions')
         .insert(newTx)
@@ -410,11 +422,9 @@ export async function POST(request) {
           .single();
 
         txResult = pubTx;
-        insertErr = pubErr || userErr;
-      }
-
-      if (insertErr && !txResult) {
-        return Response.json({ error: 'Failed to record transaction: ' + insertErr.message }, { status: 500 });
+        if (pubErr && !pubTx) {
+          return Response.json({ error: 'Failed to record transaction: ' + (pubErr.message || userErr?.message || 'RLS constraint') }, { status: 500 });
+        }
       }
 
       // 7. Update member's account balance atomically if account row exists
