@@ -6,6 +6,7 @@ import "../styles/UserRecentTransactionsTable.css";
 
 export default function UserRecentTransactions() {
   const [transactions, setTransactions] = useState([]);
+  const [saccoCurrentWeek, setSaccoCurrentWeek] = useState(1);
   const [loading, setLoading] = useState(true);
   const { showSuccess, showError } = useToast();
 
@@ -13,6 +14,26 @@ export default function UserRecentTransactions() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+
+      // Fetch user's sacco group current_week setting
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('group_id')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.group_id) {
+        const { data: saccoData } = await supabase
+          .from('saccos')
+          .select('current_week')
+          .ilike('group_code', profile.group_id.trim())
+          .limit(1)
+          .single();
+
+        if (saccoData?.current_week) {
+          setSaccoCurrentWeek(Number(saccoData.current_week) || 1);
+        }
+      }
 
       const res = await fetch("/api/user-transactions?limit=10", {
         headers: {
@@ -131,15 +152,16 @@ export default function UserRecentTransactions() {
                   const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
                   
                   let weekNum = null;
-                  const match = transaction.description?.match(/\|\s*Week\s*(\d+)/i);
-                  if (match) {
-                    weekNum = parseInt(match[1], 10);
+                  if (transaction.week_number) {
+                    weekNum = Number(transaction.week_number);
+                  } else if (transaction.description) {
+                    const match = transaction.description.match(/week\s*(\d+)/i);
+                    if (match) {
+                      weekNum = parseInt(match[1], 10);
+                    }
                   }
                   if (!weekNum) {
-                    const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                    const diffInMs = dateObj - startOfYear;
-                    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-                    weekNum = Math.floor(diffInDays / 7) + 1;
+                    weekNum = saccoCurrentWeek || 1;
                   }
 
                   const getOrdinal = (d) => {
