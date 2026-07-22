@@ -3,9 +3,17 @@ import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
 import { ToastProvider } from "../context/ToastContext";
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1.0,
+  maximumScale: 1.0,
+};
+
 export const metadata = {
-  title: "SACCO Finance",
-  description: "Sacco Management SaaS Application",
+  title: "PEWOSA SACCO - Multi-Tenant Cooperative & Financial Management Platform",
+  description: "Enterprise SaaS platform for SACCO cooperatives, savings management, member loans, and financial tracking.",
+  keywords: ["SACCO", "Savings", "Loans", "Cooperative Management", "Financial Software", "Uganda SACCO"],
+  authors: [{ name: "PEWOSA Engineering" }],
 };
 
 export default function RootLayout({ children }) {
