@@ -209,17 +209,35 @@ export async function POST(request) {
         return Response.json({ error: 'Member already has an active or issued loan.' }, { status: 400 });
       }
 
-      // Get member's loan account
-      const { data: account, error: accErr } = await supabase
+      // Get member's loan account with self-healing provisioner
+      let account = null;
+      const { data: accData } = await publicSupabase
         .from('accounts')
         .select('id, balance')
         .eq('profile_id', memberId)
         .eq('account_type', 'loan')
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (accErr || !account) {
-        return Response.json({ error: 'Could not find an initialized loan account for the selected member.' }, { status: 400 });
+      if (accData && accData.length > 0) {
+        account = accData[0];
+      }
+
+      if (!account) {
+        const { data: newAcc } = await publicSupabase
+          .from('accounts')
+          .insert({
+            profile_id: memberId,
+            account_type: 'loan',
+            balance: 0
+          })
+          .select('id, balance')
+          .single();
+
+        account = newAcc;
+      }
+
+      if (!account) {
+        return Response.json({ error: 'Could not initialize loan account for the selected member.' }, { status: 500 });
       }
 
       // Calculate parameters
@@ -296,17 +314,37 @@ export async function POST(request) {
 
       return Response.json({ success: true, transactionId: txResult.id, loanId: newLoan.id });
     } else {
-      // 5. Get member's account ID for the target category (shares, dev, social)
-      const { data: account, error: accErr } = await supabase
+      // 5. Get member's account ID for the target category (shares, dev, social, loan)
+      let account = null;
+      const { data: accData } = await publicSupabase
         .from('accounts')
         .select('id, balance')
         .eq('profile_id', memberId)
-        .eq('account_type', category)
-        .limit(1)
-        .single();
+        .eq('account_type', category === 'loan_disbursement' ? 'loan' : category)
+        .limit(1);
 
-      if (accErr || !account) {
-        return Response.json({ error: `Could not find an initialized ${category} account for the selected member.` }, { status: 400 });
+      if (accData && accData.length > 0) {
+        account = accData[0];
+      }
+
+      // Self-Healing Account Provisioner: create account if uninitialized
+      if (!account) {
+        const targetAccType = category === 'loan_disbursement' ? 'loan' : category;
+        const { data: newAcc } = await publicSupabase
+          .from('accounts')
+          .insert({
+            profile_id: memberId,
+            account_type: targetAccType,
+            balance: 0
+          })
+          .select('id, balance')
+          .single();
+
+        account = newAcc;
+      }
+
+      if (!account) {
+        return Response.json({ error: `Could not initialize ${category} account for member.` }, { status: 500 });
       }
 
       // 6. Insert dynamic completed transaction with exact target meeting timestamp
