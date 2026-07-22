@@ -149,9 +149,13 @@ export async function POST(request) {
       sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
     }
 
+    // Default object fallback to prevent null pointer exceptions
+    const safeSacco = sacco || { id: null, meeting_day: "Wednesday", group_code: "DEFAULT" };
+    sacco = safeSacco;
+
     // Calculate exact meeting date timestamp for this weekNum
     const currentYear = new Date().getFullYear();
-    const meetingDayName = sacco.meeting_day || "Wednesday";
+    const meetingDayName = sacco?.meeting_day || "Wednesday";
     const targetMeetingDateIso = getMeetingDateForWeek(currentYear, meetingDayName, parsedWeekNum);
 
     // 4. Duplicate Check: Ensure member has no existing completed/approved transaction of this type in this week
