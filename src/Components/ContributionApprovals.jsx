@@ -5,6 +5,7 @@ import "../styles/contributionApprovals.css";
 
 export default function ContributionApprovals({ limit, showViewAll }) {
   const [requests, setRequests] = useState([]);
+  const [saccoCurrentWeek, setSaccoCurrentWeek] = useState(1);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -25,10 +26,10 @@ export default function ContributionApprovals({ limit, showViewAll }) {
         return;
       }
 
-      // Fetch matching Sacco ID
+      // Fetch matching Sacco ID and current_week
       const { data: saccoData } = await supabase
         .from('saccos')
-        .select('id')
+        .select('id, current_week')
         .eq('group_code', profileData.group_id)
         .limit(1)
         .single();
@@ -36,6 +37,10 @@ export default function ContributionApprovals({ limit, showViewAll }) {
       if (!saccoData) {
         setLoading(false);
         return;
+      }
+
+      if (saccoData.current_week) {
+        setSaccoCurrentWeek(Number(saccoData.current_week) || 1);
       }
 
       const saccoId = saccoData.id;
@@ -263,15 +268,16 @@ export default function ContributionApprovals({ limit, showViewAll }) {
               const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
               
               let weekNum = null;
-              const match = request.description?.match(/\|\s*Week\s*(\d+)/i);
-              if (match) {
-                weekNum = parseInt(match[1], 10);
+              if (request.week_number) {
+                weekNum = Number(request.week_number);
+              } else if (request.description) {
+                const match = request.description.match(/week\s*(\d+)/i);
+                if (match) {
+                  weekNum = parseInt(match[1], 10);
+                }
               }
               if (!weekNum) {
-                const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                const diffInMs = dateObj - startOfYear;
-                const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-                weekNum = Math.floor(diffInDays / 7) + 1;
+                weekNum = saccoCurrentWeek || 1;
               }
 
               let displayType = request.category;
