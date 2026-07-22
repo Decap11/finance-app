@@ -23,28 +23,40 @@ export async function GET(request) {
 
     let sacco = null;
 
-    // 1. Primary lookup by group_code or admin_profile_id, ordered by updated_at DESC
-    if (groupCode || userId) {
-      const filterClause = groupCode
-        ? `group_code.ilike.${groupCode}${userId ? `,admin_profile_id.eq.${userId}` : ''}`
-        : `admin_profile_id.eq.${userId}`;
-
-      const { data: saccoRows } = await supabaseClient
+    // 1. Primary lookup by exact group_code match
+    if (groupCode) {
+      const { data: groupRows } = await publicSupabase
         .from('saccos')
         .select('*')
-        .or(filterClause)
+        .ilike('group_code', groupCode)
         .order('updated_at', { ascending: false })
         .limit(1);
 
-      sacco = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
+      if (groupRows && groupRows.length > 0) {
+        sacco = groupRows[0];
+      }
     }
 
-    // 2. Global Fallback lookup: Most recently updated SACCO record in PostgreSQL
+    // 2. Secondary lookup by admin_profile_id
+    if (!sacco && userId) {
+      const { data: adminRows } = await publicSupabase
+        .from('saccos')
+        .select('*')
+        .eq('admin_profile_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (adminRows && adminRows.length > 0) {
+        sacco = adminRows[0];
+      }
+    }
+
+    // 3. Global Fallback lookup: Primary SACCO record in PostgreSQL
     if (!sacco) {
       const { data: fallbackRows } = await publicSupabase
         .from('saccos')
         .select('*')
-        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .limit(1);
 
       sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
@@ -57,7 +69,8 @@ export async function GET(request) {
         socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
         currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
         meetingDay: sacco.meeting_day || "Wednesday",
-        isLocked: Boolean(sacco.is_locked)
+        isLocked: Boolean(sacco.is_locked),
+        groupCode: sacco.group_code
       });
     }
 
@@ -87,7 +100,6 @@ export async function POST(request) {
     const auth = await verifyAuth(request);
     const user = !auth.error ? auth.user : null;
     const publicSupabase = getPublicSupabase();
-    // Use authenticated client if available to pass RLS policy
     const supabaseClient = (!auth.error && auth.supabase) ? auth.supabase : publicSupabase;
 
     const body = await request.json();
@@ -139,50 +151,14 @@ export async function POST(request) {
       updatePayload.admin_profile_id = userId;
     }
 
-    // 1. Locate target SACCO by group_code or admin_profile_id
-    let saccoId = null;
+    // Perform database updates across group_code and admin_profile_id
     if (cleanGroupCode) {
-      const { data: saccoRows } = await supabaseClient
-        .from('saccos')
-        .select('id')
-        .ilike('group_code', cleanGroupCode)
-        .limit(1);
-
-      if (saccoRows && saccoRows.length > 0) {
-        saccoId = saccoRows[0].id;
-      }
+      await supabaseClient.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode);
+      await publicSupabase.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode);
     }
-
-    if (!saccoId && userId) {
-      const { data: saccoRows } = await supabaseClient
-        .from('saccos')
-        .select('id')
-        .eq('admin_profile_id', userId)
-        .limit(1);
-
-      if (saccoRows && saccoRows.length > 0) {
-        saccoId = saccoRows[0].id;
-      }
-    }
-
-    // 2. Perform database update using authenticated client + publicSupabase fallback
-    if (saccoId) {
-      await supabaseClient.from('saccos').update(updatePayload).eq('id', saccoId);
-      await publicSupabase.from('saccos').update(updatePayload).eq('id', saccoId);
-    } else {
-      // Update most recently created sacco or insert if empty
-      const { data: existing } = await publicSupabase.from('saccos').select('id').order('created_at', { ascending: false }).limit(1);
-      if (existing && existing.length > 0) {
-        await supabaseClient.from('saccos').update(updatePayload).eq('id', existing[0].id);
-        await publicSupabase.from('saccos').update(updatePayload).eq('id', existing[0].id);
-      } else {
-        await publicSupabase.from('saccos').insert({
-          name: 'SACCO',
-          acronym: 'SACCO',
-          group_code: cleanGroupCode || 'BYS-8240',
-          ...updatePayload
-        });
-      }
+    if (userId) {
+      await supabaseClient.from('saccos').update(updatePayload).eq('admin_profile_id', userId);
+      await publicSupabase.from('saccos').update(updatePayload).eq('admin_profile_id', userId);
     }
 
     const newSettings = {
