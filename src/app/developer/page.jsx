@@ -37,11 +37,11 @@ export default function DeveloperPortal() {
     planTier: "basic"
   });
 
-  // Mock Subscription Plans details (adjustable locally)
+  // Subscription Plans details aligned with database tiers
   const [plans, setPlans] = useState({
-    basic: { name: "Basic Plan", price: 150000, memberLimit: 50, shareValuation: 2000 },
-    premium: { name: "Premium Plan", price: 350000, memberLimit: 250, shareValuation: 5000 },
-    enterprise: { name: "Enterprise Plan", price: 750000, memberLimit: 1000, shareValuation: 10000 }
+    basic: { name: "Basic Plan", price: 0, memberLimit: 50, shareValuation: 2000, billingCycle: "month" },
+    standard: { name: "Standard Plan", price: 75000, memberLimit: 250, shareValuation: 5000, billingCycle: "month" },
+    premium: { name: "Premium Plan", price: 200000, memberLimit: 1000, shareValuation: 10000, billingCycle: "3 months" }
   });
 
   // Load auth state from session storage on mount
@@ -84,13 +84,13 @@ export default function DeveloperPortal() {
         
         // Infer billing plan from member limit
         let planType = "basic";
-        let planPrice = 150000;
-        if (limit > 500) {
-          planType = "enterprise";
-          planPrice = 750000;
-        } else if (limit > 50) {
+        let planPrice = 0;
+        if (limit > 250) {
           planType = "premium";
-          planPrice = 350000;
+          planPrice = 200000;
+        } else if (limit > 50) {
+          planType = "standard";
+          planPrice = 75000;
         }
 
         return {
@@ -141,7 +141,7 @@ export default function DeveloperPortal() {
         };
       });
 
-      // If no logs exist in the audit table, seed with nice platform defaults
+      // If no logs exist in the audit table, seed with baseline defaults
       if (mappedLogs.length === 0) {
         setLogs([
           { id: 1, type: "success", msg: "Platform database baseline connection active.", time: "10 minutes ago" },
@@ -159,7 +159,13 @@ export default function DeveloperPortal() {
         if (planData.plans && planData.plans.length > 0) {
           const planObj = {};
           planData.plans.forEach(p => {
-            planObj[p.id] = p;
+            planObj[p.id] = {
+              name: p.name,
+              price: Number(p.price) || 0,
+              memberLimit: p.member_limit || (p.id === 'basic' ? 50 : p.id === 'standard' ? 250 : 1000),
+              shareValuation: p.id === 'basic' ? 2000 : p.id === 'standard' ? 5000 : 10000,
+              billingCycle: p.billing_cycle || 'month'
+            };
           });
           setPlans(prev => ({ ...prev, ...planObj }));
         }
@@ -739,25 +745,25 @@ export default function DeveloperPortal() {
                       
                       <div className="plan-price-block">
                         <span className="plan-price-currency">Shs</span>
-                        <span className="plan-price-amt">{plan.price.toLocaleString()}</span>
-                        <span className="plan-price-period">/ month</span>
+                        <span className="plan-price-amt">{(plan.price || 0).toLocaleString()}</span>
+                        <span className="plan-price-period">/ {plan.billingCycle || 'month'}</span>
                       </div>
 
                       <div className="plan-settings">
                         <div className="plan-setting-row">
                           <span className="plan-setting-label">Max Members Limit</span>
-                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>{plan.memberLimit} Users</span>
+                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>{plan.memberLimit || 50} Users</span>
                         </div>
                         <div className="plan-setting-row">
                           <span className="plan-setting-label">Share Value Limit</span>
-                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>Shs {plan.shareValuation.toLocaleString()}</span>
+                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>Shs {(plan.shareValuation || 5000).toLocaleString()}</span>
                         </div>
                         <div className="plan-setting-row" style={{ marginTop: "1rem" }}>
-                          <span className="plan-setting-label">Monthly Rate (Shs)</span>
+                          <span className="plan-setting-label">Rate (Shs)</span>
                           <input 
                             type="number" 
                             className="plan-setting-input" 
-                            value={plan.price}
+                            value={plan.price || 0}
                             onChange={(e) => updatePlanPrice(key, e.target.value)}
                           />
                         </div>
