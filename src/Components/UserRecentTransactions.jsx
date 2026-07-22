@@ -182,7 +182,7 @@ export default function UserRecentTransactions() {
                   if (displayType === "development_fund") displayType = "Development";
                   if (displayType === "shares") displayType = "Shares";
                   if (displayType === "savings") displayType = "Savings";
-                  if (displayType === "loan_disbursement") displayType = "Loan Request";
+                  if (displayType === "loan_disbursement") displayType = "Loan";
                   if (displayType === "loan_repayment") displayType = "Loan Repayment";
 
                   const isApproved = transaction.status === "completed" || transaction.status === "approved";
@@ -265,7 +265,7 @@ function TransactionTypeBadge({ type }) {
   const typeStyles = {
     "Social Fund": { color: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.1)" },
     Development: { color: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.1)" },
-    "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
+    Loan: { color: "#d97706", backgroundColor: "#fef3c7" },
     "Loan Repayment": { color: "#059669", backgroundColor: "#d1fae5" },
     Savings: { color: "#2563eb", backgroundColor: "rgba(59, 130, 246, 0.1)" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },

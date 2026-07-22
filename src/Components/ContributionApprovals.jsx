@@ -184,7 +184,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
         if (catDisplay === "development_fund") catDisplay = "Dev Fund";
         if (catDisplay === "shares") catDisplay = "Shares Pool";
         if (catDisplay === "savings") catDisplay = "Savings";
-        if (catDisplay === "loan_disbursement") catDisplay = "Loan Request";
+        if (catDisplay === "loan_disbursement") catDisplay = "Loan";
         if (catDisplay === "loan_repayment") catDisplay = "Loan Repayment";
 
         return [
@@ -285,7 +285,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
               if (displayType === "development_fund") displayType = "Dev Fund";
               if (displayType === "shares") displayType = "Shares Pool";
               if (displayType === "savings") displayType = "Savings";
-              if (displayType === "loan_disbursement") displayType = "Loan Request";
+              if (displayType === "loan_disbursement") displayType = "Loan";
 
               return (
                 <li key={request.id} className="admin-list-item">

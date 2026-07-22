@@ -93,7 +93,7 @@ export default function SavingsLatestMemberTransactions() {
         };
       case "loan_disbursement":
         return {
-          label: "Loan Request",
+          label: "Loan",
           icon: "fa-solid fa-hand-holding-dollar",
           bgColor: "#fef3c7",
           color: "#d97706"
