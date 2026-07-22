@@ -175,14 +175,22 @@ export default function AdminDashboardPage() {
       }
     };
 
+    const handleTransactionBroadcast = () => {
+      loadMetrics();
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+      window.addEventListener("sacco_transaction_updated", handleTransactionBroadcast);
+      window.addEventListener("manual_contribution_logged", handleTransactionBroadcast);
     }
 
     return () => {
       supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+        window.removeEventListener("sacco_transaction_updated", handleTransactionBroadcast);
+        window.removeEventListener("manual_contribution_logged", handleTransactionBroadcast);
       }
     };
   }, []);
