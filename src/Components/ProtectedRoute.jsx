@@ -40,6 +40,13 @@ export default function ProtectedRoute({ children }) {
       // Only members whose status is 'active' or 'approved' get access to the dashboard.
       // If status is 'pending', 'unapproved', 'suspended', or 'rejected', access IS DENIED!
       if (userStatus === 'approved' || userStatus === 'active') {
+        // Auto-sync status to 'active' in BOTH profiles AND sacco_memberships tables using member's own session token!
+        try {
+          await supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id);
+          await supabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', userSession.user.id);
+        } catch (e) {
+          console.warn("Self-sync sacco_memberships status exception:", e);
+        }
         setProfileStatus("active");
       } else {
         setProfileStatus("pending");
