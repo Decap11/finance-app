@@ -34,6 +34,25 @@ export async function verifyAuth(request) {
       return { error: Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 }) };
     }
 
+    // Server-side verification: Ensure member account is approved or active
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status, role')
+      .eq('id', user.id)
+      .single();
+
+    const userRole = (profile?.role || '').toLowerCase();
+    const userStatus = (profile?.status || 'approved').toLowerCase();
+
+    if (userRole !== 'admin' && userRole !== 'super_admin') {
+      if (userStatus === 'pending') {
+        return { error: Response.json({ error: 'Your member account is pending approval by your SACCO administrator.' }, { status: 403 }) };
+      }
+      if (userStatus === 'suspended' || userStatus === 'rejected') {
+        return { error: Response.json({ error: 'Your member account access has been restricted by your administrator.' }, { status: 403 }) };
+      }
+    }
+
     return { user, supabase };
   } catch (err) {
     return { error: Response.json({ error: 'Server authentication execution failure: ' + err.message }, { status: 500 }) };
