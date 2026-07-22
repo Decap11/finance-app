@@ -50,6 +50,8 @@ export default function ProtectedRoute({ children }) {
   }
 
   useEffect(() => {
+    let profileChannel = null;
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       if (!s) {
@@ -57,6 +59,23 @@ export default function ProtectedRoute({ children }) {
         router.replace("/login");
       } else {
         checkUserStatus(s);
+
+        // Realtime listener for member status changes (e.g. instant approval by Admin)
+        profileChannel = supabase
+          .channel(`profile-status-${s.user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${s.user.id}`
+            },
+            () => {
+              checkUserStatus(s);
+            }
+          )
+          .subscribe();
       }
     }).catch((err) => {
       console.warn("Auth session recovery failed:", err);
@@ -75,7 +94,12 @@ export default function ProtectedRoute({ children }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (profileChannel) {
+        supabase.removeChannel(profileChannel);
+      }
+    };
   }, [router]);
 
   const handleLogout = async () => {
