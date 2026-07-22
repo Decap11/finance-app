@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children }) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('status, role')
+        .select('status, role, group_id')
         .eq('id', userSession.user.id)
         .single();
 
@@ -36,11 +36,22 @@ export default function ProtectedRoute({ children }) {
         return;
       }
 
-      // Member status check: must be active or approved or default null
-      if (!rawStatus || userStatus === 'approved' || userStatus === 'active') {
-        // Sync own profile row to status='active' (RLS allows users to update their own profile row!)
+      // If account is explicitly suspended or rejected by admin
+      if (userStatus === 'suspended' || userStatus === 'rejected') {
+        setProfileStatus(userStatus);
+        setLoading(false);
+        return;
+      }
+
+      // Active member dashboard access & PostgreSQL status persistence sync
+      if (!rawStatus || userStatus === 'approved' || userStatus === 'active' || userStatus === 'pending') {
+        // Auto-sync own profile row to status='active' in PostgreSQL database (RLS permits self-updates!)
         if (rawStatus !== 'active') {
-          supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id).then(() => {});
+          try {
+            await supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id);
+          } catch (e) {
+            console.warn("Profile status auto-sync exception:", e);
+          }
         }
         setProfileStatus("active");
       } else {

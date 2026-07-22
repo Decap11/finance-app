@@ -76,6 +76,7 @@ export default function SignupForm() {
           phone: phone.trim(),
           member_number: formattedMemberId,
           group_id: generatedGroupCode,
+          status: 'active'
         }
       }
     });
