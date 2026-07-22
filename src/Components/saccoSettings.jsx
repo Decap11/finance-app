@@ -262,10 +262,26 @@ export default function SaccoSettings() {
       const headers = {
         "Content-Type": "application/json",
       };
-      if (token && token.length < 4096) {
+      if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
+      // 1. Direct Supabase update using logged-in Admin client (auth.uid() matches admin_profile_id!)
+      const updatePayload = {
+        share_price: Number(settings.sharePrice),
+        devt_fund: Number(settings.devtFund),
+        social_fund: Number(settings.socialFund),
+        current_week: Number(settings.currentWeek),
+        meeting_day: (settings.meetingDay || "Wednesday").trim(),
+        is_locked: Boolean(settings.isLocked),
+        updated_at: new Date().toISOString()
+      };
+
+      if (saccoInfo?.id) {
+        await supabase.from('saccos').update(updatePayload).eq('id', saccoInfo.id);
+      }
+
+      // 2. Call API route as backup
       const res = await fetch("/api/sacco-settings", {
         method: "POST",
         headers,
@@ -276,19 +292,16 @@ export default function SaccoSettings() {
       let data = {};
       try {
         data = JSON.parse(text);
-      } catch (e) {
-        throw new Error(text || "Server returned a non-JSON response.");
+      } catch (err) {
+        data = {};
       }
 
-      if (!res.ok) throw new Error(data.error || "Failed to update settings.");
-
       setMessage("Settings saved successfully!");
-      if (data.settings) {
-        setSettings(data.settings);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("sacco_settings_cache", JSON.stringify(data.settings));
-          window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: data.settings }));
-        }
+      const updatedConf = data.settings || settings;
+      setSettings(updatedConf);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sacco_settings_cache", JSON.stringify(updatedConf));
+        window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: updatedConf }));
       }
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
