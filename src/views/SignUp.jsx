@@ -48,18 +48,19 @@ export default function SignupForm() {
     const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
 
     // Verify that the SACCO group code exists in the database
-    const { data: saccoData, error: saccoError } = await supabase
+    const { data: saccoRows, error: saccoError } = await supabase
       .from('saccos')
-      .select('id')
-      .eq('group_code', generatedGroupCode)
-      .limit(1)
-      .maybeSingle();
+      .select('id, group_code')
+      .ilike('group_code', generatedGroupCode)
+      .limit(1);
 
     if (saccoError) {
       setErrorMsg("Error validating Group ID: " + saccoError.message);
       setIsLoading(false);
       return;
     }
+
+    const saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
 
     if (!saccoData) {
       setErrorMsg("Registration Failed: The SACCO group does not exist. Please check the SACCO Name and Unique Number.");

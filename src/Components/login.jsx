@@ -43,12 +43,18 @@ export default function Login() {
       return;
     }
 
+    let userRole = (data.user?.user_metadata?.role || '').toLowerCase();
+
     // Fetch user profile role to route appropriately
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', data.user.id)
       .single();
+
+    if (profile?.role) {
+      userRole = profile.role.toLowerCase();
+    }
 
     setIsLoading(false);
 
@@ -57,7 +63,7 @@ export default function Login() {
       localStorage.setItem("rememberedPassword", LogInpassword);
     }
 
-    if (profile && profile.role === 'admin') {
+    if (userRole === 'admin' || userRole === 'super_admin') {
       router.push("/admin");
     } else {
       router.push("/dashboard");
