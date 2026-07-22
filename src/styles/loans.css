@@ -41,17 +41,40 @@ html {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
-.input-wrapper i {
+/* Left Icon inside Input Wrapper (e.g. money-bill icon) */
+.input-wrapper > i:not(.custom-select-arrow) {
   position: absolute;
   left: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-light);
   font-size: 1.6rem;
+  pointer-events: none;
+  z-index: 2;
 }
 
-.input-wrapper input,
-.input-wrapper select {
+/* Right Dropdown Chevron inside CustomSelect */
+.custom-select-wrapper .custom-select-arrow {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin-left: auto !important;
+  font-size: 1.2rem;
+  color: #64748b;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.custom-select-wrapper .custom-select-arrow.open {
+  transform: rotate(180deg) !important;
+  color: #2563eb !important;
+}
+
+.input-wrapper input {
   width: 100%;
   padding: 1.4rem 1.4rem 1.4rem 4.5rem;
   border: 0.1rem solid #cbd5e1;
@@ -64,8 +87,29 @@ html {
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
-  appearance: none;
   background-color: var(--white);
+}
+
+.input-wrapper select {
+  width: 100%;
+  padding: 1.4rem 4rem 1.4rem 4.5rem;
+  border: 0.1rem solid #cbd5e1;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.5rem center;
+  background-size: 1.6rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .input-wrapper input:focus,

@@ -165,8 +165,13 @@ export default function Header() {
     setShowNotifications(false);
   };
 
-  const handleLogout = (event) => {
+  const handleLogout = async (event) => {
     event.preventDefault();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Admin sign out failed:", err);
+    }
     router.push("/login");
   };
 
