@@ -621,7 +621,7 @@ export default function SaccoSettings() {
                       <td>{row.memberId}</td>
                       <td><strong>{row.name}</strong></td>
                       <td>
-                        {row.sharesQty > 0 ? `${row.sharesQty} (Shs ${row.sharesAmt.toLocaleString()})` : "Shs 0"}
+                        {row.sharesAmt > 0 ? `Shs ${row.sharesAmt.toLocaleString()} (${row.sharesQty} ${row.sharesQty === 1 ? 'Share' : 'Shares'})` : "Shs 0"}
                       </td>
                       <td>Shs {row.devtAmt.toLocaleString()}</td>
                       <td>Shs {row.socialAmt.toLocaleString()}</td>
