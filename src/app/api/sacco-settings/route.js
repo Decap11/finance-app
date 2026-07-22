@@ -8,11 +8,12 @@ export async function GET(request) {
     const publicSupabase = getPublicSupabase();
     const auth = await verifyAuth(request);
     let supabaseClient = !auth.error ? auth.supabase : publicSupabase;
-    let groupCode = null;
-    let userId = null;
 
-    if (!auth.error && auth.user) {
-      userId = auth.user.id;
+    const { searchParams } = new URL(request.url);
+    let groupCode = (searchParams.get('group_code') || '').trim();
+    let userId = !auth.error && auth.user ? auth.user.id : null;
+
+    if (!groupCode && userId) {
       const { data: profile } = await supabaseClient
         .from('profiles')
         .select('group_id')
@@ -29,7 +30,6 @@ export async function GET(request) {
         .from('saccos')
         .select('*')
         .ilike('group_code', groupCode)
-        .order('updated_at', { ascending: false })
         .limit(1);
 
       if (groupRows && groupRows.length > 0) {
@@ -43,7 +43,6 @@ export async function GET(request) {
         .from('saccos')
         .select('*')
         .eq('admin_profile_id', userId)
-        .order('updated_at', { ascending: false })
         .limit(1);
 
       if (adminRows && adminRows.length > 0) {
@@ -51,20 +50,9 @@ export async function GET(request) {
       }
     }
 
-    // 3. Global Fallback lookup: Primary SACCO record in PostgreSQL
-    if (!sacco) {
-      const { data: fallbackRows } = await publicSupabase
-        .from('saccos')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(1);
-
-      sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
-    }
-
     if (sacco) {
       return Response.json({
-        sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 25000,
+        sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,
         devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
         socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
         currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
@@ -75,7 +63,7 @@ export async function GET(request) {
     }
 
     return Response.json({
-      sharePrice: 25000,
+      sharePrice: 5000,
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
@@ -85,7 +73,7 @@ export async function GET(request) {
   } catch (err) {
     console.warn("GET /api/sacco-settings execution error:", err);
     return Response.json({
-      sharePrice: 25000,
+      sharePrice: 5000,
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,

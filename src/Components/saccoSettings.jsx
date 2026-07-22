@@ -102,6 +102,16 @@ export default function SaccoSettings() {
       if (!sacco) return;
       setSaccoInfo(sacco);
 
+      // Direct PostgreSQL sync for settings state
+      setSettings({
+        sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,
+        devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
+        socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
+        currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
+        meetingDay: sacco.meeting_day || "Wednesday",
+        isLocked: Boolean(sacco.is_locked)
+      });
+
       // Parallelize profile list and transaction list lookups
       const [profilesRes, txsRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("group_id", profileData.group_id),
