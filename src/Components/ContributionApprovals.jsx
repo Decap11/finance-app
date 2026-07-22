@@ -166,9 +166,77 @@ export default function ContributionApprovals({ limit, showViewAll }) {
     }
   };
 
+  const handleExportCSV = () => {
+    if (requests.length === 0) return;
+
+    const headers = ["Transaction ID", "Member ID", "Member Name", "Category", "Amount (Shs)", "Status", "Requested By", "Created At", "Description"];
+    
+    const csvRows = [
+      headers.join(","),
+      ...requests.map(req => {
+        let catDisplay = req.category;
+        if (catDisplay === "social_fund") catDisplay = "Social Fund";
+        if (catDisplay === "development_fund") catDisplay = "Dev Fund";
+        if (catDisplay === "shares") catDisplay = "Shares Pool";
+        if (catDisplay === "savings") catDisplay = "Savings";
+        if (catDisplay === "loan_disbursement") catDisplay = "Loan Request";
+        if (catDisplay === "loan_repayment") catDisplay = "Loan Repayment";
+
+        return [
+          `"${req.id}"`,
+          `"${req.profiles?.member_number || "N/A"}"`,
+          `"${(req.profiles?.full_name || "Unknown").replace(/"/g, '""')}"`,
+          `"${catDisplay}"`,
+          req.amount,
+          `"${req.status}"`,
+          `"${(req.requester?.full_name || "Self").replace(/"/g, '""')}"`,
+          `"${new Date(req.created_at).toISOString()}"`,
+          `"${(req.description || "").replace(/"/g, '""')}"`
+        ].join(",");
+      })
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `sacco_transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="recent-transactions recent-transactions-verifications">
-      <MainHeader showViewAll={showViewAll} />
+      <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 className="section-title">Pending Contribution Approvals</h3>
+        <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }}>
+          {requests.length > 0 && (
+            <button 
+              onClick={handleExportCSV} 
+              className="btn-print-report no-print" 
+              style={{ 
+                backgroundColor: "#059669", 
+                color: "white", 
+                border: "none", 
+                padding: "0.6rem 1.2rem", 
+                borderRadius: "0.8rem", 
+                fontSize: "1.2rem", 
+                fontWeight: 600, 
+                cursor: "pointer", 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.6rem" 
+              }}
+            >
+              <i className="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+          )}
+          {showViewAll && (
+            <Link href="/admin?tab=verifications" className="view-all-link">View All</Link>
+          )}
+        </div>
+      </div>
       
       {message && (
         <div style={{ marginBottom: '1rem', padding: '0.5rem', borderRadius: '4px', background: '#f3f4f6', textAlign: 'center' }}>

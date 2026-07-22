@@ -279,6 +279,47 @@ export default function SaccoSettings() {
     window.print();
   };
 
+  const handleExportCSV = () => {
+    if (reportRows.length === 0) return;
+    
+    // Construct CSV header & rows
+    const headers = ["Member ID", "Member Name", "Shares Quantity", "Shares Amount (Shs)", "Development Fund (Shs)", "Social Fund (Shs)", "Fines (Shs)", "Row Total (Shs)"];
+    
+    const csvRows = [
+      headers.join(","),
+      ...reportRows.map(row => [
+        `"${row.memberId}"`,
+        `"${row.name.replace(/"/g, '""')}"`,
+        row.sharesQty,
+        row.sharesAmt,
+        row.devtAmt,
+        row.socialAmt,
+        row.finesAmt,
+        row.rowTotal
+      ].join(",")),
+      // Add totals row
+      [
+        `"TOTALS"`,
+        `""`,
+        `""`,
+        reportTotals.shares,
+        reportTotals.devt,
+        reportTotals.social,
+        reportTotals.fines,
+        reportTotals.grandTotal
+      ].join(",")
+    ];
+    
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${saccoInfo?.acronym || "sacco"}_weekly_report_week_${filterWeek}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getMonthName = (mIndex) => {
     const months = [
       "January", "February", "March", "April", "May", "June",
@@ -460,6 +501,9 @@ export default function SaccoSettings() {
             </div>
             <button onClick={handlePrintReport} className="btn-print-report">
               <i className="fa-solid fa-print"></i> Print Report
+            </button>
+            <button onClick={handleExportCSV} className="btn-print-report" style={{ backgroundColor: "#059669", marginLeft: "1rem" }}>
+              <i className="fa-solid fa-file-csv"></i> Export CSV
             </button>
           </div>
         </div>
