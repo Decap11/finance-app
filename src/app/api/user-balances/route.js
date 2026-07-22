@@ -1,4 +1,4 @@
-import { verifyAuth } from '../../../lib/auth';
+import { verifyAuth, getPublicSupabase } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,6 +9,7 @@ export async function GET(request) {
     if (auth.error) return auth.error;
 
     const { user, supabase } = auth;
+    const publicSupabase = getPublicSupabase();
 
     const categorySums = {
       shares: 0,
@@ -16,8 +17,8 @@ export async function GET(request) {
       social_fund: 0
     };
 
-    // 1. Primary Ledger: Calculate aggregate totals directly from completed & approved transactions
-    const { data: transactions } = await supabase
+    // 1. Primary Ledger: Calculate aggregate totals directly from transactions (using publicSupabase service layer)
+    const { data: transactions } = await publicSupabase
       .from('transactions')
       .select('amount, direction, category, status')
       .eq('profile_id', user.id)
@@ -41,7 +42,7 @@ export async function GET(request) {
     }
 
     // 2. Secondary Ledger: Compare with initialized accounts table balances
-    const { data: accountsList } = await supabase
+    const { data: accountsList } = await publicSupabase
       .from('accounts')
       .select('account_type, balance')
       .eq('profile_id', user.id);

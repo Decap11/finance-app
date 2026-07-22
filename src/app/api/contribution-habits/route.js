@@ -1,4 +1,4 @@
-import { verifyAuth } from '../../../lib/auth';
+import { verifyAuth, getPublicSupabase } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,10 +9,11 @@ export async function GET(request) {
     if (auth.error) return auth.error;
 
     const { user, supabase } = auth;
+    const publicSupabase = getPublicSupabase();
 
     // 1. Fetch user's SACCO group and database settings
     let settings = {
-      sharePrice: 25000,
+      sharePrice: 5000,
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
@@ -20,23 +21,25 @@ export async function GET(request) {
       isLocked: false
     };
 
-    const { data: profile } = await supabase
+    const { data: profile } = await publicSupabase
       .from('profiles')
       .select('group_id')
       .eq('id', user.id)
       .single();
 
-    if (profile?.group_id) {
-      const { data: sacco } = await supabase
+    const cleanGroupCode = (profile?.group_id || '').trim();
+
+    if (cleanGroupCode) {
+      const { data: saccoRows } = await publicSupabase
         .from('saccos')
         .select('share_price, devt_fund, social_fund, current_week, meeting_day, is_locked')
-        .eq('group_code', profile.group_id)
-        .limit(1)
-        .single();
+        .ilike('group_code', cleanGroupCode)
+        .limit(1);
 
-      if (sacco) {
+      if (saccoRows && saccoRows.length > 0) {
+        const sacco = saccoRows[0];
         settings = {
-          sharePrice: Number(sacco.share_price) || 25000,
+          sharePrice: Number(sacco.share_price) || 5000,
           devtFund: Number(sacco.devt_fund) || 1000,
           socialFund: Number(sacco.social_fund) || 2000,
           currentWeek: Number(sacco.current_week) || 1,
@@ -46,10 +49,10 @@ export async function GET(request) {
       }
     }
 
-    // 2. Query transactions for current year
+    // 2. Query transactions for current year via publicSupabase service layer
     const startOfYear = `${new Date().getFullYear()}-01-01`;
 
-    const { data: transactions, error: txErr } = await supabase
+    const { data: transactions, error: txErr } = await publicSupabase
       .from('transactions')
       .select('*')
       .eq('profile_id', user.id)

@@ -1,4 +1,4 @@
-import { verifyAuth } from '../../../lib/auth';
+import { verifyAuth, getPublicSupabase } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -8,13 +8,14 @@ export async function GET(request) {
     const auth = await verifyAuth(request);
     if (auth.error) return auth.error;
 
-    const { user, supabase } = auth;
+    const { user } = auth;
+    const publicSupabase = getPublicSupabase();
 
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
     const limitVal = limitParam ? parseInt(limitParam, 10) : null;
 
-    let query = supabase
+    let query = publicSupabase
       .from('transactions')
       .select(`
         *,
@@ -47,6 +48,7 @@ export async function POST(request) {
     if (auth.error) return auth.error;
 
     const { user, supabase } = auth;
+    const publicSupabase = getPublicSupabase();
 
     const body = await request.json();
     const { shares, devtFund, socialFund } = body;
@@ -94,16 +96,26 @@ export async function POST(request) {
 
     let saccoData = saccoRows && saccoRows.length > 0 ? saccoRows[0] : null;
 
-    // Fallback: If specific group_code row wasn't found in saccos table, fetch first available sacco
-    if (!saccoData) {
-      const { data: fallbackRows } = await supabase
+    // Auto-provision SACCO tenant if missing for cleanGroupCode
+    if (!saccoData && cleanGroupCode) {
+      const { data: newSacco } = await publicSupabase
         .from('saccos')
+        .insert({
+          name: `${cleanGroupCode} SACCO`,
+          acronym: cleanGroupCode.split('-')[0] || 'SACCO',
+          group_code: cleanGroupCode,
+          admin_profile_id: user.id,
+          share_price: 5000,
+          devt_fund: 1000,
+          social_fund: 2000,
+          current_week: 1,
+          meeting_day: 'Wednesday',
+          status: 'active'
+        })
         .select('*')
-        .limit(1);
+        .single();
 
-      if (fallbackRows && fallbackRows.length > 0) {
-        saccoData = fallbackRows[0];
-      }
+      saccoData = newSacco;
     }
 
     if (!saccoData) {
