@@ -182,6 +182,11 @@ export default function UserRecentTransactions() {
                   if (displayType === "development_fund") displayType = "Development";
                   if (displayType === "shares") displayType = "Shares";
                   if (displayType === "savings") displayType = "Savings";
+                  if (displayType === "loan_disbursement") displayType = "Loan Request";
+                  if (displayType === "loan_repayment") displayType = "Loan Repayment";
+
+                  const isApproved = transaction.status === "completed" || transaction.status === "approved";
+                  const isPending = transaction.status === "pending";
 
                   return (
                     <tr key={transaction.id}>
@@ -198,15 +203,16 @@ export default function UserRecentTransactions() {
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                           <span
-                            className={`status-badge ${
-                              transaction.status === "completed" || transaction.status === "approved"
-                                ? "success"
-                                : transaction.status === "pending" ? "pending" : "danger"
-                            }`}
+                            className={`status-badge ${isApproved ? "success" : isPending ? "pending" : "danger"}`}
+                            style={{
+                              background: isApproved ? "#f0fdf4" : isPending ? "#fef3c7" : "#fef2f2",
+                              color: isApproved ? "#22c55e" : isPending ? "#d97706" : "#ef4444",
+                              fontWeight: 700
+                            }}
                           >
-                            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                            {isApproved ? "Completed" : isPending ? "Pending" : "Rejected"}
                           </span>
-                          {transaction.status === 'pending' && transaction.requested_by && transaction.requested_by !== transaction.profile_id && (
+                          {isPending && transaction.requested_by && transaction.requested_by !== transaction.profile_id && (
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                               <button 
                                 onClick={() => handleApprove(transaction.id)}
@@ -254,27 +260,31 @@ export default function UserRecentTransactions() {
   );
 }
 
-//Updating the badge component to handle conditional rendering
+// Updating the badge component to handle conditional rendering & defined category colors
 function TransactionTypeBadge({ type }) {
   const typeStyles = {
-    "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
-    Development: { color: "#10b981", backgroundColor: "#10b9811a" },
-    "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" }, // Extrapolated colors for the loan badge
+    "Social Fund": { color: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.1)" },
+    Development: { color: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.1)" },
+    "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
+    "Loan Repayment": { color: "#059669", backgroundColor: "#d1fae5" },
+    Savings: { color: "#2563eb", backgroundColor: "rgba(59, 130, 246, 0.1)" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
   };
-  // Fallback styling just in case a type comes back that isn't in the map above
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
-
-  // Select the style based on the type, or use the default
   const currentStyle = typeStyles[type] || defaultStyle;
 
   return (
     <td>
       <span
-        className="transaction-badge transfer"
+        className="transaction-badge"
         style={{
           color: currentStyle.color,
           backgroundColor: currentStyle.backgroundColor,
+          fontWeight: 700,
+          padding: "0.5rem 1rem",
+          borderRadius: "0.6rem",
+          fontSize: "1.15rem",
+          display: "inline-block"
         }}
       >
         {type}
