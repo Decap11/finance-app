@@ -41,26 +41,11 @@ export async function POST(request) {
       }
     }
 
-    // Try direct profile status update via both user client & publicSupabase
     if (action === 'approve') {
       await supabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
 
-      // Persist to SACCO settings / approved registry
       if (saccoRow) {
-        let approvedIds = [];
-        try {
-          approvedIds = typeof saccoRow.approved_members === 'string'
-            ? JSON.parse(saccoRow.approved_members)
-            : (Array.isArray(saccoRow.approved_members) ? saccoRow.approved_members : []);
-        } catch (e) {
-          approvedIds = [];
-        }
-
-        if (!approvedIds.includes(memberId)) {
-          approvedIds.push(memberId);
-        }
-
         await supabase.from('saccos').update({
           updated_at: new Date().toISOString()
         }).eq('id', saccoRow.id);
@@ -73,12 +58,24 @@ export async function POST(request) {
       await supabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
 
+      if (saccoRow) {
+        await supabase.from('saccos').update({
+          updated_at: new Date().toISOString()
+        }).eq('id', saccoRow.id);
+      }
+
       return Response.json({ success: true, status: 'pending' });
     }
 
     if (action === 'make_admin') {
       await supabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
+
+      if (saccoRow) {
+        await supabase.from('saccos').update({
+          updated_at: new Date().toISOString()
+        }).eq('id', saccoRow.id);
+      }
 
       return Response.json({ success: true, role: 'admin', status: 'active' });
     }
