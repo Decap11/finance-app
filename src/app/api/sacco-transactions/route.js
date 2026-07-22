@@ -67,24 +67,21 @@ export async function GET(request) {
       return Response.json({ error: txErr.message }, { status: 500 });
     }
 
-    // Helper to extract or compute week number
-    const getTransactionWeek = (tx) => {
+    // Helper to extract or compute week number with fallback to SACCO's current_week
+    const getTransactionWeek = (tx, activeSaccoWeek) => {
+      if (tx.week_number) return Number(tx.week_number);
       if (tx.description) {
         const match = tx.description.match(/week\s*([0-9]+)/i);
         if (match && match[1]) {
           return parseInt(match[1], 10);
         }
       }
-      const dateObj = new Date(tx.created_at || tx.approved_at || Date.now());
-      const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-      const diffInMs = dateObj - startOfYear;
-      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-      return Math.floor(diffInDays / 7) + 1;
+      return Number(activeSaccoWeek) || 1;
     };
 
     // 5. Filter transactions strictly belonging to currentWeek
     const weeklyTransactions = (transactions || []).filter(tx => {
-      const txWeek = getTransactionWeek(tx);
+      const txWeek = getTransactionWeek(tx, currentWeek);
       return txWeek === currentWeek;
     });
 

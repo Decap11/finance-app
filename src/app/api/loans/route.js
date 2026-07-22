@@ -79,7 +79,7 @@ export async function POST(request) {
       // Fetch matching Sacco ID (case-insensitive with fallback)
       const { data: saccoRows } = await supabase
         .from('saccos')
-        .select('id')
+        .select('id, current_week')
         .ilike('group_code', cleanGroupCode)
         .limit(1);
 
@@ -88,7 +88,7 @@ export async function POST(request) {
       if (!saccoData) {
         const { data: fallbackRows } = await supabase
           .from('saccos')
-          .select('id')
+          .select('id, current_week')
           .limit(1);
         if (fallbackRows && fallbackRows.length > 0) {
           saccoData = fallbackRows[0];
@@ -146,6 +146,14 @@ export async function POST(request) {
         return Response.json({ error: `Repayment amount exceeds outstanding balance of Shs ${Number(activeLoan.outstanding_balance).toLocaleString()}` }, { status: 400 });
       }
 
+      // Fetch SACCO current_week
+      const { data: saccoRow } = await supabase
+        .from('saccos')
+        .select('current_week')
+        .eq('id', activeLoan.sacco_id)
+        .single();
+      const currentWeek = saccoRow?.current_week || 1;
+
       // 2. Fetch user's loan account id
       const { data: loanAccounts, error: accountErr } = await supabase
         .from('accounts')
@@ -173,7 +181,7 @@ export async function POST(request) {
           direction: 'credit',
           category: 'loan_repayment',
           status: 'pending',
-          description: `Loan repayment request via ${paymentSource === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}`,
+          description: `Loan repayment request via ${paymentSource === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'} | Week ${currentWeek}`,
           requested_by: user.id
         });
 
