@@ -116,13 +116,34 @@ export async function POST(request) {
     let userId = user ? user.id : null;
 
     if (user) {
-      const { data: profile } = await supabaseClient
+      const { data: profile } = await publicSupabase
         .from('profiles')
         .select('group_id')
         .eq('id', user.id)
         .single();
 
       cleanGroupCode = (profile?.group_id || '').trim();
+    }
+
+    // Resolve target SACCO row by Group Code or Admin Profile ID
+    let targetSacco = null;
+
+    if (cleanGroupCode) {
+      const { data: gRows } = await publicSupabase
+        .from('saccos')
+        .select('id, admin_profile_id')
+        .ilike('group_code', cleanGroupCode)
+        .limit(1);
+      if (gRows && gRows.length > 0) targetSacco = gRows[0];
+    }
+
+    if (!targetSacco && userId) {
+      const { data: aRows } = await publicSupabase
+        .from('saccos')
+        .select('id, admin_profile_id')
+        .eq('admin_profile_id', userId)
+        .limit(1);
+      if (aRows && aRows.length > 0) targetSacco = aRows[0];
     }
 
     const updatePayload = {
@@ -139,27 +160,33 @@ export async function POST(request) {
       updatePayload.admin_profile_id = userId;
     }
 
-    // Helper to perform database update with schema tolerance
-    const performUpdate = async (client, queryBuilder) => {
-      try {
-        const { error } = await queryBuilder;
-        if (error && error.message?.includes('meeting_day')) {
-          const fallbackPayload = { ...updatePayload };
-          delete fallbackPayload.meeting_day;
-          await client.from('saccos').update(fallbackPayload);
-        }
-      } catch (e) {
-        // Non-blocking
-      }
-    };
+    if (targetSacco?.id) {
+      // Execute primary update via publicSupabase service layer targeting exact SACCO ID
+      let { error: updateErr } = await publicSupabase
+        .from('saccos')
+        .update(updatePayload)
+        .eq('id', targetSacco.id);
 
-    if (cleanGroupCode) {
-      await performUpdate(supabaseClient, supabaseClient.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode));
-      await performUpdate(publicSupabase, publicSupabase.from('saccos').update(updatePayload).ilike('group_code', cleanGroupCode));
-    }
-    if (userId) {
-      await performUpdate(supabaseClient, supabaseClient.from('saccos').update(updatePayload).eq('admin_profile_id', userId));
-      await performUpdate(publicSupabase, publicSupabase.from('saccos').update(updatePayload).eq('admin_profile_id', userId));
+      if (updateErr && updateErr.message?.includes('meeting_day')) {
+        delete updatePayload.meeting_day;
+        await publicSupabase
+          .from('saccos')
+          .update(updatePayload)
+          .eq('id', targetSacco.id);
+      }
+    } else if (cleanGroupCode) {
+      let { error: updateErr } = await publicSupabase
+        .from('saccos')
+        .update(updatePayload)
+        .ilike('group_code', cleanGroupCode);
+
+      if (updateErr && updateErr.message?.includes('meeting_day')) {
+        delete updatePayload.meeting_day;
+        await publicSupabase
+          .from('saccos')
+          .update(updatePayload)
+          .ilike('group_code', cleanGroupCode);
+      }
     }
 
     const newSettings = {

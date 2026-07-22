@@ -93,11 +93,29 @@ export default function SaccoSettings() {
 
       if (!profileData) return;
 
-      const { data: sacco } = await supabase
-        .from("saccos")
-        .select("*")
-        .eq("group_code", profileData.group_id)
-        .single();
+      let sacco = null;
+      const cleanGroupCode = (profileData?.group_id || '').trim();
+      if (cleanGroupCode) {
+        const { data: saccoRows } = await supabase
+          .from("saccos")
+          .select("*")
+          .ilike("group_code", cleanGroupCode)
+          .limit(1);
+        if (saccoRows && saccoRows.length > 0) {
+          sacco = saccoRows[0];
+        }
+      }
+
+      if (!sacco) {
+        const { data: adminRows } = await supabase
+          .from("saccos")
+          .select("*")
+          .eq("admin_profile_id", user.id)
+          .limit(1);
+        if (adminRows && adminRows.length > 0) {
+          sacco = adminRows[0];
+        }
+      }
 
       if (!sacco) return;
       setSaccoInfo(sacco);
