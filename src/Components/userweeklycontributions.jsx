@@ -118,6 +118,12 @@ export default function WeeklyContributions() {
       if (!res.ok) throw new Error(data.error || "Failed to submit contributions.");
 
       setMessage("Contributions submitted successfully (Pending Admin approval).");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+        window.dispatchEvent(new CustomEvent("manual_contribution_logged"));
+      }
+
       // Reset states
       setShares("");
       setDevtFund(groupSettings.devtFund || 1000); // Reset back to default

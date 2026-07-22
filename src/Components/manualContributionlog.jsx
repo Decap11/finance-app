@@ -185,6 +185,12 @@ export default function ManualContributionLog({ allMembers }) {
 
       setMessage(`${addFundType === "loan_disbursement" ? "Loan record" : "Contribution"} logged successfully for Week ${selectedWeek}!`);
 
+      // Dispatch global events to instantly update all cards, progress bars, tables, and lists
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+        window.dispatchEvent(new CustomEvent("manual_contribution_logged"));
+      }
+
       // Reset form fields
       setAddMember("");
       setAddFundType("shares");

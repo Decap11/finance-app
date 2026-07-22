@@ -209,12 +209,20 @@ export default function CalendarHeatMap() {
       }
     }
 
+    function handleTransactionUpdate() {
+      loadContributionHabits();
+    }
+
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
+      window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
     }
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
+        window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+        window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
       }
     };
   }, []);
