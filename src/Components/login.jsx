@@ -114,9 +114,9 @@ export default function Login() {
         <div className="form-group">
           <label className="form-label">
             Password
-            <button type="button" className="forgot-link">
+            <Link href="/forgot-password" className="forgot-link">
               Forgot password?
-            </button>
+            </Link>
           </label>
           <div className="form-input-container">
             <i className="fa-solid fa-lock form-icon"></i>
