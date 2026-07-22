@@ -130,6 +130,27 @@ export default function SaccoSettings() {
 
   useEffect(() => {
     Promise.all([loadSettings(), loadDatabaseData()]);
+
+    // Realtime WebSocket listener for SACCO Settings updates
+    const channel = supabase
+      .channel('sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadSettings();
+          loadDatabaseData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Compute Weekly Table and overall totals dynamically

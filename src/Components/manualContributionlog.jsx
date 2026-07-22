@@ -99,6 +99,22 @@ export default function ManualContributionLog({ allMembers }) {
     }
     loadSettings();
 
+    // Subscribe to real-time saccos settings updates over WebSockets
+    const channel = supabase
+      .channel('manual-log-sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadSettings();
+        }
+      )
+      .subscribe();
+
     function handleSettingsUpdate(e) {
       if (e.detail) {
         if (e.detail.meetingDay) {
@@ -114,6 +130,7 @@ export default function ManualContributionLog({ allMembers }) {
       window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
     }
     return () => {
+      supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
       }
