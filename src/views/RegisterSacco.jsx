@@ -40,63 +40,58 @@ export default function RegisterSacco() {
     setIsLoading(true);
     setErrorMsg("");
 
-    const { supabase } = await import("../supabaseClient.js");
+    try {
+      // 1. Call the secure register-sacco API endpoint
+      const res = await fetch("/api/register-sacco", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          fullName,
+          phone,
+          email,
+          password,
+          memberId,
+          saccoName,
+          saccoUniqueNumber
+        })
+      });
 
-    // Generate acronym and group code using user entered unique number
-    const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
-    const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
-    const adminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
-
-    // 1. Sign up the admin user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password: password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          member_number: adminMemberNumber,
-          group_id: generatedGroupCode,
-          role: 'admin',
-          status: 'active',
-        }
+      const data = await res.json();
+      if (!res.ok) {
+        let errStr = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error) || 'Failed to register SACCO');
+        if (errStr === '{}' || !errStr) errStr = 'Failed to register SACCO. Please check your network or try again.';
+        throw new Error(errStr);
       }
-    });
 
-    if (authError) {
-      setErrorMsg(authError.message);
+      // 2. Perform client login to establish active user session
+      const { supabase } = await import("../supabaseClient.js");
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password
+      });
+
+      if (loginErr) {
+        console.warn("Auto-login after SACCO registration warning:", loginErr.message);
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("rememberedEmail", email.trim());
+        localStorage.setItem("rememberedPassword", password);
+      }
+
       setIsLoading(false);
-      return;
-    }
-
-    if (!authData?.user) {
-      setErrorMsg("Signup completed but failed to retrieve user session details.");
+      // 3. Navigate to admin settings route
+      router.push("/admin?tab=settings");
+    } catch (err) {
       setIsLoading(false);
-      return;
+      let displayError = err.message || "An error occurred during registration.";
+      if (displayError === "{}" || displayError === "[object Object]") {
+        displayError = "Registration failed. Please ensure the SACCO Code is unique and try again.";
+      }
+      setErrorMsg(displayError);
     }
-
-    // 2. Call the RPC to create the SACCO and link the admin
-    const { error: rpcError } = await supabase.rpc('register_new_sacco', {
-      p_sacco_name: saccoName.trim(),
-      p_acronym: generatedAcronym,
-      p_group_code: generatedGroupCode,
-      p_admin_profile_id: authData.user.id
-    });
-
-    setIsLoading(false);
-
-    if (rpcError) {
-      setErrorMsg("SACCO Registration Failed: " + rpcError.message);
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("rememberedEmail", email.trim());
-      localStorage.setItem("rememberedPassword", password);
-    }
-
-    // 3. Navigate to admin settings route to make initial group configurations
-    router.push("/admin?tab=settings");
   }
 
   return (
