@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
 
     fetchAdminData();
 
-    // Subscribe to transactions changes to update count in real-time
+    // Subscribe to transactions, loans, and profiles changes to update metrics and member list in real-time
     const channel = supabase
       .channel('admin-dashboard-realtime-metrics')
       .on(
@@ -150,6 +150,17 @@ export default function AdminDashboardPage() {
         },
         () => {
           loadMetrics();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        () => {
+          fetchAdminData();
         }
       )
       .subscribe();
