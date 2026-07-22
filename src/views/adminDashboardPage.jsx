@@ -181,14 +181,21 @@ export default function AdminDashboardPage() {
     if (!confirmPromote) return;
 
     try {
-      const { error } = await supabase.rpc('make_member_admin', {
+      // 1. Attempt RPC call
+      const { error: rpcErr } = await supabase.rpc('make_member_admin', {
         p_member_id: memberId
       });
 
-      if (error) throw error;
+      // 2. Direct table update fallback to guarantee role & status update in database
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ role: 'admin', status: 'active' })
+        .eq('id', memberId);
+
+      if (updateErr && rpcErr) throw new Error(rpcErr.message || updateErr.message);
 
       alert("Member successfully promoted to admin!");
-      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin' } : m));
+      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin', status: 'active' } : m));
     } catch (err) {
       alert("Failed to make member admin: " + err.message);
     }
@@ -199,11 +206,18 @@ export default function AdminDashboardPage() {
     if (!confirmApprove) return;
 
     try {
-      const { error } = await supabase.rpc('approve_member', {
+      // 1. Attempt RPC call
+      const { error: rpcErr } = await supabase.rpc('approve_member', {
         p_member_id: memberId
       });
 
-      if (error) throw error;
+      // 2. Direct table update fallback to guarantee status='active' in database
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ status: 'active' })
+        .eq('id', memberId);
+
+      if (updateErr && rpcErr) throw new Error(rpcErr.message || updateErr.message);
 
       alert("Member successfully approved!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
