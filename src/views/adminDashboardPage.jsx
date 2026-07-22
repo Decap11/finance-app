@@ -181,18 +181,19 @@ export default function AdminDashboardPage() {
     if (!confirmPromote) return;
 
     try {
-      // 1. Attempt RPC call
-      const { error: rpcErr } = await supabase.rpc('make_member_admin', {
-        p_member_id: memberId
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
+
+      const res = await fetch("/api/admin/member-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ action: "make_admin", memberId })
       });
-
-      // 2. Direct table update fallback to guarantee role & status update in database
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ role: 'admin', status: 'active' })
-        .eq('id', memberId);
-
-      if (updateErr && rpcErr) throw new Error(rpcErr.message || updateErr.message);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to make member admin");
 
       alert("Member successfully promoted to admin!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin', status: 'active' } : m));
@@ -206,18 +207,19 @@ export default function AdminDashboardPage() {
     if (!confirmApprove) return;
 
     try {
-      // 1. Attempt RPC call
-      const { error: rpcErr } = await supabase.rpc('approve_member', {
-        p_member_id: memberId
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
+
+      const res = await fetch("/api/admin/member-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ action: "approve", memberId })
       });
-
-      // 2. Direct table update fallback to guarantee status='active' in database
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ status: 'active' })
-        .eq('id', memberId);
-
-      if (updateErr && rpcErr) throw new Error(rpcErr.message || updateErr.message);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to approve member");
 
       alert("Member successfully approved!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
@@ -231,13 +233,19 @@ export default function AdminDashboardPage() {
     if (!confirmUnapprove) return;
 
     try {
-      // Direct table update to set status='pending' permanently in database
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ status: 'pending' })
-        .eq('id', memberId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
 
-      if (updateErr) throw updateErr;
+      const res = await fetch("/api/admin/member-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ action: "unapprove", memberId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to unapprove member");
 
       alert("Member access revoked! Account status set to pending.");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
