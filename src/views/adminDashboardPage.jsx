@@ -72,6 +72,7 @@ export default function AdminDashboardPage() {
               email: m.email || "N/A",
               joinedDate: m.created_at ? new Date(m.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "N/A",
               role: m.role || "member",
+              status: m.status || "pending",
               avatarUrl: avatarUrl,
             };
           }),
@@ -190,6 +191,24 @@ export default function AdminDashboardPage() {
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin' } : m));
     } catch (err) {
       alert("Failed to make member admin: " + err.message);
+    }
+  };
+
+  const handleApproveMember = async (memberId) => {
+    const confirmApprove = window.confirm("Are you sure you want to approve this pending member?");
+    if (!confirmApprove) return;
+
+    try {
+      const { error } = await supabase.rpc('approve_member', {
+        p_member_id: memberId
+      });
+
+      if (error) throw error;
+
+      alert("Member successfully approved!");
+      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
+    } catch (err) {
+      alert("Failed to approve member: " + err.message);
     }
   };
 
@@ -386,6 +405,18 @@ export default function AdminDashboardPage() {
                         color: member.role === "admin" ? "#ef4444" : "#22c55e"
                       }}>{member.role}</span>
                     </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Status</span>
+                      <span style={{ 
+                        fontSize: "1.1rem", 
+                        fontWeight: 700, 
+                        textTransform: "uppercase",
+                        padding: "0.4rem 0.8rem",
+                        borderRadius: "0.6rem",
+                        background: member.status === "active" ? "#f0fdf4" : "#fef3c7",
+                        color: member.status === "active" ? "#22c55e" : "#d97706"
+                      }}>{member.status}</span>
+                    </div>
                     <div className="member-card-actions" style={{
                       display: "flex",
                       justifyContent: "space-between",
@@ -394,7 +425,26 @@ export default function AdminDashboardPage() {
                       paddingTop: "1.2rem",
                       marginTop: "0.5rem"
                     }}>
-                      {member.role !== "admin" ? (
+                      {member.status === "pending" ? (
+                        <button
+                          onClick={() => handleApproveMember(member.id)}
+                          style={{
+                            background: "var(--primary-color)",
+                            border: "none",
+                            color: "white",
+                            fontSize: "1.2rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.6rem 1.2rem",
+                            borderRadius: "0.6rem"
+                          }}
+                        >
+                          <i className="fa-solid fa-user-check"></i> Approve
+                        </button>
+                      ) : member.role !== "admin" ? (
                         <button
                           onClick={() => handleMakeAdmin(member.id)}
                           style={{

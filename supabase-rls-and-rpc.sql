@@ -250,6 +250,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- RPC 9: Approve a Pending Member (by Admin)
+CREATE OR REPLACE FUNCTION approve_member(
+  p_member_id UUID
+) RETURNS JSON AS $$
+BEGIN
+  -- Verify caller is admin of the same SACCO group
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM public.profiles p_member
+    JOIN public.sacco_memberships sm_caller ON sm_caller.profile_id = auth.uid() AND sm_caller.role = 'admin'
+    JOIN public.saccos s ON s.id = sm_caller.sacco_id
+    WHERE p_member.id = p_member_id AND p_member.group_id = s.group_code
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized to approve this member or member is not in the same SACCO group';
+  END IF;
+
+  -- 1. Update profiles status
+  UPDATE public.profiles SET status = 'active', updated_at = now() WHERE id = p_member_id;
+
+  -- 2. Update sacco_memberships status
+  UPDATE public.sacco_memberships SET status = 'active' WHERE profile_id = p_member_id;
+
+  RETURN json_build_object('success', true, 'message', 'Member successfully approved');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- RPC 6: Make a Member an Admin (by Admin)
 CREATE OR REPLACE FUNCTION make_member_admin(
   p_member_id UUID
