@@ -62,6 +62,7 @@ export async function POST(request) {
     }
 
     // 2. Multi-Tier SACCO Lookup with Self-Healing Auto-Provisioning
+    const publicSupabase = getPublicSupabase();
     let sacco = null;
 
     const { data: callerProfile } = await supabase
@@ -74,7 +75,7 @@ export async function POST(request) {
 
     // Lookup Tier 1: Match by exact group_code
     if (cleanGroupCode) {
-      const { data: groupRows } = await supabase
+      const { data: groupRows } = await publicSupabase
         .from('saccos')
         .select('id, meeting_day, group_code')
         .ilike('group_code', cleanGroupCode)
@@ -87,7 +88,7 @@ export async function POST(request) {
 
     // Lookup Tier 2: Match by admin_profile_id
     if (!sacco) {
-      const { data: adminRows } = await supabase
+      const { data: adminRows } = await publicSupabase
         .from('saccos')
         .select('id, meeting_day, group_code')
         .eq('admin_profile_id', user.id)
@@ -100,7 +101,7 @@ export async function POST(request) {
 
     // Lookup Tier 3: Match by target member's SACCO
     if (!sacco && memberId) {
-      const { data: memberProfile } = await supabase
+      const { data: memberProfile } = await publicSupabase
         .from('profiles')
         .select('group_id')
         .eq('id', memberId)
@@ -108,7 +109,7 @@ export async function POST(request) {
 
       const memberGroupCode = (memberProfile?.group_id || '').trim();
       if (memberGroupCode) {
-        const { data: memberSaccoRows } = await supabase
+        const { data: memberSaccoRows } = await publicSupabase
           .from('saccos')
           .select('id, meeting_day, group_code')
           .ilike('group_code', memberGroupCode)
@@ -120,10 +121,23 @@ export async function POST(request) {
       }
     }
 
-    // Lookup Tier 4: Self-Healing Auto-Provisioner for Future SACCOs
+    // Lookup Tier 4: Global Primary SACCO Record in PostgreSQL
+    if (!sacco) {
+      const { data: fallbackRows } = await publicSupabase
+        .from('saccos')
+        .select('id, meeting_day, group_code')
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (fallbackRows && fallbackRows.length > 0) {
+        sacco = fallbackRows[0];
+      }
+    }
+
+    // Lookup Tier 5: Self-Healing Auto-Provisioner
     if (!sacco) {
       const targetCode = cleanGroupCode || `SACCO-${Math.floor(1000 + Math.random() * 9000)}`;
-      const { data: newSacco } = await supabase
+      const { data: newSacco } = await publicSupabase
         .from('saccos')
         .insert({
           name: `${targetCode} SACCO`,
@@ -143,15 +157,9 @@ export async function POST(request) {
       sacco = newSacco;
     }
 
-    if (!sacco) {
-      // Emergency fallback to any active SACCO record
-      const { data: fallbackRows } = await supabase.from('saccos').select('id, meeting_day, group_code').limit(1);
-      sacco = fallbackRows && fallbackRows.length > 0 ? fallbackRows[0] : null;
+    if (!sacco || !sacco.id) {
+      return Response.json({ error: 'Could not resolve a valid SACCO ID for this transaction.' }, { status: 400 });
     }
-
-    // Default object fallback to prevent null pointer exceptions
-    const safeSacco = sacco || { id: null, meeting_day: "Wednesday", group_code: "DEFAULT" };
-    sacco = safeSacco;
 
     // Calculate exact meeting date timestamp for this weekNum
     const currentYear = new Date().getFullYear();
