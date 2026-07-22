@@ -19,7 +19,8 @@ export default function UserSummaryCards() {
       const res = await fetch("/api/user-balances", {
         headers: {
           "Authorization": `Bearer ${session.access_token}`
-        }
+        },
+        cache: "no-store"
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -31,8 +32,13 @@ export default function UserSummaryCards() {
           social_fund: 0,
         };
         data.accounts.forEach((acc) => {
-          if (newBalances[acc.account_type] !== undefined) {
-            newBalances[acc.account_type] = Number(acc.balance) || 0;
+          let cat = (acc.account_type || '').toLowerCase();
+          if (cat === 'devt' || cat === 'devt_fund' || cat === 'development') cat = 'development_fund';
+          if (cat === 'social' || cat === 'social_fund') cat = 'social_fund';
+          if (cat === 'savings' || cat === 'shares_pool') cat = 'shares';
+
+          if (newBalances[cat] !== undefined) {
+            newBalances[cat] = Number(acc.balance) || 0;
           }
         });
         setBalances(newBalances);
@@ -80,12 +86,14 @@ export default function UserSummaryCards() {
 
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
     }
 
     return () => {
       supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+        window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
       }
     };
   }, []);

@@ -26,15 +26,17 @@ export async function GET(request) {
 
     if (transactions && transactions.length > 0) {
       transactions.forEach(tx => {
-        let cat = tx.category;
-        if (cat === 'devt' || cat === 'devt_fund') cat = 'development_fund';
+        let cat = (tx.category || '').toLowerCase();
+        if (cat === 'devt' || cat === 'devt_fund' || cat === 'development') cat = 'development_fund';
         if (cat === 'social' || cat === 'social_fund') cat = 'social_fund';
+        if (cat === 'savings' || cat === 'shares_pool') cat = 'shares';
 
         if (categorySums[cat] !== undefined) {
           const amt = Number(tx.amount) || 0;
-          if (tx.direction === 'credit') {
+          const dir = (tx.direction || 'credit').toLowerCase();
+          if (dir === 'credit') {
             categorySums[cat] += amt;
-          } else if (tx.direction === 'debit') {
+          } else if (dir === 'debit') {
             categorySums[cat] -= amt;
           }
         }
