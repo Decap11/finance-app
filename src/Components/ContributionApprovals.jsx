@@ -106,8 +106,21 @@ export default function ContributionApprovals({ limit, showViewAll }) {
       )
       .subscribe();
 
+    function handleTransactionUpdate() {
+      fetchRequests();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+        window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
+      }
     };
   }, []);
 
@@ -134,6 +147,10 @@ export default function ContributionApprovals({ limit, showViewAll }) {
       if (updateError) throw updateError;
       
       setMessage("Transaction approved and completed!");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+        window.dispatchEvent(new CustomEvent("manual_contribution_logged"));
+      }
       fetchRequests();
     } catch (err) {
       setMessage(`Error: ${err.message}`);
@@ -164,6 +181,9 @@ export default function ContributionApprovals({ limit, showViewAll }) {
       if (updateError && rpcError) throw new Error(rpcError.message || updateError.message);
 
       setMessage("Transaction rejected.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+      }
       fetchRequests();
     } catch (err) {
       setMessage(`Error: ${err.message}`);
