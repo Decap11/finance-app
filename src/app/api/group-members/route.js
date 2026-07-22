@@ -37,10 +37,11 @@ export async function GET(request) {
 
     const cleanProfiles = (profiles || []).map(p => {
       const statusRaw = (p.status || '').toLowerCase().trim();
-      // Only keep 'suspended', 'rejected', or 'pending' if explicitly set; otherwise active
-      const effectiveStatus = (statusRaw === 'suspended' || statusRaw === 'rejected' || statusRaw === 'pending')
-        ? statusRaw
-        : 'active';
+      const roleRaw = (p.role || '').toLowerCase().trim();
+
+      const effectiveStatus = (roleRaw === 'admin' || roleRaw === 'super_admin')
+        ? 'active'
+        : (statusRaw || 'pending');
 
       return {
         ...p,

@@ -36,26 +36,13 @@ export default function ProtectedRoute({ children }) {
         return;
       }
 
-      // If account is explicitly suspended or rejected by admin
-      if (userStatus === 'suspended' || userStatus === 'rejected') {
-        setProfileStatus(userStatus);
-        setLoading(false);
-        return;
-      }
-
-      // Active member dashboard access & PostgreSQL status persistence sync
-      if (!rawStatus || userStatus === 'approved' || userStatus === 'active' || userStatus === 'pending') {
-        // Auto-sync own profile row to status='active' in PostgreSQL database (RLS permits self-updates!)
-        if (rawStatus !== 'active') {
-          try {
-            await supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id);
-          } catch (e) {
-            console.warn("Profile status auto-sync exception:", e);
-          }
-        }
+      // STRICT MEMBERSHIP ACCESS CONTROL:
+      // Only members whose status is 'active' or 'approved' get access to the dashboard.
+      // If status is 'pending', 'unapproved', 'suspended', or 'rejected', access IS DENIED!
+      if (userStatus === 'approved' || userStatus === 'active') {
         setProfileStatus("active");
       } else {
-        setProfileStatus(userStatus);
+        setProfileStatus("pending");
       }
     } catch (err) {
       console.warn("Error verifying profile status:", err);
