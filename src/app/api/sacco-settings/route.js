@@ -50,6 +50,19 @@ export async function GET(request) {
       }
     }
 
+    // 3. Tertiary lookup: Global primary active SACCO in PostgreSQL
+    if (!sacco) {
+      const { data: primaryRows } = await publicSupabase
+        .from('saccos')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (primaryRows && primaryRows.length > 0) {
+        sacco = primaryRows[0];
+      }
+    }
+
     if (sacco) {
       return Response.json({
         sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,

@@ -48,50 +48,21 @@ export default function SaccoSettings() {
   const [message, setMessage] = useState("");
   const [saccoInfo, setSaccoInfo] = useState(null);
 
-  // Load Sacco configuration
-  async function loadSettings() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
-
-      const res = await fetch("/api/sacco-settings", { headers });
-      const data = await res.json();
-      if (res.ok) {
-        setSettings(data);
-        setFilterWeek(data.currentWeek || 1);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to load Sacco settings:", err);
-      if (typeof window !== "undefined") {
-        const cached = localStorage.getItem("sacco_settings_cache");
-        if (cached) {
-          try {
-            setSettings(JSON.parse(cached));
-          } catch (e) {}
-        }
-      }
-    } finally {
-      setLoadingSettings(false);
-    }
-  }
-
-  // Load live transactions and profiles from database
+  // Load Sacco configuration and live records cleanly
   async function loadDatabaseData() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
+
+      const token = session?.access_token;
+      const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
 
       const { data: profileData } = await supabase
         .from("profiles")
         .select("group_id")
         .eq("id", user.id)
         .single();
-
-      if (!profileData) return;
 
       let sacco = null;
       const cleanGroupCode = (profileData?.group_id || '').trim();
@@ -117,47 +88,65 @@ export default function SaccoSettings() {
         }
       }
 
-      if (!sacco) return;
-      setSaccoInfo(sacco);
+      if (sacco) {
+        setSaccoInfo(sacco);
+        const activeSettings = {
+          sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,
+          devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
+          socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
+          currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
+          meetingDay: sacco.meeting_day || "Wednesday",
+          isLocked: Boolean(sacco.is_locked),
+          groupCode: sacco.group_code
+        };
+        setSettings(activeSettings);
+        setFilterWeek(activeSettings.currentWeek || 1);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sacco_settings_cache", JSON.stringify(activeSettings));
+        }
 
-      // Direct PostgreSQL sync for settings state
-      setSettings({
-        sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,
-        devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
-        socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
-        currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
-        meetingDay: sacco.meeting_day || "Wednesday",
-        isLocked: Boolean(sacco.is_locked)
-      });
+        // Parallelize profile list and transaction list lookups
+        const [profilesRes, txsRes] = await Promise.all([
+          supabase.from("profiles").select("*").ilike("group_id", sacco.group_code || cleanGroupCode),
+          supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"])
+        ]);
 
-      // Parallelize profile list and transaction list lookups
-      const [profilesRes, txsRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("group_id", profileData.group_id),
-        supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"])
-      ]);
+        if (profilesRes.data) {
+          setAllMembers(
+            profilesRes.data.map((m) => ({
+              id: m.id,
+              name: m.full_name || "Unknown",
+              memberId: m.member_number || "N/A",
+            }))
+          );
+        }
 
-      if (profilesRes.data) {
-        setAllMembers(
-          profilesRes.data.map((m) => ({
-            id: m.id,
-            name: m.full_name || "Unknown",
-            memberId: m.member_number || "N/A",
-          }))
-        );
-      }
-
-      if (txsRes.data) {
-        setAllTransactions(txsRes.data);
+        if (txsRes.data) {
+          setAllTransactions(txsRes.data);
+        }
+      } else {
+        // Fetch via API route with group code parameter as fallback
+        const apiUrl = cleanGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(cleanGroupCode)}` : "/api/sacco-settings";
+        const res = await fetch(apiUrl, { headers, cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data.sharePrice) {
+          setSettings(data);
+          setFilterWeek(data.currentWeek || 1);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
+          }
+        }
       }
     } catch (err) {
-      console.warn("Failed to load database data:", err);
+      console.warn("Failed to load database settings data:", err);
     } finally {
+      setLoadingSettings(false);
       setLoadingData(false);
     }
   }
 
   useEffect(() => {
-    Promise.all([loadSettings(), loadDatabaseData()]);
+    loadDatabaseData();
 
     // Realtime WebSocket listener for SACCO Settings updates
     const channel = supabase
