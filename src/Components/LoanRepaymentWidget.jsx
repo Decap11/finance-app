@@ -76,16 +76,38 @@ export default function LoanRepaymentWidget() {
       setMessage(`Cannot repay more than remaining amount: Shs ${remainingAmount.toLocaleString()}`);
       return;
     }
+    setLoading(true);
+    setMessage("");
 
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be logged in.");
 
+      const res = await fetch("/api/loans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: "repay_loan",
+          amount: amount,
+          paymentSource: paymentSource
+        })
+      });
 
-    // In a real scenario, call an RPC to process the loan repayment.
-    // For now, we simulate success since we don't have a specific repay_loan RPC yet.
-    setMessage("Repayment requested successfully (pending approval).");
-    
-    // Reset form
-    setRepayAmount("");
-    setPaymentSource("");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit repayment request.");
+
+      setMessage("success: Repayment requested successfully (pending approval).");
+      setRepayAmount("");
+      setPaymentSource("");
+    } catch (err) {
+      console.warn("Failed to request repayment:", err);
+      setMessage(err.message || "An error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

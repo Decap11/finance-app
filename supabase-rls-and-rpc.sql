@@ -334,6 +334,22 @@ BEGIN
     WHERE id = NEW.loan_id;
   END IF;
 
+  -- If transaction is approved/completed and is a loan_repayment
+  IF NEW.status IN ('approved', 'completed') AND OLD.status = 'pending' AND NEW.category = 'loan_repayment' AND NEW.loan_id IS NOT NULL THEN
+    -- Insert repayment event
+    INSERT INTO public.loan_repayments (loan_id, transaction_id, amount, paid_at, source_account_id)
+    VALUES (NEW.loan_id, NEW.id, NEW.amount, now(), NEW.account_id)
+    ON CONFLICT (transaction_id) DO NOTHING;
+
+    -- Decrement outstanding balance and complete loan if balance reaches 0
+    UPDATE public.loans
+    SET 
+      outstanding_balance = GREATEST(0, outstanding_balance - NEW.amount),
+      status = CASE WHEN (outstanding_balance - NEW.amount) <= 0 THEN 'completed' ELSE status END,
+      closed_at = CASE WHEN (outstanding_balance - NEW.amount) <= 0 THEN now() ELSE closed_at END
+    WHERE id = NEW.loan_id;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

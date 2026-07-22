@@ -117,6 +117,73 @@ export async function POST(request) {
       return Response.json({ success: true });
     }
 
+    if (action === 'repay_loan') {
+      const parsedAmount = Number(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return Response.json({ error: 'Repayment amount must be a positive number greater than 0.' }, { status: 400 });
+      }
+
+      const { paymentSource } = body;
+      if (!paymentSource) {
+        return Response.json({ error: 'Payment source is required.' }, { status: 400 });
+      }
+
+      // 1. Fetch user's active loan to link
+      const { data: activeLoans, error: activeLoanErr } = await supabase
+        .from('loans')
+        .select('id, sacco_id, outstanding_balance')
+        .eq('profile_id', user.id)
+        .eq('status', 'issued')
+        .limit(1);
+
+      if (activeLoanErr || !activeLoans || activeLoans.length === 0) {
+        return Response.json({ error: 'No active issued loan found to repay.' }, { status: 400 });
+      }
+
+      const activeLoan = activeLoans[0];
+
+      if (parsedAmount > Number(activeLoan.outstanding_balance)) {
+        return Response.json({ error: `Repayment amount exceeds outstanding balance of Shs ${Number(activeLoan.outstanding_balance).toLocaleString()}` }, { status: 400 });
+      }
+
+      // 2. Fetch user's loan account id
+      const { data: loanAccounts, error: accountErr } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('profile_id', user.id)
+        .eq('sacco_id', activeLoan.sacco_id)
+        .eq('account_type', 'loan')
+        .limit(1);
+
+      if (accountErr || !loanAccounts || loanAccounts.length === 0) {
+        return Response.json({ error: 'Loan account not found.' }, { status: 400 });
+      }
+
+      const loanAccount = loanAccounts[0];
+
+      // 3. Insert transaction
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          sacco_id: activeLoan.sacco_id,
+          profile_id: user.id,
+          account_id: loanAccount.id,
+          loan_id: activeLoan.id,
+          amount: parsedAmount,
+          direction: 'credit',
+          category: 'loan_repayment',
+          status: 'pending',
+          description: `Loan repayment request via ${paymentSource === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}`,
+          requested_by: user.id
+        });
+
+      if (txError) {
+        return Response.json({ error: txError.message }, { status: 500 });
+      }
+
+      return Response.json({ success: true, message: 'Repayment requested successfully (pending approval).' });
+    }
+
     return Response.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
