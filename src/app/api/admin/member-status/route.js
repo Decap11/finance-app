@@ -45,6 +45,10 @@ export async function POST(request) {
       await supabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
 
+      // Also update sacco_memberships table status in PostgreSQL
+      await supabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', memberId);
+      await publicSupabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', memberId);
+
       if (saccoRow) {
         await supabase.from('saccos').update({
           updated_at: new Date().toISOString()
@@ -58,6 +62,10 @@ export async function POST(request) {
       await supabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
 
+      // Also update sacco_memberships table status in PostgreSQL
+      await supabase.from('sacco_memberships').update({ status: 'pending' }).eq('profile_id', memberId);
+      await publicSupabase.from('sacco_memberships').update({ status: 'pending' }).eq('profile_id', memberId);
+
       if (saccoRow) {
         await supabase.from('saccos').update({
           updated_at: new Date().toISOString()
@@ -70,6 +78,10 @@ export async function POST(request) {
     if (action === 'make_admin') {
       await supabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
       await publicSupabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
+
+      // Also update sacco_memberships table role & status in PostgreSQL
+      await supabase.from('sacco_memberships').update({ role: 'admin', status: 'active' }).eq('profile_id', memberId);
+      await publicSupabase.from('sacco_memberships').update({ role: 'admin', status: 'active' }).eq('profile_id', memberId);
 
       if (saccoRow) {
         await supabase.from('saccos').update({
