@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function SignupForm() {
+  const [currentStep, setCurrentStep] = useState(1);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -21,10 +22,29 @@ export default function SignupForm() {
 
   function togglePassword(element, fieldId) {
     const inputField = document.getElementById(fieldId);
+    if (!inputField) return;
     const isPassword = inputField.type === "password";
     inputField.type = isPassword ? "text" : "password";
     element.classList.toggle("fa-eye");
     element.classList.toggle("fa-eye-slash");
+  }
+
+  function handleNextStep(e) {
+    e.preventDefault();
+    setErrorMsg("");
+    if (!fullName.trim()) {
+      setErrorMsg("Please enter your full name.");
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMsg("Please enter your phone number.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setErrorMsg("Please enter a valid email address.");
+      return;
+    }
+    setCurrentStep(2);
   }
 
   async function handleSubmit(e) {
@@ -40,7 +60,7 @@ export default function SignupForm() {
 
     const formattedMemberId = `MEM-${memberId.trim().toUpperCase()}`;
 
-    // Initialize Supabase Client dynamically so it doesn't break if not set yet
+    // Initialize Supabase Client dynamically
     const { supabase } = await import("../supabaseClient.js");
 
     // Generate acronym and group code using entered sacco name and unique number
@@ -104,191 +124,229 @@ export default function SignupForm() {
     setPassword("");
     setTermsAccepted(false);
 
-    // Redirect the user to the login page or members page
+    // Redirect the user to the login page
     router.push("/login");
   }
 
   return (
     <div className="auth-container">
       <div className="auth-header">
-        <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <img src="/logo.jpg" alt="Logo" className="auth-logo" />
-          <h1 className="auth-title">Join SACCO Management Platform</h1>
+        <Link href="/" className="auth-logo-link">
+          <div className="auth-logo-badge">
+            <img src="/logo.jpg" alt="Logo" className="auth-logo" />
+          </div>
+          <h1 className="auth-title">Join SACCO Platform</h1>
         </Link>
-        <p className="auth-subtitle">Create an account to track your weekly savings and loans</p>
+        <p className="auth-subtitle">Create an account to track weekly savings and loans</p>
+      </div>
+
+      {/* Responsive Step Progress Bar */}
+      <div className="step-progress-wrapper">
+        <div className="step-progress-bar">
+          <div 
+            className="step-progress-fill" 
+            style={{ width: currentStep === 1 ? "50%" : "100%" }}
+          />
+        </div>
+        <div className="step-indicators">
+          <button 
+            type="button"
+            className={`step-dot-item ${currentStep >= 1 ? "active" : ""}`}
+            onClick={() => setCurrentStep(1)}
+          >
+            <span className="step-dot-num">1</span>
+            <span className="step-dot-label">Personal Info</span>
+          </button>
+          <button 
+            type="button"
+            className={`step-dot-item ${currentStep === 2 ? "active" : ""}`}
+            onClick={() => {
+              if (fullName && phone && email) setCurrentStep(2);
+            }}
+          >
+            <span className="step-dot-num">2</span>
+            <span className="step-dot-label">SACCO Group</span>
+          </button>
+        </div>
       </div>
 
       {errorMsg && (
-        <div style={{
-          backgroundColor: "#fef2f2",
-          color: "#ef4444",
-          padding: "1.2rem",
-          borderRadius: "0.8rem",
-          marginBottom: "2rem",
-          fontSize: "1.3rem",
-          border: "0.1rem solid #fee2e2",
-          textAlign: "center"
-        }}>
+        <div className="auth-error-banner">
+          <i className="fa-solid fa-circle-exclamation" style={{ marginRight: "0.8rem" }}></i>
           {errorMsg}
         </div>
       )}
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label className="form-label">Full Name</label>
-          <div className="form-input-container">
-            <i className="fa-regular fa-user form-icon"></i>
+      {currentStep === 1 ? (
+        <form className="auth-form" onSubmit={handleNextStep}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="fullName">Full Name</label>
+            <div className="form-input-container">
+              <i className="fa-regular fa-user form-icon"></i>
+              <input
+                type="text"
+                id="fullName"
+                className="form-input"
+                placeholder="e.g. Ssembatya Joseph"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="phone">Phone Number</label>
+            <div className="form-input-container">
+              <i className="fa-solid fa-phone form-icon"></i>
+              <input
+                type="tel"
+                id="phone"
+                className="form-input"
+                placeholder="e.g. 0770000000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Email Address</label>
+            <div className="form-input-container">
+              <i className="fa-regular fa-envelope form-icon"></i>
+              <input
+                type="email"
+                id="email"
+                className="form-input"
+                placeholder="e.g. joseph@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="btn-submit">
+            Continue to SACCO Link <i className="fa-solid fa-arrow-right" style={{ marginLeft: "0.8rem" }}></i>
+          </button>
+        </form>
+      ) : (
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="memberId">SACCO Member Number / ID</label>
+            <div className="form-input-container">
+              <i className="fa-solid fa-id-card form-icon"></i>
+              <input
+                type="text"
+                id="memberId"
+                className="form-input"
+                placeholder="e.g. 001 or MEM-001"
+                value={memberId}
+                onChange={(e) => setMemberId(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="saccoName">SACCO Name</label>
+            <div className="form-input-container">
+              <i className="fa-solid fa-building-columns form-icon"></i>
+              <input
+                type="text"
+                id="saccoName"
+                className="form-input"
+                placeholder="e.g. Hope Development Sacco"
+                value={saccoName}
+                onChange={(e) => setSaccoName(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="saccoUniqueNumber">SACCO Unique Code</label>
+            <div className="form-input-container">
+              <i className="fa-solid fa-hashtag form-icon"></i>
+              <input
+                type="text"
+                id="saccoUniqueNumber"
+                className="form-input"
+                placeholder="e.g. 8134"
+                value={saccoUniqueNumber}
+                onChange={(e) => setSaccoUniqueNumber(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">Password</label>
+            <div className="form-input-container">
+              <i className="fa-solid fa-lock form-icon"></i>
+              <input
+                type="password"
+                id="password"
+                className="form-input"
+                placeholder="Create a strong password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength="6"
+              />
+              <i
+                className="fa-regular fa-eye pwd-toggle"
+                onClick={(e) => togglePassword(e.currentTarget, "password")}
+              ></i>
+            </div>
+          </div>
+
+          <div className="terms-checkbox">
             <input
-              type="text"
-              id="fullName"
-              className="form-input"
-              placeholder="e.g. John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              type="checkbox"
+              id="terms"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
               required
             />
+            <label htmlFor="terms">
+              I agree to the{" "}
+              <a href="#" className="auth-link">Terms of Service</a> and{" "}
+              <a href="#" className="auth-link">Privacy Policy</a>.
+            </label>
           </div>
-        </div>
 
-        <div className="form-group">
-          <label className="form-label">Phone Number</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-phone form-icon"></i>
-            <input
-              type="tel"
-              id="phone"
-              className="form-input"
-              placeholder="e.g. 0700000000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
+          <div style={{ display: "flex", gap: "1.2rem", marginTop: "1rem" }}>
+            <button 
+              type="button" 
+              className="btn-back"
+              onClick={() => setCurrentStep(1)}
+            >
+              <i className="fa-solid fa-arrow-left" style={{ marginRight: "0.6rem" }}></i> Back
+            </button>
+
+            <button 
+              type="submit" 
+              className="btn-submit" 
+              style={{ flex: 1 }}
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating..." : "Create Account"}{" "}
+              {!isLoading && <i className="fa-solid fa-check" style={{ marginLeft: "0.8rem" }}></i>}
+            </button>
           </div>
-        </div>
+        </form>
+      )}
 
-        <div className="form-group">
-          <label className="form-label">Email Address</label>
-          <div className="form-input-container">
-            <i className="fa-regular fa-envelope form-icon"></i>
-            <input
-              type="email"
-              id="email"
-              className="form-input"
-              placeholder="e.g. john@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">SACCO Member Number / ID</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-id-card form-icon"></i>
-            <input
-              type="text"
-              id="memberId"
-              className="form-input"
-              placeholder="e.g. 001 or MEM-001"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">SACCO Name</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-building-columns form-icon"></i>
-            <input
-              type="text"
-              id="saccoName"
-              className="form-input"
-              placeholder="e.g. Pewosa Sacco"
-              value={saccoName}
-              onChange={(e) => setSaccoName(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">SACCO Unique Number / Code</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-hashtag form-icon"></i>
-            <input
-              type="text"
-              id="saccoUniqueNumber"
-              className="form-input"
-              placeholder="e.g. 2200"
-              value={saccoUniqueNumber}
-              onChange={(e) => setSaccoUniqueNumber(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Password</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-lock form-icon"></i>
-            <input
-              type="password"
-              id="password"
-              className="form-input"
-              placeholder="Create a strong password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength="8"
-            />
-            <i
-              className="fa-regular fa-eye pwd-toggle"
-              onClick={(e) => togglePassword(e.currentTarget, "password")}
-            ></i>
-          </div>
-        </div>
-
-        <div className="terms-checkbox">
-          <input
-            type="checkbox"
-            id="terms"
-            checked={termsAccepted}
-            onChange={(e) => setTermsAccepted(e.target.checked)}
-            required
-          />
-          <label htmlFor="terms">
-            I agree to the{" "}
-            <a href="#" className="auth-link">
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="#" className="auth-link">
-              Privacy Policy
-            </a>
-            .
-          </label>
-        </div>
-
-        <button type="submit" className="btn-submit" id="submitBtn" disabled={isLoading}>
-          {isLoading ? "Creating..." : "Create Account"}{" "}
-          {!isLoading && <i
-            className="fa-solid fa-arrow-right"
-            style={{ marginLeft: "0.8rem" }}
-          ></i>}
-        </button>
-      </form>
-
-      <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div className="auth-footer">
         <div>
           Already have an account?{" "}
           <Link href="/login" className="auth-link">
             Log in here
           </Link>
         </div>
-        <div>
+        <div style={{ marginTop: "0.6rem" }}>
           Are you an Administrator?{" "}
           <Link href="/register-sacco" className="auth-link">
             Register your SACCO
@@ -298,3 +356,4 @@ export default function SignupForm() {
     </div>
   );
 }
+
