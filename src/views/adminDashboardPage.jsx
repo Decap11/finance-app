@@ -345,7 +345,7 @@ export default function AdminDashboardPage() {
 
             <div className="main-content-row">
               <div className="contribution-approvals-area">
-                <ContributionApprovals limit={7} showViewAll={true} />
+                <ContributionApprovals limit={7} showViewAll={true} mode="pending" />
               </div>
               <div className="features-area">
                 <QuickMemberManagement />
@@ -358,7 +358,7 @@ export default function AdminDashboardPage() {
 
         {currentTab === "verifications" && (
           <div style={{ marginTop: "2.5rem" }}>
-            <ContributionApprovals />
+            <ContributionApprovals mode="verifications" />
           </div>
         )}
 

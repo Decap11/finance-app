@@ -3,11 +3,13 @@ import Link from "next/link";
 import { supabase } from "../supabaseClient.js";
 import "../styles/contributionApprovals.css";
 
-export default function ContributionApprovals({ limit, showViewAll }) {
+export default function ContributionApprovals({ limit, showViewAll, mode }) {
   const [requests, setRequests] = useState([]);
   const [saccoCurrentWeek, setSaccoCurrentWeek] = useState(1);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const activeMode = mode || (limit ? "pending" : "verifications");
 
   async function fetchRequests() {
     try {
@@ -64,15 +66,21 @@ export default function ContributionApprovals({ limit, showViewAll }) {
             full_name
           )
         `)
-        .eq('sacco_id', saccoId)
-        .in('status', ['pending', 'approved', 'rejected', 'completed'])
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: true });
+        .eq('sacco_id', saccoId);
+
+      if (activeMode === "pending") {
+        query = query.eq('status', 'pending');
+      } else {
+        query = query.in('status', ['completed', 'approved', 'rejected']);
+      }
+
+      // Systematically sort most recent transactions on top
+      query = query.order('created_at', { ascending: false });
 
       if (limit) {
         query = query.limit(limit);
       } else {
-        query = query.limit(50);
+        query = query.limit(100);
       }
 
       const { data, error } = await query;
@@ -234,7 +242,9 @@ export default function ContributionApprovals({ limit, showViewAll }) {
   return (
     <div className="recent-transactions recent-transactions-verifications">
       <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 className="section-title">Pending Contribution Approvals</h3>
+        <h3 className="section-title">
+          {activeMode === "pending" ? "Pending Contribution Approvals" : "Transaction Verifications History"}
+        </h3>
         <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }}>
           {requests.length > 0 && (
             <button 
@@ -275,13 +285,15 @@ export default function ContributionApprovals({ limit, showViewAll }) {
           <div className="col-type">Request Type</div>
           <div className="col-amount">Amount</div>
           <div className="col-date">Week</div>
-          <div className="col-action" style={{ textAlign: "center" }}>Action</div>
+          <div className="col-action" style={{ textAlign: "center" }}>{activeMode === "pending" ? "Action" : "Status"}</div>
         </div>
         <ul className="admin-list">
           {loading ? (
             <li className="list-empty">Loading...</li>
           ) : requests.length === 0 ? (
-            <li className="list-empty">No pending requests.</li>
+            <li className="list-empty">
+              {activeMode === "pending" ? "No pending contribution requests." : "No historical verified or rejected transactions found."}
+            </li>
           ) : (
             requests.map((request) => {
               const dateObj = new Date(request.created_at);
