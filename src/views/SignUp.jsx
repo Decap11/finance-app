@@ -88,7 +88,7 @@ export default function SignupForm() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data: authResult, error } = await supabase.auth.signUp({
       email: email.trim(),
       password: password,
       options: {
@@ -107,6 +107,27 @@ export default function SignupForm() {
     if (error) {
       setErrorMsg(error.message);
       return;
+    }
+
+    // Auto-provision membership and accounts for member in tenant database
+    if (authResult?.user?.id && saccoData?.id) {
+      try {
+        await supabase.from('sacco_memberships').upsert({
+          sacco_id: saccoData.id,
+          profile_id: authResult.user.id,
+          role: 'member',
+          status: 'active',
+          joined_at: new Date().toISOString()
+        }, { onConflict: 'sacco_id,profile_id' });
+
+        await supabase.from('accounts').insert([
+          { profile_id: authResult.user.id, sacco_id: saccoData.id, account_type: 'shares', balance: 0 },
+          { profile_id: authResult.user.id, sacco_id: saccoData.id, account_type: 'development_fund', balance: 0 },
+          { profile_id: authResult.user.id, sacco_id: saccoData.id, account_type: 'social_fund', balance: 0 }
+        ]);
+      } catch (e) {
+        console.warn("Member account auto-provisioning warning:", e);
+      }
     }
 
     if (typeof window !== "undefined") {
