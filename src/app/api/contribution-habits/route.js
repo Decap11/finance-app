@@ -67,6 +67,18 @@ export async function GET(request) {
       }
     }
 
+    let saccoCreatedAt = null;
+    if (cleanGroupCode) {
+      const { data: saccoInfoRows } = await publicSupabase
+        .from('saccos')
+        .select('created_at')
+        .ilike('group_code', cleanGroupCode)
+        .limit(1);
+      if (saccoInfoRows && saccoInfoRows.length > 0) {
+        saccoCreatedAt = saccoInfoRows[0].created_at;
+      }
+    }
+
     // 2. Query transactions for current year via publicSupabase service layer
     const startOfYear = `${new Date().getFullYear()}-01-01`;
 
@@ -84,7 +96,7 @@ export async function GET(request) {
       return Response.json({ error: txErr.message }, { status: 500 });
     }
 
-    return Response.json({ transactions, settings });
+    return Response.json({ transactions, settings, saccoCreatedAt });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

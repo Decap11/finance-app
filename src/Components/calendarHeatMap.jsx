@@ -63,6 +63,8 @@ export default function CalendarHeatMap() {
   const [currentWeek, setCurrentWeek] = useState(1);
   const [meetingDay, setMeetingDay] = useState("Wednesday");
   const [monthlyMeetingsStructure, setMonthlyMeetingsStructure] = useState([]);
+  const [saccoCreatedAtDate, setSaccoCreatedAtDate] = useState(null);
+  const [startMeetingIndex, setStartMeetingIndex] = useState(1);
 
   useEffect(() => {
     function handleClickOutside() {
@@ -88,7 +90,8 @@ export default function CalendarHeatMap() {
         const res = await fetch("/api/contribution-habits", {
           headers: {
             "Authorization": `Bearer ${session.access_token}`
-          }
+          },
+          cache: "no-store"
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to fetch contribution habits");
@@ -104,6 +107,26 @@ export default function CalendarHeatMap() {
 
         const weeksElapsed = settings.currentWeek || 1;
         setCurrentWeek(weeksElapsed);
+
+        // Determine SACCO Onboarding Start Meeting Index from saccoCreatedAt
+        let onboardMeetingIdx = 1;
+        let onboardDateObj = null;
+
+        if (data.saccoCreatedAt) {
+          onboardDateObj = new Date(data.saccoCreatedAt);
+          setSaccoCreatedAtDate(onboardDateObj);
+
+          for (const month of monthlyData) {
+            for (const m of month.meetings) {
+              if (m.date >= onboardDateObj || (m.date.getFullYear() === onboardDateObj.getFullYear() && m.date.getMonth() === onboardDateObj.getMonth() && m.date.getDate() >= onboardDateObj.getDate())) {
+                onboardMeetingIdx = m.globalMeetingIndex;
+                break;
+              }
+            }
+            if (onboardMeetingIdx > 1) break;
+          }
+        }
+        setStartMeetingIndex(onboardMeetingIdx);
 
         // Group financial activity by globalMeetingIndex (1 to 52)
         const tempFinancialData = {};
@@ -203,7 +226,7 @@ export default function CalendarHeatMap() {
       }
     }
 
-        loadContributionHabits();
+    loadContributionHabits();
 
     function handleSettingsUpdate(e) {
       if (e.detail && e.detail.meetingDay) {
@@ -249,14 +272,21 @@ export default function CalendarHeatMap() {
     const positionBelow = rect.top < 160;
     const clampedY = positionBelow ? rect.bottom + 8 : rect.top - 8;
 
+    const activeEndIndex = startMeetingIndex + currentWeek - 1;
+    const isPreOnboarding = meetingItem.globalMeetingIndex < startMeetingIndex;
+    const isUpcoming = meetingItem.globalMeetingIndex > activeEndIndex;
+    const isMissed = meetingItem.globalMeetingIndex >= startMeetingIndex && meetingItem.globalMeetingIndex <= activeEndIndex && finData.totalAmount === 0;
+
     setActiveTooltip({
       x: clampedX,
       y: clampedY,
       positionBelow,
       dateLabel,
       finData,
-      isUpcoming: meetingItem.globalMeetingIndex > currentWeek,
-      isMissed: meetingItem.globalMeetingIndex <= currentWeek && finData.totalAmount === 0
+      isPreOnboarding,
+      isUpcoming,
+      isMissed,
+      onboardDateFormatted: saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""
     });
   };
 
@@ -301,9 +331,9 @@ export default function CalendarHeatMap() {
           <div className="heatmap-header">
             <div>
               <h4>Contribution Habit Tracker</h4>
-              <p>Visualizing meeting obligations for every <strong>{meetingDay}</strong> across the year.</p>
+              <p>Visualizing meeting obligations for every <strong>{meetingDay}</strong> starting from SACCO onboarding ({saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Registration Date"}).</p>
             </div>
-            <span>Green = contributed, Red = missed</span>
+            <span>Green = contributed, Red = missed, Gray = scheduled</span>
           </div>
 
           <div className="heatmap-months">
@@ -319,7 +349,11 @@ export default function CalendarHeatMap() {
                     let levelClass = "";
                     let inlineStyle = {};
 
-                    if (idx > currentWeek) {
+                    const activeEndIndex = startMeetingIndex + currentWeek - 1;
+
+                    if (idx < startMeetingIndex) {
+                      inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
+                    } else if (idx > activeEndIndex) {
                       inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
                     } else {
                       const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
@@ -388,7 +422,11 @@ export default function CalendarHeatMap() {
           </div>
 
           <div className="tooltip-body">
-            {activeTooltip.isUpcoming ? (
+            {activeTooltip.isPreOnboarding ? (
+              <div className="tooltip-status-badge upcoming" style={{ background: "#f1f5f9", color: "#64748b" }}>
+                <i className="fa-solid fa-flag"></i> Pre-Onboarding Period (SACCO registered on {activeTooltip.onboardDateFormatted || "Registration Date"})
+              </div>
+            ) : activeTooltip.isUpcoming ? (
               <div className="tooltip-status-badge upcoming">
                 <i className="fa-solid fa-clock"></i> Scheduled Meeting Date
               </div>
