@@ -123,12 +123,15 @@ export default function CalendarHeatMap() {
           };
         }
 
-        // Map transactions to closest meeting date window
+        // Map transactions to exact week number or closest meeting date window
         transactions.forEach((tx) => {
-          let meetingIndex = null;
-          const match = tx.description?.match(/\|\s*Week\s*(\d+)/i);
-          if (match) {
-            meetingIndex = parseInt(match[1], 10);
+          let meetingIndex = Number(tx.week_number) || Number(tx.week);
+          
+          if (!meetingIndex && tx.description) {
+            const match = tx.description.match(/week\s*(\d+)/i);
+            if (match) {
+              meetingIndex = parseInt(match[1], 10);
+            }
           }
 
           if (!meetingIndex && tx.created_at) {
@@ -319,7 +322,8 @@ export default function CalendarHeatMap() {
                     if (idx > currentWeek) {
                       inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
                     } else {
-                      if (sharesCount === 0) {
+                      const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
+                      if (!hasContribution) {
                         levelClass = "level-0";
                       } else if (sharesCount <= 2) {
                         levelClass = "level-1";
