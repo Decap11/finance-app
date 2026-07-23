@@ -34,7 +34,7 @@ export default function WeeklyContributions() {
         const { data: { session } } = await supabase.auth.getSession();
         const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
 
-        const res = await fetch("/api/sacco-settings", { headers });
+        const res = await fetch("/api/sacco-settings", { headers, cache: "no-store" });
         const data = await res.json();
         if (res.ok) {
           setGroupSettings(data);
@@ -56,6 +56,33 @@ export default function WeeklyContributions() {
     }
     loadGroupSettings();
 
+    // Subscribe to real-time sacco_settings updates
+    const channel = supabase
+      .channel('weekly-contributions-sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadGroupSettings();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadGroupSettings();
+        }
+      )
+      .subscribe();
+
     const handleSettingsUpdated = (e) => {
       if (e.detail) {
         setGroupSettings(e.detail);
@@ -66,6 +93,7 @@ export default function WeeklyContributions() {
 
     window.addEventListener("sacco_settings_updated", handleSettingsUpdated);
     return () => {
+      supabase.removeChannel(channel);
       window.removeEventListener("sacco_settings_updated", handleSettingsUpdated);
     };
   }, []);

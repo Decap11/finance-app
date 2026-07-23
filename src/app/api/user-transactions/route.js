@@ -124,8 +124,25 @@ export async function POST(request) {
     }
 
     const saccoId = saccoData.id;
-    const sharePrice = Number(saccoData.share_price) || 25000;
-    const currentWeek = Number(saccoData.current_week) || 1;
+    let sharePrice = Number(saccoData.share_price) || 5000;
+    let currentWeek = Number(saccoData.current_week) || 1;
+
+    // Fetch live settings from sacco_settings table for exact group code
+    const { data: setRows } = await publicSupabase
+      .from('sacco_settings')
+      .select('share_price, current_week, is_locked')
+      .ilike('group_code', cleanGroupCode)
+      .limit(1);
+
+    if (setRows && setRows.length > 0) {
+      const s = setRows[0];
+      if (s.share_price !== undefined && s.share_price !== null) sharePrice = Number(s.share_price);
+      if (s.current_week !== undefined && s.current_week !== null) currentWeek = Number(s.current_week);
+      if (s.is_locked) {
+        return Response.json({ error: `Weekly contribution submissions are currently locked for Week ${currentWeek} by your SACCO administrator.` }, { status: 400 });
+      }
+    }
+
     const inserts = [];
 
     // Check if the user has already submitted requests for this week number

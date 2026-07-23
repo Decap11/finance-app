@@ -30,22 +30,40 @@ export async function GET(request) {
     const cleanGroupCode = (profile?.group_id || '').trim();
 
     if (cleanGroupCode) {
-      const { data: saccoRows } = await publicSupabase
-        .from('saccos')
+      const { data: setRows } = await publicSupabase
+        .from('sacco_settings')
         .select('share_price, devt_fund, social_fund, current_week, meeting_day, is_locked')
         .ilike('group_code', cleanGroupCode)
         .limit(1);
 
-      if (saccoRows && saccoRows.length > 0) {
-        const sacco = saccoRows[0];
+      if (setRows && setRows.length > 0) {
+        const s = setRows[0];
         settings = {
-          sharePrice: Number(sacco.share_price) || 5000,
-          devtFund: Number(sacco.devt_fund) || 1000,
-          socialFund: Number(sacco.social_fund) || 2000,
-          currentWeek: Number(sacco.current_week) || 1,
-          meetingDay: sacco.meeting_day || "Wednesday",
-          isLocked: Boolean(sacco.is_locked)
+          sharePrice: Number(s.share_price) || 5000,
+          devtFund: Number(s.devt_fund) || 1000,
+          socialFund: Number(s.social_fund) || 2000,
+          currentWeek: Number(s.current_week) || 1,
+          meetingDay: s.meeting_day || "Wednesday",
+          isLocked: Boolean(s.is_locked)
         };
+      } else {
+        const { data: saccoRows } = await publicSupabase
+          .from('saccos')
+          .select('share_price, devt_fund, social_fund, current_week, meeting_day, is_locked')
+          .ilike('group_code', cleanGroupCode)
+          .limit(1);
+
+        if (saccoRows && saccoRows.length > 0) {
+          const sacco = saccoRows[0];
+          settings = {
+            sharePrice: Number(sacco.share_price) || 5000,
+            devtFund: Number(sacco.devt_fund) || 1000,
+            socialFund: Number(sacco.social_fund) || 2000,
+            currentWeek: Number(sacco.current_week) || 1,
+            meetingDay: sacco.meeting_day || "Wednesday",
+            isLocked: Boolean(sacco.is_locked)
+          };
+        }
       }
     }
 

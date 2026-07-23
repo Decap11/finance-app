@@ -54,8 +54,13 @@ export default function UserProgressTracker() {
         });
       }
 
-      // Fetch settings
-      const settingsRes = await fetch("/api/sacco-settings");
+      // Fetch settings with authorization and no-store policy
+      const settingsRes = await fetch("/api/sacco-settings", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        cache: "no-store"
+      });
       const settingsData = await settingsRes.json();
       
       let currentSharePrice = 5000;

@@ -195,7 +195,20 @@ export async function POST(request) {
 
     // Calculate exact meeting date timestamp for this weekNum
     const currentYear = new Date().getFullYear();
-    const meetingDayName = sacco?.meeting_day || "Wednesday";
+    let meetingDayName = "Wednesday";
+
+    const { data: setRows } = await publicSupabase
+      .from('sacco_settings')
+      .select('meeting_day')
+      .ilike('group_code', sacco?.group_code || cleanGroupCode)
+      .limit(1);
+
+    if (setRows && setRows.length > 0 && setRows[0].meeting_day) {
+      meetingDayName = setRows[0].meeting_day;
+    } else if (sacco?.meeting_day) {
+      meetingDayName = sacco.meeting_day;
+    }
+
     const targetMeetingDateIso = getMeetingDateForWeek(currentYear, meetingDayName, parsedWeekNum);
 
     // 4. Duplicate Check: Ensure member has no existing completed/approved transaction of this type in this week

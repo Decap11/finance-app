@@ -79,7 +79,8 @@ export default function ManualContributionLog({ allMembers }) {
         const res = await fetch("/api/sacco-settings", {
           headers: {
             "Authorization": `Bearer ${session.access_token}`
-          }
+          },
+          cache: "no-store"
         });
         const data = await res.json();
         if (res.ok) {
@@ -99,9 +100,20 @@ export default function ManualContributionLog({ allMembers }) {
     }
     loadSettings();
 
-    // Subscribe to real-time saccos settings updates over WebSockets
+    // Subscribe to real-time sacco_settings updates over WebSockets
     const channel = supabase
       .channel('manual-log-sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadSettings();
+        }
+      )
       .on(
         'postgres_changes',
         {
