@@ -90,21 +90,22 @@ export default function SaccoSettings() {
 
       if (sacco) {
         setSaccoInfo(sacco);
-        const activeSettings = {
-          sharePrice: sacco.share_price !== undefined && sacco.share_price !== null ? Number(sacco.share_price) : 5000,
-          devtFund: sacco.devt_fund !== undefined && sacco.devt_fund !== null ? Number(sacco.devt_fund) : 1000,
-          socialFund: sacco.social_fund !== undefined && sacco.social_fund !== null ? Number(sacco.social_fund) : 2000,
-          currentWeek: sacco.current_week !== undefined && sacco.current_week !== null ? Number(sacco.current_week) : 1,
-          meetingDay: sacco.meeting_day || "Wednesday",
-          isLocked: Boolean(sacco.is_locked),
-          groupCode: sacco.group_code
-        };
-        setSettings(activeSettings);
-        setFilterWeek(activeSettings.currentWeek || 1);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("sacco_settings_cache", JSON.stringify(activeSettings));
-        }
+      }
 
+      // Fetch live active settings from /api/sacco-settings (queries sacco_settings table first)
+      const apiUrl = cleanGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(cleanGroupCode)}` : "/api/sacco-settings";
+      const settingsRes = await fetch(apiUrl, { headers, cache: "no-store" });
+      const settingsData = await settingsRes.json();
+
+      if (settingsRes.ok && settingsData && settingsData.sharePrice !== undefined) {
+        setSettings(settingsData);
+        setFilterWeek(settingsData.currentWeek || 1);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sacco_settings_cache", JSON.stringify(settingsData));
+        }
+      }
+
+      if (sacco) {
         // Parallelize profile list and transaction list lookups
         const [profilesRes, txsRes] = await Promise.all([
           supabase.from("profiles").select("*").ilike("group_id", sacco.group_code || cleanGroupCode),
@@ -123,18 +124,6 @@ export default function SaccoSettings() {
 
         if (txsRes.data) {
           setAllTransactions(txsRes.data);
-        }
-      } else {
-        // Fetch via API route with group code parameter as fallback
-        const apiUrl = cleanGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(cleanGroupCode)}` : "/api/sacco-settings";
-        const res = await fetch(apiUrl, { headers, cache: "no-store" });
-        const data = await res.json();
-        if (res.ok && data.sharePrice) {
-          setSettings(data);
-          setFilterWeek(data.currentWeek || 1);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
-          }
         }
       }
     } catch (err) {
@@ -156,10 +145,20 @@ export default function SaccoSettings() {
         {
           event: '*',
           schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadDatabaseData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'saccos'
         },
         () => {
-          loadSettings();
           loadDatabaseData();
         }
       )
