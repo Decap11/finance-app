@@ -80,23 +80,27 @@ export async function GET(request) {
     }
 
     // 2. Query transactions for current year via publicSupabase service layer
+    const urlObj = new URL(request.url);
+    const targetMemberId = urlObj.searchParams.get('memberId') || user.id;
+
     const startOfYear = `${new Date().getFullYear()}-01-01`;
 
-    const { data: transactions, error: txErr } = await publicSupabase
+    let query = publicSupabase
       .from('transactions')
       .select('*')
-      .eq('profile_id', user.id)
-      .in('category', ['shares', 'development_fund', 'social_fund'])
-      .eq('direction', 'credit')
-      .in('status', ['completed', 'approved'])
+      .eq('profile_id', targetMemberId)
+      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social', 'savings'])
+      .in('status', ['completed', 'approved', 'pending'])
       .gte('created_at', startOfYear)
       .order('created_at', { ascending: true });
+
+    const { data: transactions, error: txErr } = await query;
 
     if (txErr) {
       return Response.json({ error: txErr.message }, { status: 500 });
     }
 
-    return Response.json({ transactions, settings, saccoCreatedAt });
+    return Response.json({ transactions: transactions || [], settings, saccoCreatedAt });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

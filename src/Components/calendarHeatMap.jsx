@@ -176,7 +176,11 @@ export default function CalendarHeatMap() {
           }
 
           if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
-            tempContributions[meetingIndex].add(tx.category);
+            let catNorm = tx.category;
+            if (catNorm === 'devt') catNorm = 'development_fund';
+            if (catNorm === 'social') catNorm = 'social_fund';
+
+            tempContributions[meetingIndex].add(catNorm);
             const amt = Number(tx.amount) || 0;
             const mData = tempFinancialData[meetingIndex];
             mData.totalAmount += amt;
@@ -189,14 +193,14 @@ export default function CalendarHeatMap() {
               }
             }
 
-            if (tx.category === 'shares') {
+            if (catNorm === 'shares') {
               const numShares = Math.floor(amt / (settings.sharePrice || 25000));
               tempShares[meetingIndex] += numShares;
               mData.sharesAmount += amt;
               mData.sharesCount += numShares;
-            } else if (tx.category === 'development_fund') {
+            } else if (catNorm === 'development_fund') {
               mData.devtAmount += amt;
-            } else if (tx.category === 'social_fund') {
+            } else if (catNorm === 'social_fund') {
               mData.socialAmount += amt;
             }
           }
