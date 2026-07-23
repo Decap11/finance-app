@@ -276,10 +276,14 @@ export default function CalendarHeatMap() {
     const positionBelow = rect.top < 160;
     const clampedY = positionBelow ? rect.bottom + 8 : rect.top - 8;
 
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
     const activeEndIndex = startMeetingIndex + currentWeek - 1;
     const isPreOnboarding = meetingItem.globalMeetingIndex < startMeetingIndex;
-    const isUpcoming = meetingItem.globalMeetingIndex > activeEndIndex;
-    const isMissed = meetingItem.globalMeetingIndex >= startMeetingIndex && meetingItem.globalMeetingIndex <= activeEndIndex && finData.totalAmount === 0;
+    const isFutureDate = meetingItem.date > today;
+    const isUpcoming = isFutureDate || meetingItem.globalMeetingIndex > activeEndIndex;
+    const isMissed = !isPreOnboarding && !isUpcoming && finData.totalAmount === 0;
 
     setActiveTooltip({
       x: clampedX,
@@ -353,11 +357,16 @@ export default function CalendarHeatMap() {
                     let levelClass = "";
                     let inlineStyle = {};
 
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999);
+
                     const activeEndIndex = startMeetingIndex + currentWeek - 1;
+                    const isFutureDate = mItem.date > today;
+                    const isUpcoming = isFutureDate || idx > activeEndIndex;
 
                     if (idx < startMeetingIndex) {
                       inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
-                    } else if (idx > activeEndIndex) {
+                    } else if (isUpcoming) {
                       inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
                     } else {
                       const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
