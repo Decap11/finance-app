@@ -22,45 +22,70 @@ export async function GET(request) {
       groupCode = (profile?.group_id || '').trim();
     }
 
-    let sacco = null;
+    let saccoSettings = null;
 
-    // 1. Primary lookup by exact group_code match
+    // 1. Primary lookup: Dedicated sacco_settings table by group_code
+    if (groupCode) {
+      const { data: settingsRows } = await publicSupabase
+        .from('sacco_settings')
+        .select('*')
+        .ilike('group_code', groupCode)
+        .limit(1);
+
+      if (settingsRows && settingsRows.length > 0) {
+        saccoSettings = settingsRows[0];
+      }
+    }
+
+    // 2. Secondary lookup: Primary sacco record lookup from saccos table
+    let sacco = null;
     if (groupCode) {
       const { data: groupRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .ilike('group_code', groupCode)
         .limit(1);
-
-      if (groupRows && groupRows.length > 0) {
-        sacco = groupRows[0];
-      }
+      if (groupRows && groupRows.length > 0) sacco = groupRows[0];
     }
 
-    // 2. Secondary lookup by admin_profile_id
     if (!sacco && userId) {
       const { data: adminRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .eq('admin_profile_id', userId)
         .limit(1);
-
-      if (adminRows && adminRows.length > 0) {
-        sacco = adminRows[0];
-      }
+      if (adminRows && adminRows.length > 0) sacco = adminRows[0];
     }
 
-    // 3. Tertiary lookup: Global primary active SACCO in PostgreSQL
     if (!sacco) {
       const { data: primaryRows } = await publicSupabase
         .from('saccos')
         .select('*')
         .order('created_at', { ascending: true })
         .limit(1);
+      if (primaryRows && primaryRows.length > 0) sacco = primaryRows[0];
+    }
 
-      if (primaryRows && primaryRows.length > 0) {
-        sacco = primaryRows[0];
-      }
+    // Lookup sacco_settings by sacco.id if not found by groupCode
+    if (!saccoSettings && sacco?.id) {
+      const { data: setBySacco } = await publicSupabase
+        .from('sacco_settings')
+        .select('*')
+        .eq('sacco_id', sacco.id)
+        .limit(1);
+      if (setBySacco && setBySacco.length > 0) saccoSettings = setBySacco[0];
+    }
+
+    if (saccoSettings) {
+      return Response.json({
+        sharePrice: saccoSettings.share_price !== undefined && saccoSettings.share_price !== null ? Number(saccoSettings.share_price) : 5000,
+        devtFund: saccoSettings.devt_fund !== undefined && saccoSettings.devt_fund !== null ? Number(saccoSettings.devt_fund) : 1000,
+        socialFund: saccoSettings.social_fund !== undefined && saccoSettings.social_fund !== null ? Number(saccoSettings.social_fund) : 2000,
+        currentWeek: saccoSettings.current_week !== undefined && saccoSettings.current_week !== null ? Number(saccoSettings.current_week) : 1,
+        meetingDay: saccoSettings.meeting_day || "Wednesday",
+        isLocked: Boolean(saccoSettings.is_locked),
+        groupCode: saccoSettings.group_code || groupCode || (sacco ? sacco.group_code : '')
+      });
     }
 
     if (sacco) {
@@ -101,7 +126,6 @@ export async function POST(request) {
     const auth = await verifyAuth(request);
     const user = !auth.error ? auth.user : null;
     const publicSupabase = getPublicSupabase();
-    const supabaseClient = (!auth.error && auth.supabase) ? auth.supabase : publicSupabase;
 
     const body = await request.json();
     const { sharePrice, devtFund, socialFund, currentWeek, isLocked, meetingDay } = body;
@@ -144,7 +168,7 @@ export async function POST(request) {
     if (cleanGroupCode) {
       const { data: gRows } = await publicSupabase
         .from('saccos')
-        .select('id, admin_profile_id')
+        .select('id, group_code, admin_profile_id')
         .ilike('group_code', cleanGroupCode)
         .limit(1);
       if (gRows && gRows.length > 0) targetSacco = gRows[0];
@@ -153,18 +177,43 @@ export async function POST(request) {
     if (!targetSacco && userId) {
       const { data: aRows } = await publicSupabase
         .from('saccos')
-        .select('id, admin_profile_id')
+        .select('id, group_code, admin_profile_id')
         .eq('admin_profile_id', userId)
         .limit(1);
       if (aRows && aRows.length > 0) targetSacco = aRows[0];
     }
 
+    const activeGroupCode = cleanGroupCode || targetSacco?.group_code;
+
+    // 1. Primary persistence: Upsert into sacco_settings table
+    if (activeGroupCode) {
+      const settingsPayload = {
+        group_code: activeGroupCode,
+        sacco_id: targetSacco?.id || null,
+        share_price: parsedSharePrice,
+        devt_fund: parsedDevtFund,
+        social_fund: parsedSocialFund,
+        current_week: parsedCurrentWeek,
+        meeting_day: cleanMeetingDay,
+        is_locked: Boolean(isLocked),
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        await publicSupabase
+          .from('sacco_settings')
+          .upsert(settingsPayload, { onConflict: 'group_code' });
+      } catch (sSetErr) {
+        console.warn("sacco_settings upsert error:", sSetErr?.message);
+      }
+    }
+
+    // 2. Secondary persistence: Update saccos table columns for backward compatibility
     const updatePayload = {
       share_price: parsedSharePrice,
       devt_fund: parsedDevtFund,
       social_fund: parsedSocialFund,
       current_week: parsedCurrentWeek,
-      meeting_day: cleanMeetingDay,
       is_locked: Boolean(isLocked),
       updated_at: new Date().toISOString()
     };
@@ -174,32 +223,15 @@ export async function POST(request) {
     }
 
     if (targetSacco?.id) {
-      // Execute primary update via publicSupabase service layer targeting exact SACCO ID
-      let { error: updateErr } = await publicSupabase
+      await publicSupabase
         .from('saccos')
         .update(updatePayload)
         .eq('id', targetSacco.id);
-
-      if (updateErr && updateErr.message?.includes('meeting_day')) {
-        delete updatePayload.meeting_day;
-        await publicSupabase
-          .from('saccos')
-          .update(updatePayload)
-          .eq('id', targetSacco.id);
-      }
     } else if (cleanGroupCode) {
-      let { error: updateErr } = await publicSupabase
+      await publicSupabase
         .from('saccos')
         .update(updatePayload)
         .ilike('group_code', cleanGroupCode);
-
-      if (updateErr && updateErr.message?.includes('meeting_day')) {
-        delete updatePayload.meeting_day;
-        await publicSupabase
-          .from('saccos')
-          .update(updatePayload)
-          .ilike('group_code', cleanGroupCode);
-      }
     }
 
     const newSettings = {
@@ -208,7 +240,8 @@ export async function POST(request) {
       socialFund: parsedSocialFund,
       currentWeek: parsedCurrentWeek,
       meetingDay: cleanMeetingDay,
-      isLocked: Boolean(isLocked)
+      isLocked: Boolean(isLocked),
+      groupCode: activeGroupCode
     };
 
     return Response.json({ success: true, settings: newSettings });

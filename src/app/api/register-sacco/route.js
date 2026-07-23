@@ -182,6 +182,26 @@ export async function POST(request) {
       console.warn("Accounts provision warning:", aErr.message);
     }
 
+    // 7. Auto-provision SACCO Settings row in sacco_settings table
+    try {
+      await publicSupabase
+        .from('sacco_settings')
+        .upsert({
+          sacco_id: newSacco.id,
+          group_code: cleanGroupCode,
+          share_price: 5000,
+          devt_fund: 1000,
+          social_fund: 2000,
+          current_week: 1,
+          meeting_day: 'Wednesday',
+          is_locked: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'group_code' });
+    } catch (setProvisionErr) {
+      console.warn("Settings provision warning:", setProvisionErr?.message);
+    }
+
     return Response.json({
       success: true,
       groupCode: cleanGroupCode,
