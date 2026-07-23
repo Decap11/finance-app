@@ -362,18 +362,18 @@ export default function ContributionApprovals({ limit, showViewAll, mode }) {
                         </>
                       ) : (
                         <span
-                          className={`badge badge-${(request.status === 'approved' || request.status === 'completed') ? 'success' : 'danger'}`}
+                          className={`badge badge-${request.status === 'rejected' ? 'danger' : 'success'}`}
                           style={{
                             padding: "0.4rem 0.8rem",
                             borderRadius: "0.6rem",
                             fontSize: "1.1rem",
                             fontWeight: 700,
                             textTransform: "uppercase",
-                            background: (request.status === 'approved' || request.status === 'completed') ? '#f0fdf4' : '#fef2f2',
-                            color: (request.status === 'approved' || request.status === 'completed') ? '#22c55e' : '#ef4444'
+                            background: request.status === 'rejected' ? '#fef2f2' : '#f0fdf4',
+                            color: request.status === 'rejected' ? '#ef4444' : '#22c55e'
                           }}
                         >
-                          {(request.status === 'approved' || request.status === 'completed') ? 'Completed' : 'Rejected'}
+                          {request.status === 'rejected' ? 'Rejected' : 'Completed'}
                         </span>
                       )}
                     </div>
