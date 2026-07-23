@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+import { getPublicSupabase } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = getPublicSupabase();
     const body = await request.json();
     const { saccoId, planTier } = body;
 

@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+import { getPublicSupabase } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = getPublicSupabase();
     const body = await request.json();
 
     const { saccoName, acronym, groupCode, adminEmail, planTier, sharePrice } = body;
@@ -70,6 +67,22 @@ export async function POST(request) {
 
     if (insertErr) {
       return Response.json({ error: 'Failed to provision SACCO: ' + insertErr.message }, { status: 500 });
+    }
+
+    // Auto-provision sacco_settings row for dedicated group code settings persistence
+    try {
+      await supabase.from('sacco_settings').insert({
+        sacco_id: newSacco.id,
+        group_code: cleanGroupCode,
+        share_price: Number(sharePrice) || 25000,
+        devt_fund: 1000,
+        social_fund: 2000,
+        current_week: 1,
+        meeting_day: "Wednesday",
+        is_locked: false
+      });
+    } catch (e) {
+      console.warn("Failed to auto-provision sacco_settings on provision-sacco:", e);
     }
 
     // Log audit event
