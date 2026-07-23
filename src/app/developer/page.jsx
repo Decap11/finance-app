@@ -37,6 +37,11 @@ export default function DeveloperPortal() {
     planTier: "basic"
   });
 
+  // Super-Admin Announcements & Support Inspection States
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementForm, setAnnouncementForm] = useState({ title: "", message: "", priority: "info" });
+  const [inspectingSacco, setInspectingSacco] = useState(null);
+
   // Subscription Plans details aligned with database tiers
   const [plans, setPlans] = useState({
     basic: { name: "Basic Plan", price: 0, memberLimit: 50, shareValuation: 2000, billingCycle: "month" },
@@ -70,18 +75,27 @@ export default function DeveloperPortal() {
 
       if (saccoError) throw saccoError;
 
-      // 2. Fetch User Profiles to map Sacco Administrators
+      // 2. Fetch User Profiles and Transactions for diagnostics & capacity metrics
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, email, full_name');
+        .select('id, email, full_name, group_id');
 
       if (profileError) throw profileError;
 
-      // Map Supabase rows to local tenant objects
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select('sacco_id, amount, status')
+        .in('status', ['completed', 'approved']);
+
+      // Map Supabase rows to local tenant objects with diagnostics
       const mappedTenants = (saccoData || []).map(sacco => {
         const adminUser = profileData?.find(p => p.id === sacco.admin_profile_id);
         const limit = sacco.member_limit || 50;
         
+        const currentCode = (sacco.group_code || '').trim().toLowerCase();
+        const memberCount = (profileData || []).filter(p => (p.group_id || '').trim().toLowerCase() === currentCode).length;
+        const tenantAum = (txData || []).filter(t => t.sacco_id === sacco.id).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
         // Infer billing plan from member limit
         let planType = "basic";
         let planPrice = 0;
@@ -102,11 +116,24 @@ export default function DeveloperPortal() {
           cost: planPrice,
           status: sacco.status || "active",
           joined: sacco.created_at ? new Date(sacco.created_at).toISOString().split('T')[0] : "2026-01-01",
-          memberLimit: limit
+          memberLimit: limit,
+          memberCount: memberCount,
+          aum: tenantAum
         };
       });
 
       setTenants(mappedTenants);
+
+      // Fetch active announcements
+      try {
+        const ancRes = await fetch('/api/developer/announcements');
+        const ancData = await ancRes.json();
+        if (ancData.announcements) {
+          setAnnouncements(ancData.announcements);
+        }
+      } catch (e) {
+        console.warn("Could not load platform announcements:", e);
+      }
 
       // 3. Fetch Platform events logs from audit_events table
       const { data: auditData, error: auditError } = await supabase
@@ -239,6 +266,32 @@ export default function DeveloperPortal() {
       await fetchDatabaseData();
     } catch (err) {
       showError(`Failed to update tier: ${err.message}`);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handlePostAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!announcementForm.title || !announcementForm.message) {
+      showError("Please enter a title and message.");
+      return;
+    }
+    setLoadingData(true);
+    try {
+      const res = await fetch("/api/developer/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(announcementForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showSuccess("Platform announcement broadcasted successfully!");
+      setAnnouncementForm({ title: "", message: "", priority: "info" });
+      await fetchDatabaseData();
+    } catch (err) {
+      showError("Failed to broadcast announcement: " + err.message);
     } finally {
       setLoadingData(false);
     }
@@ -476,6 +529,15 @@ export default function DeveloperPortal() {
               </li>
               <li>
                 <button 
+                  onClick={() => setActiveTab("broadcasts")} 
+                  className={`dev-nav-item ${activeTab === "broadcasts" ? "active" : ""}`}
+                >
+                  <i className="fa-solid fa-bullhorn"></i>
+                  <span>Broadcasts</span>
+                </button>
+              </li>
+              <li>
+                <button 
                   onClick={() => setActiveTab("logs")} 
                   className={`dev-nav-item ${activeTab === "logs" ? "active" : ""}`}
                 >
@@ -496,6 +558,22 @@ export default function DeveloperPortal() {
 
         {/* Main Content Area */}
         <main className="dev-main-content">
+          {inspectingSacco && (
+            <div style={{ background: "#1e293b", border: "1px solid #3b82f6", padding: "1.2rem 2rem", borderRadius: "1rem", marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", color: "#38bdf8", fontWeight: 600, fontSize: "1.4rem" }}>
+                <i className="fa-solid fa-eye" style={{ fontSize: "1.8rem" }}></i>
+                <span>Support Inspection Mode Active: Inspecting diagnostics for <strong>{inspectingSacco.name}</strong> (<code>{inspectingSacco.code}</code>)</span>
+              </div>
+              <button 
+                onClick={() => setInspectingSacco(null)} 
+                className="btn-dev-action"
+                style={{ background: "#ef4444", color: "white", border: "none", padding: "0.6rem 1.2rem", borderRadius: "0.6rem", cursor: "pointer", fontWeight: 700 }}
+              >
+                Exit Inspection
+              </button>
+            </div>
+          )}
+
           <header className="dev-header">
             <div className="dev-welcome">
               <h1>SysAdmin Panel</h1>
@@ -653,7 +731,7 @@ export default function DeveloperPortal() {
           {activeTab === "tenants" && (
             <div className="dev-card-wrapper">
               <div className="dev-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="dev-card-title">Platform Tenant Directory</span>
+                <span className="dev-card-title">Platform Tenant Directory & Diagnostics</span>
                 <button 
                   onClick={() => setShowProvisionModal(true)} 
                   className="btn-dev-action font-weight-700"
@@ -669,8 +747,9 @@ export default function DeveloperPortal() {
                       <th>SACCO Name</th>
                       <th>Group Code</th>
                       <th>Administrator</th>
-                      <th>Plan Type</th>
-                      <th>Joined Date</th>
+                      <th>Member Capacity</th>
+                      <th>AUM Assets</th>
+                      <th>Plan Tier</th>
                       <th>Status</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
@@ -678,52 +757,162 @@ export default function DeveloperPortal() {
                   <tbody>
                     {tenants.length === 0 ? (
                       <tr>
-                        <td colSpan="7" style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
+                        <td colSpan="8" style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
                           No Saccos registered in database. Use provision sacco to add one.
                         </td>
                       </tr>
                     ) : (
-                      tenants.map((tenant) => (
-                        <tr key={tenant.id}>
-                          <td><strong>{tenant.name}</strong></td>
-                          <td><code>{tenant.code}</code></td>
-                          <td>{tenant.admin}</td>
-                          <td>
-                            <span className={`tenant-plan ${tenant.plan}`}>
-                              {tenant.plan}
-                            </span>
-                          </td>
-                          <td>{tenant.joined}</td>
-                          <td>
-                            <span className={`tenant-status ${tenant.status}`}>
-                              {tenant.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="dev-actions" style={{ justifyContent: "flex-end", gap: "0.8rem" }}>
-                              <button 
-                                onClick={() => {
-                                  setTierForm({ saccoId: tenant.id, saccoName: tenant.name, planTier: tenant.plan || "basic" });
-                                  setShowTierModal(true);
-                                }}
-                                className="btn-dev-action"
-                                style={{ background: "#334155", color: "#f8fafc", border: "0.1rem solid #475569" }}
-                              >
-                                Change Tier
-                              </button>
-                              <button 
-                                onClick={() => toggleTenantStatus(tenant.id, tenant.status)} 
-                                className={`btn-dev-action ${tenant.status === 'active' ? 'critical' : ''}`}
-                              >
-                                {tenant.status === "active" ? "Suspend" : "Activate"}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                      tenants.map((tenant) => {
+                        const pct = Math.min(100, Math.round((tenant.memberCount / tenant.memberLimit) * 100));
+                        return (
+                          <tr key={tenant.id}>
+                            <td><strong>{tenant.name}</strong></td>
+                            <td><code>{tenant.code}</code></td>
+                            <td>{tenant.admin}</td>
+                            <td>
+                              <span style={{ fontSize: "1.2rem", fontWeight: 700, color: pct > 90 ? '#ef4444' : pct > 75 ? '#f59e0b' : '#38bdf8' }}>
+                                {tenant.memberCount} / {tenant.memberLimit} ({pct}%)
+                              </span>
+                            </td>
+                            <td>
+                              <strong style={{ color: "#10b981", fontSize: "1.3rem" }}>
+                                Shs {(tenant.aum || 0).toLocaleString()}
+                              </strong>
+                            </td>
+                            <td>
+                              <span className={`tenant-plan ${tenant.plan}`}>
+                                {tenant.plan}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`tenant-status ${tenant.status}`}>
+                                {tenant.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="dev-actions" style={{ justifyContent: "flex-end", gap: "0.6rem", flexWrap: "wrap" }}>
+                                <button 
+                                  onClick={() => window.open(`/api/developer/tenant-export?saccoId=${tenant.id}`, '_blank')}
+                                  className="btn-dev-action"
+                                  style={{ background: "#059669", color: "#fff", border: "none" }}
+                                  title="Export full JSON database backup"
+                                >
+                                  <i className="fa-solid fa-download"></i> Backup
+                                </button>
+                                <button 
+                                  onClick={() => setInspectingSacco(tenant)}
+                                  className="btn-dev-action"
+                                  style={{ background: "#2563eb", color: "#fff", border: "none" }}
+                                  title="Inspect SACCO in Support Mode"
+                                >
+                                  <i className="fa-solid fa-eye"></i> Inspect
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setTierForm({ saccoId: tenant.id, saccoName: tenant.name, planTier: tenant.plan || "basic" });
+                                    setShowTierModal(true);
+                                  }}
+                                  className="btn-dev-action"
+                                  style={{ background: "#334155", color: "#f8fafc", border: "0.1rem solid #475569" }}
+                                >
+                                  Change Tier
+                                </button>
+                                <button 
+                                  onClick={() => toggleTenantStatus(tenant.id, tenant.status)} 
+                                  className={`btn-dev-action ${tenant.status === 'active' ? 'critical' : ''}`}
+                                >
+                                  {tenant.status === "active" ? "Suspend" : "Activate"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "broadcasts" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "3rem" }}>
+              <div className="dev-card-wrapper">
+                <div className="dev-card-header">
+                  <span className="dev-card-title">Broadcast System Announcement</span>
+                </div>
+                <form onSubmit={handlePostAnnouncement} style={{ padding: "2.5rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1.5rem" }}>
+                    <div>
+                      <label style={{ display: "block", color: "#cbd5e1", marginBottom: "0.8rem", fontSize: "1.3rem", fontWeight: 600 }}>Announcement Title</label>
+                      <input 
+                        type="text" 
+                        value={announcementForm.title} 
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                        placeholder="e.g. Scheduled System Maintenance Notice"
+                        style={{ width: "100%", padding: "1.2rem", borderRadius: "0.8rem", background: "#0f172a", border: "1px solid #334155", color: "white", fontSize: "1.4rem" }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", color: "#cbd5e1", marginBottom: "0.8rem", fontSize: "1.3rem", fontWeight: 600 }}>Priority Level</label>
+                      <select 
+                        value={announcementForm.priority}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
+                        style={{ width: "100%", padding: "1.2rem", borderRadius: "0.8rem", background: "#0f172a", border: "1px solid #334155", color: "white", fontSize: "1.4rem" }}
+                      >
+                        <option value="info">Info / Notice</option>
+                        <option value="warning">Important Warning</option>
+                        <option value="urgent">Urgent System Maintenance</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", color: "#cbd5e1", marginBottom: "0.8rem", fontSize: "1.3rem", fontWeight: 600 }}>Announcement Message Body</label>
+                    <textarea 
+                      rows="4" 
+                      value={announcementForm.message} 
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                      placeholder="Detail the update or notification message for all SACCO group administrators..."
+                      style={{ width: "100%", padding: "1.2rem", borderRadius: "0.8rem", background: "#0f172a", border: "1px solid #334155", color: "white", fontSize: "1.4rem" }}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button 
+                      type="submit" 
+                      className="btn-dev-action"
+                      style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "white", border: "none", padding: "1rem 2.4rem", borderRadius: "0.8rem", fontWeight: 700, fontSize: "1.4rem", cursor: "pointer" }}
+                    >
+                      <i className="fa-solid fa-paper-plane" style={{ marginRight: "0.8rem" }}></i> Broadcast Notification
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="dev-card-wrapper">
+                <div className="dev-card-header">
+                  <span className="dev-card-title">Recent Broadcast History</span>
+                </div>
+                <div className="sys-logs-list">
+                  {announcements.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "3rem", color: "#64748b", fontSize: "1.4rem" }}>
+                      No active platform announcements broadcasted.
+                    </div>
+                  ) : (
+                    announcements.map((anc) => (
+                      <div key={anc.id} className="sys-log-item">
+                        <div className="sys-log-badge info">
+                          <i className="fa-solid fa-bullhorn"></i>
+                        </div>
+                        <div className="sys-log-details">
+                          <span className="sys-log-msg"><strong>{anc.metadata?.title || 'Announcement'}</strong>: {anc.metadata?.description}</span>
+                          <span className="sys-log-time">{new Date(anc.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )}
