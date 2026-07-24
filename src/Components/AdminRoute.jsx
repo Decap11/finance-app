@@ -22,20 +22,23 @@ export default function AdminRoute({ children }) {
 
         setSession(session);
 
-        // Fetch user profile role to verify admin privilege
-        const { data: profile, error } = await supabase
+        // 1. Fetch user's SACCO group membership to verify admin privilege
+        const { data: membership } = await supabase
+          .from("sacco_memberships")
+          .select("role, status")
+          .eq("profile_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // 2. Fetch user's global profile role
+        const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, status")
           .eq("id", session.user.id)
           .single();
 
-        if (error || !profile) {
-          console.warn("Could not verify user profile role:", error);
-          router.replace("/dashboard");
-          return;
-        }
-
-        const role = (profile.role || "").trim().toLowerCase();
+        const role = (membership?.role || profile?.role || "").trim().toLowerCase();
         if (role === "admin" || role === "super_admin") {
           setIsAdmin(true);
         } else {
