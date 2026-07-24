@@ -34,18 +34,27 @@ export async function verifyAuth(request) {
       return { error: Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 }) };
     }
 
-    // Server-side verification: Ensure member account is approved or active
+    // Server-side verification: Ensure member account is approved or active in sacco_memberships
+    const { data: membership } = await supabase
+      .from('sacco_memberships')
+      .select('status, role')
+      .eq('profile_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('status, role')
       .eq('id', user.id)
       .single();
 
-    const userRole = (profile?.role || '').toLowerCase();
-    const userStatus = (profile?.status || 'approved').toLowerCase();
+    const userRole = (membership?.role || profile?.role || '').toLowerCase();
+    const rawStatus = membership?.status || profile?.status;
+    const userStatus = rawStatus ? String(rawStatus).trim().toLowerCase() : 'pending';
 
     if (userRole !== 'admin' && userRole !== 'super_admin') {
-      if (userStatus === 'pending') {
+      if (userStatus === 'pending' || userStatus === 'unapproved') {
         return { error: Response.json({ error: 'Your member account is pending approval by your SACCO administrator.' }, { status: 403 }) };
       }
       if (userStatus === 'suspended' || userStatus === 'rejected') {

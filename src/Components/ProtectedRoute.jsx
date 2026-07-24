@@ -19,14 +19,24 @@ export default function ProtectedRoute({ children }) {
     }
 
     try {
+      // 1. Fetch SACCO group membership record (primary authority for member approval standing)
+      const { data: membership } = await supabase
+        .from('sacco_memberships')
+        .select('status, role')
+        .eq('profile_id', userSession.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // 2. Fetch global profile record
       const { data: profile } = await supabase
         .from('profiles')
         .select('status, role, group_id')
         .eq('id', userSession.user.id)
         .single();
 
-      const userRole = (profile?.role || '').toLowerCase();
-      const rawStatus = profile?.status;
+      const userRole = (membership?.role || profile?.role || '').toLowerCase();
+      const rawStatus = membership?.status || profile?.status;
       const userStatus = rawStatus ? String(rawStatus).trim().toLowerCase() : 'pending';
 
       // Admin or Super Admin bypass
@@ -37,16 +47,9 @@ export default function ProtectedRoute({ children }) {
       }
 
       // STRICT MEMBERSHIP ACCESS CONTROL:
-      // Only members whose status is explicitly 'active' or 'approved' get access to member dashboards.
-      // If status is 'pending', 'unapproved', 'suspended', 'rejected', or null/undefined, access IS LOCKED!
+      // Only members whose sacco_memberships status is explicitly 'active' or 'approved' get access to member dashboards.
+      // If sacco_memberships status is 'pending', 'unapproved', 'suspended', 'rejected', or missing, access IS LOCKED!
       if (userStatus === 'approved' || userStatus === 'active') {
-        // Self-sync status to 'active' in BOTH profiles AND sacco_memberships tables
-        try {
-          await supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id);
-          await supabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', userSession.user.id);
-        } catch (e) {
-          console.warn("Self-sync sacco_memberships status exception:", e);
-        }
         setProfileStatus("active");
       } else {
         setProfileStatus("pending");
