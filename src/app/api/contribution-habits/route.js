@@ -89,7 +89,7 @@ export async function GET(request) {
       .from('transactions')
       .select('*')
       .eq('profile_id', targetMemberId)
-      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social', 'savings'])
+      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social', 'savings', 'fines', 'fine', 'penalty', 'absenteeism'])
       .in('status', ['completed', 'approved', 'pending'])
       .gte('created_at', startOfYear)
       .order('created_at', { ascending: true });

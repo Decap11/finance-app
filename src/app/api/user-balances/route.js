@@ -14,7 +14,8 @@ export async function GET(request) {
     const categorySums = {
       shares: 0,
       development_fund: 0,
-      social_fund: 0
+      social_fund: 0,
+      fines: 0
     };
 
     // 1. Primary Ledger: Calculate aggregate totals directly from transactions using authenticated user client (passes RLS checks!)
@@ -42,6 +43,7 @@ export async function GET(request) {
         if (cat === 'devt' || cat === 'devt_fund' || cat === 'development') cat = 'development_fund';
         if (cat === 'social' || cat === 'social_fund') cat = 'social_fund';
         if (cat === 'savings' || cat === 'shares_pool') cat = 'shares';
+        if (cat === 'fine' || cat === 'fines' || cat === 'penalty' || cat === 'absenteeism') cat = 'fines';
 
         if (categorySums[cat] !== undefined) {
           const amt = Number(tx.amount) || 0;

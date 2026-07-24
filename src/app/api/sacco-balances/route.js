@@ -35,7 +35,8 @@ export async function GET(request) {
     const formattedAccounts = [
       { account_type: 'shares', balance: 0 },
       { account_type: 'development_fund', balance: 0 },
-      { account_type: 'social_fund', balance: 0 }
+      { account_type: 'social_fund', balance: 0 },
+      { account_type: 'fines', balance: 0 }
     ];
 
     // 2. Call SECURITY DEFINER RPC
@@ -47,6 +48,7 @@ export async function GET(request) {
         let cat = acc.account_type;
         if (cat === 'devt' || cat === 'devt_fund') cat = 'development_fund';
         if (cat === 'social' || cat === 'social_fund') cat = 'social_fund';
+        if (cat === 'fine' || cat === 'penalty') cat = 'fines';
 
         const match = formattedAccounts.find(fa => fa.account_type === cat);
         if (match) {
@@ -64,11 +66,12 @@ export async function GET(request) {
         .in('status', ['completed', 'approved']);
 
       if (transactions && transactions.length > 0) {
-        const txTotals = { shares: 0, development_fund: 0, social_fund: 0 };
+        const txTotals = { shares: 0, development_fund: 0, social_fund: 0, fines: 0 };
         transactions.forEach(tx => {
           let cat = tx.category;
           if (cat === 'devt' || cat === 'devt_fund') cat = 'development_fund';
           if (cat === 'social' || cat === 'social_fund') cat = 'social_fund';
+          if (cat === 'fine' || cat === 'penalty' || cat === 'absenteeism') cat = 'fines';
 
           if (txTotals[cat] !== undefined) {
             const amt = Number(tx.amount) || 0;

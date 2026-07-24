@@ -152,13 +152,13 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         }
       });
 
-      // 2. Automatically log absenteeism fine transactions for absent members
+      // 2. Automatically log obligated absenteeism fine transactions for absent members
       if (absentMembers.length > 0) {
         const fineTransactions = absentMembers.map(m => ({
           sacco_id: saccoId,
           profile_id: m.id,
           type: "debit",
-          category: "fine",
+          category: "fines",
           amount: FINE_PER_ABSENCE,
           status: "pending",
           description: `Absenteeism Cover Fine - Week ${currentWeek}`,

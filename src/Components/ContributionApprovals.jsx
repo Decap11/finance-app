@@ -318,6 +318,7 @@ export default function ContributionApprovals({ limit, showViewAll, mode }) {
               if (displayType === "shares") displayType = "Shares Pool";
               if (displayType === "savings") displayType = "Savings";
               if (displayType === "loan_disbursement") displayType = "Loan";
+              if (displayType === "fines" || displayType === "fine" || displayType === "penalty") displayType = "Fines & Penalties";
 
               return (
                 <li key={request.id} className="admin-list-item">
