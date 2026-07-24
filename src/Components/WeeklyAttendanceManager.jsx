@@ -192,9 +192,9 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   };
 
   return (
-    <div className="quick-actions" style={{ padding: "2.4rem", background: "var(--white)", borderRadius: "1.6rem", boxShadow: "var(--card-shadow)", border: "1px solid rgba(226, 232, 240, 0.8)", marginBottom: "2.4rem" }}>
+    <div className="quick-actions attendance-engine-card" style={{ padding: "2.4rem", background: "var(--white)", borderRadius: "1.6rem", boxShadow: "var(--card-shadow)", border: "1px solid rgba(226, 232, 240, 0.8)", marginBottom: "2.4rem" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1.2rem" }}>
+      <div className="attendance-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1.2rem" }}>
         <div>
           <h3 style={{ fontSize: "1.8rem", fontWeight: 700, color: "var(--text-dark)", display: "flex", alignItems: "center", gap: "0.8rem" }}>
             <i className="fa-solid fa-clipboard-user" style={{ color: "var(--primary-color)" }}></i>
@@ -206,7 +206,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         </div>
 
         {/* Week Selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", background: "#f8fafc", padding: "0.6rem 1.4rem", borderRadius: "1rem", border: "1px solid #e2e8f0" }}>
+        <div className="attendance-week-selector" style={{ display: "flex", alignItems: "center", gap: "1rem", background: "#f8fafc", padding: "0.6rem 1.4rem", borderRadius: "1rem", border: "1px solid #e2e8f0" }}>
           <label style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)" }}>Meeting Week:</label>
           <select
             value={currentWeek}
@@ -241,30 +241,30 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       )}
 
       {/* Real-time Fine Calculator Engine Dashboard */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1.2rem", marginBottom: "2rem" }}>
-        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
+      <div className="attendance-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1.2rem", marginBottom: "2rem" }}>
+        <div className="attendance-metrics-card" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
           <span style={{ fontSize: "1.2rem", color: "#166534", fontWeight: 600, display: "block" }}>Present</span>
           <strong style={{ fontSize: "2rem", color: "#15803d" }}>{presentCount}</strong>
         </div>
 
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
+        <div className="attendance-metrics-card" style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
           <span style={{ fontSize: "1.2rem", color: "#991b1b", fontWeight: 600, display: "block" }}>Absent</span>
           <strong style={{ fontSize: "2rem", color: "#dc2626" }}>{absentCount}</strong>
         </div>
 
-        <div style={{ background: "#fffbe6", border: "1px solid #ffe58f", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
+        <div className="attendance-metrics-card" style={{ background: "#fffbe6", border: "1px solid #ffe58f", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
           <span style={{ fontSize: "1.2rem", color: "#873800", fontWeight: 600, display: "block" }}>Excused</span>
           <strong style={{ fontSize: "2rem", color: "#d48806" }}>{excusedCount}</strong>
         </div>
 
-        <div style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center", color: "white" }}>
+        <div className="attendance-metrics-card" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center", color: "white" }}>
           <span style={{ fontSize: "1.15rem", color: "#94a3b8", fontWeight: 600, display: "block" }}>Absenteeism Fine</span>
           <strong style={{ fontSize: "1.8rem", color: "#ef4444" }}>Shs {totalFinePool.toLocaleString()}</strong>
         </div>
       </div>
 
       {/* Batch Controls & Filter Search */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.6rem", flexWrap: "wrap" }}>
+      <div className="attendance-batch-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.6rem", flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
           <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "1.2rem", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}></i>
           <input
@@ -276,7 +276,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           />
         </div>
 
-        <div style={{ display: "flex", gap: "0.8rem" }}>
+        <div className="attendance-batch-buttons" style={{ display: "flex", gap: "0.8rem" }}>
           <button
             type="button"
             onClick={() => markAllStatus("present")}
@@ -295,7 +295,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       </div>
 
       {/* Member Attendance List */}
-      <div style={{ maxHeight: "320px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "1.2rem", marginBottom: "2rem" }}>
+      <div style={{ maxHeight: "360px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "1.2rem", marginBottom: "2rem" }}>
         {filteredMembers.length === 0 ? (
           <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", fontSize: "1.3rem" }}>
             No members found matching "{searchQuery}".
@@ -306,6 +306,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             return (
               <div
                 key={member.id}
+                className="attendance-member-row"
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
@@ -316,33 +317,37 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
                   transition: "background 0.2s ease"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
-                  <div style={{
-                    width: "3.6rem",
-                    height: "3.6rem",
-                    borderRadius: "50%",
-                    background: "var(--primary-light)",
-                    color: "var(--primary-color)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                    fontSize: "1.4rem"
-                  }}>
-                    {member.name.charAt(0).toUpperCase()}
+                <div className="attendance-member-info" style={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{
+                      width: "3.6rem",
+                      height: "3.6rem",
+                      borderRadius: "50%",
+                      background: "var(--primary-light)",
+                      color: "var(--primary-color)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: "1.4rem",
+                      flexShrink: 0
+                    }}>
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: "1.4rem", color: "var(--text-dark)", display: "block" }}>{member.name}</strong>
+                      <span style={{ fontSize: "1.2rem", color: "#64748b" }}>{member.memberId || "MEM-000"}</span>
+                    </div>
                   </div>
-                  <div>
-                    <strong style={{ fontSize: "1.4rem", color: "var(--text-dark)", display: "block" }}>{member.name}</strong>
-                    <span style={{ fontSize: "1.2rem", color: "#64748b" }}>{member.memberId || "MEM-000"}</span>
-                  </div>
-                </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
                   {status === "absent" && (
-                    <span style={{ fontSize: "1.2rem", fontWeight: 700, color: "#dc2626", padding: "0.4rem 0.8rem", borderRadius: "0.6rem", background: "#fee2e2" }}>
+                    <span style={{ fontSize: "1.15rem", fontWeight: 700, color: "#dc2626", padding: "0.4rem 0.8rem", borderRadius: "0.6rem", background: "#fee2e2" }}>
                       +Shs 1,000 Fine
                     </span>
                   )}
+                </div>
+
+                <div className="attendance-member-actions" style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
                   <button
                     type="button"
                     onClick={() => toggleMemberStatus(member.id, "present")}

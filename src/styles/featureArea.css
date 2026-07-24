@@ -150,3 +150,75 @@
   background-color: rgba(0, 0, 0, 0.03);
   color: #1e293b;
 }
+
+/* Mobile Responsiveness for WeeklyAttendanceManager (<= 440px) */
+@media (max-width: 440px) {
+  .attendance-engine-card {
+    padding: 1.6rem 1.2rem !important;
+  }
+
+  .attendance-header-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+
+  .attendance-week-selector {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .attendance-metrics-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.8rem !important;
+  }
+
+  .attendance-metrics-card {
+    padding: 1rem 0.8rem !important;
+  }
+
+  .attendance-batch-controls {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1rem !important;
+  }
+
+  .attendance-batch-buttons {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.8rem !important;
+  }
+
+  .attendance-batch-buttons button {
+    padding: 0.8rem 0.6rem !important;
+    font-size: 1.15rem !important;
+    text-align: center !important;
+  }
+
+  .attendance-member-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+    padding: 1.2rem 1rem !important;
+  }
+
+  .attendance-member-info {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .attendance-member-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .attendance-member-actions button {
+    padding: 0.8rem 0.4rem !important;
+    font-size: 1.1rem !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+}
