@@ -407,7 +407,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           width: "100%",
           padding: "1.2rem",
           borderRadius: "1rem",
-          background: "linear-gradient(135deg, #253b8e 0%, #3b82f6 100%)",
+          background: "#253b8e",
           color: "white",
           border: "none",
           fontSize: "1.5rem",

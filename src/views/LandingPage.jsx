@@ -37,7 +37,7 @@ export default function LandingPage() {
             >
               Log In
             </Link>
-            <Link href="/signup" className="nav-cta" style={{ background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%)" }}>
+            <Link href="/signup" className="nav-cta" style={{ background: "var(--primary-color)" }}>
               Sign Up <i className="fa-solid fa-user-plus" style={{ marginLeft: "0.6rem" }}></i>
             </Link>
             <Link 
@@ -754,7 +754,7 @@ export default function LandingPage() {
         <section 
           style={{ 
             padding: "8rem 8%", 
-            background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%)", 
+            background: "var(--primary-color)", 
             textAlign: "center", 
             color: "#ffffff", 
             borderRadius: "var(--border-radius)", 

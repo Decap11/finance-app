@@ -5,7 +5,7 @@ html {
 
 :root {
   --primary-color: #253b8e;
-  --primary-gradient: linear-gradient(135deg, #1e317a 0%, #253b8e 50%, #3b82f6 100%);
+  --primary-gradient: #253b8e;
   --primary-light: #ebf0fe;
   --secondary-color: #f7f9fc;
   --bg-color: #f4f7fc;

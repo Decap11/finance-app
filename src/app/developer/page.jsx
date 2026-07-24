@@ -735,7 +735,7 @@ export default function DeveloperPortal() {
                 <button 
                   onClick={() => setShowProvisionModal(true)} 
                   className="btn-dev-action font-weight-700"
-                  style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "white", border: "none", padding: "0.8rem 1.6rem", borderRadius: "0.8rem", cursor: "pointer", fontWeight: 700 }}
+                  style={{ background: "#2563eb", color: "white", border: "none", padding: "0.8rem 1.6rem", borderRadius: "0.8rem", cursor: "pointer", fontWeight: 700 }}
                 >
                   <i className="fa-solid fa-plus" style={{ marginRight: "0.8rem" }}></i> Provision New SACCO
                 </button>
@@ -882,7 +882,7 @@ export default function DeveloperPortal() {
                     <button 
                       type="submit" 
                       className="btn-dev-action"
-                      style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "white", border: "none", padding: "1rem 2.4rem", borderRadius: "0.8rem", fontWeight: 700, fontSize: "1.4rem", cursor: "pointer" }}
+                      style={{ background: "#2563eb", color: "white", border: "none", padding: "1rem 2.4rem", borderRadius: "0.8rem", fontWeight: 700, fontSize: "1.4rem", cursor: "pointer" }}
                     >
                       <i className="fa-solid fa-paper-plane" style={{ marginRight: "0.8rem" }}></i> Broadcast Notification
                     </button>
@@ -1132,7 +1132,7 @@ export default function DeveloperPortal() {
                 </button>
                 <button 
                   type="submit" 
-                  style={{ padding: "1rem 2rem", borderRadius: "0.8rem", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
+                  style={{ padding: "1rem 2rem", borderRadius: "0.8rem", background: "#2563eb", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
                 >
                   Provision SACCO <i className="fa-solid fa-arrow-right" style={{ marginLeft: "0.6rem" }}></i>
                 </button>
