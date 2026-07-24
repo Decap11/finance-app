@@ -63,15 +63,22 @@ export default function AdminDashboardPage() {
         .order("full_name", { ascending: true });
 
       if (profilesList) {
-        const mappedMembers = profilesList.map((p) => ({
-          id: p.id,
-          name: p.full_name || p.email || "Member",
-          memberId: p.member_number || "MEM-000",
-          phone: p.phone || "",
-          status: p.status || "approved",
-          avatarUrl: p.avatar_url,
-          created_at: p.created_at
-        }));
+        const mappedMembers = profilesList.map((p) => {
+          let statusVal = (p.status || "pending").toLowerCase();
+          if (statusVal === "approved") statusVal = "active";
+          return {
+            id: p.id,
+            name: p.full_name || p.email || "Member",
+            memberId: p.member_number || "MEM-000",
+            phone: p.phone || "N/A",
+            email: p.email || "N/A",
+            joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short" }) : "N/A",
+            role: (p.role || "member").toLowerCase(),
+            status: statusVal,
+            avatarUrl: p.avatar_url,
+            created_at: p.created_at
+          };
+        });
         setAllMembers(mappedMembers);
 
         setMetrics((prev) => ({ ...prev, totalMembers: profilesList.length }));
