@@ -62,10 +62,29 @@ export default function AdminDashboardPage() {
         .ilike("group_id", (profileData.group_id || "").trim())
         .order("full_name", { ascending: true });
 
+      let membershipsMap = {};
+      if (saccoId) {
+        const { data: mems } = await supabase
+          .from("sacco_memberships")
+          .select("profile_id, status, role")
+          .eq("sacco_id", saccoId);
+        
+        if (mems) {
+          mems.forEach(m => {
+            membershipsMap[m.profile_id] = m;
+          });
+        }
+      }
+
       if (profilesList) {
         const mappedMembers = profilesList.map((p) => {
-          let statusVal = (p.status || "pending").toLowerCase();
+          const mem = membershipsMap[p.id];
+          let rawStatus = mem?.status || p.status || "pending";
+          let statusVal = String(rawStatus).trim().toLowerCase();
           if (statusVal === "approved") statusVal = "active";
+          
+          let roleVal = (mem?.role || p.role || "member").toLowerCase();
+
           return {
             id: p.id,
             name: p.full_name || p.email || "Member",
@@ -73,7 +92,7 @@ export default function AdminDashboardPage() {
             phone: p.phone || "N/A",
             email: p.email || "N/A",
             joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short" }) : "N/A",
-            role: (p.role || "member").toLowerCase(),
+            role: roleVal,
             status: statusVal,
             avatarUrl: p.avatar_url,
             created_at: p.created_at

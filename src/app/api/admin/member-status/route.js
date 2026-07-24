@@ -42,22 +42,28 @@ export async function POST(request) {
     }
 
     if (action === 'approve') {
-      const { error: err1 } = await supabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
-      const { error: err2 } = await publicSupabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
-
-      if (err1 && err2) {
-        throw new Error(err2?.message || err1?.message || 'Failed to update member profile status to active');
-      }
-
-      // Also update sacco_memberships table status in PostgreSQL if membership exists
-      try {
-        await supabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', memberId);
-        await publicSupabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', memberId);
-      } catch (mErr) {
-        console.warn('Membership status update warning:', mErr);
-      }
+      await supabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
+      await publicSupabase.from('profiles').update({ status: 'active' }).eq('id', memberId);
 
       if (saccoRow) {
+        const { data: existingMem } = await publicSupabase
+          .from('sacco_memberships')
+          .select('id')
+          .eq('profile_id', memberId)
+          .eq('sacco_id', saccoRow.id)
+          .limit(1);
+
+        if (existingMem && existingMem.length > 0) {
+          await publicSupabase.from('sacco_memberships').update({ status: 'active' }).eq('id', existingMem[0].id);
+        } else {
+          await publicSupabase.from('sacco_memberships').insert({
+            sacco_id: saccoRow.id,
+            profile_id: memberId,
+            role: 'member',
+            status: 'active'
+          });
+        }
+
         await publicSupabase.from('saccos').update({
           updated_at: new Date().toISOString()
         }).eq('id', saccoRow.id);
@@ -67,22 +73,28 @@ export async function POST(request) {
     }
 
     if (action === 'unapprove') {
-      const { error: err1 } = await supabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
-      const { error: err2 } = await publicSupabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
-
-      if (err1 && err2) {
-        throw new Error(err2?.message || err1?.message || 'Failed to update member profile status to pending');
-      }
-
-      // Also update sacco_memberships table status in PostgreSQL if membership exists
-      try {
-        await supabase.from('sacco_memberships').update({ status: 'pending' }).eq('profile_id', memberId);
-        await publicSupabase.from('sacco_memberships').update({ status: 'pending' }).eq('profile_id', memberId);
-      } catch (mErr) {
-        console.warn('Membership status update warning:', mErr);
-      }
+      await supabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
+      await publicSupabase.from('profiles').update({ status: 'pending' }).eq('id', memberId);
 
       if (saccoRow) {
+        const { data: existingMem } = await publicSupabase
+          .from('sacco_memberships')
+          .select('id')
+          .eq('profile_id', memberId)
+          .eq('sacco_id', saccoRow.id)
+          .limit(1);
+
+        if (existingMem && existingMem.length > 0) {
+          await publicSupabase.from('sacco_memberships').update({ status: 'pending' }).eq('id', existingMem[0].id);
+        } else {
+          await publicSupabase.from('sacco_memberships').insert({
+            sacco_id: saccoRow.id,
+            profile_id: memberId,
+            role: 'member',
+            status: 'pending'
+          });
+        }
+
         await publicSupabase.from('saccos').update({
           updated_at: new Date().toISOString()
         }).eq('id', saccoRow.id);
@@ -92,22 +104,28 @@ export async function POST(request) {
     }
 
     if (action === 'make_admin') {
-      const { error: err1 } = await supabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
-      const { error: err2 } = await publicSupabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
-
-      if (err1 && err2) {
-        throw new Error(err2?.message || err1?.message || 'Failed to promote member to admin');
-      }
-
-      // Also update sacco_memberships table role & status in PostgreSQL if membership exists
-      try {
-        await supabase.from('sacco_memberships').update({ role: 'admin', status: 'active' }).eq('profile_id', memberId);
-        await publicSupabase.from('sacco_memberships').update({ role: 'admin', status: 'active' }).eq('profile_id', memberId);
-      } catch (mErr) {
-        console.warn('Membership status update warning:', mErr);
-      }
+      await supabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
+      await publicSupabase.from('profiles').update({ role: 'admin', status: 'active' }).eq('id', memberId);
 
       if (saccoRow) {
+        const { data: existingMem } = await publicSupabase
+          .from('sacco_memberships')
+          .select('id')
+          .eq('profile_id', memberId)
+          .eq('sacco_id', saccoRow.id)
+          .limit(1);
+
+        if (existingMem && existingMem.length > 0) {
+          await publicSupabase.from('sacco_memberships').update({ role: 'admin', status: 'active' }).eq('id', existingMem[0].id);
+        } else {
+          await publicSupabase.from('sacco_memberships').insert({
+            sacco_id: saccoRow.id,
+            profile_id: memberId,
+            role: 'admin',
+            status: 'active'
+          });
+        }
+
         await publicSupabase.from('saccos').update({
           updated_at: new Date().toISOString()
         }).eq('id', saccoRow.id);
