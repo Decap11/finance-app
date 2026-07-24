@@ -197,6 +197,7 @@ export default function UserRecentTransactions() {
                   if (displayType === "savings") displayType = "Savings";
                   if (displayType === "loan_disbursement") displayType = "Loan";
                   if (displayType === "loan_repayment") displayType = "Loan Repayment";
+                  if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Fines & Penalties";
 
                   const isApproved = transaction.status === "completed" || transaction.status === "approved";
                   const isPending = transaction.status === "pending";

@@ -14,7 +14,8 @@ function TransactionTypeBadge({ type }) {
     Development: { color: "#10b981", backgroundColor: "#10b9811a" },
     "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
-    Savings: { color: "#2563eb", backgroundColor: "#dbeafe" }
+    Savings: { color: "#2563eb", backgroundColor: "#dbeafe" },
+    "Fines & Penalties": { color: "#dc2626", backgroundColor: "#fee2e2" }
   };
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
   const currentStyle = typeStyles[type] || defaultStyle;
@@ -105,6 +106,7 @@ function TransactionsList() {
     if (activeFilter === "shares") return cat === "shares";
     if (activeFilter === "development_fund") return cat === "development_fund" || cat === "devt" || cat === "devt_fund";
     if (activeFilter === "social_fund") return cat === "social_fund" || cat === "social";
+    if (activeFilter === "fines") return cat === "fines" || cat === "fine" || cat === "penalty" || cat === "absenteeism";
     if (activeFilter === "loan_disbursement") return cat === "loan_disbursement" || cat === "loan";
     return true;
   });
@@ -114,6 +116,7 @@ function TransactionsList() {
     { id: "shares", label: "Shares", icon: "fa-solid fa-chart-pie" },
     { id: "development_fund", label: "Development Fund", icon: "fa-solid fa-seedling" },
     { id: "social_fund", label: "Social Fund", icon: "fa-solid fa-handshake-angle" },
+    { id: "fines", label: "Fines & Penalties", icon: "fa-solid fa-gavel" },
     { id: "loan_disbursement", label: "Loans", icon: "fa-solid fa-hand-holding-dollar" },
   ];
 
@@ -261,6 +264,7 @@ function TransactionsList() {
                     if (displayType === "shares") displayType = "Shares";
                     if (displayType === "savings") displayType = "Savings";
                     if (displayType === "loan_disbursement" || displayType === "loan") displayType = "Loan Request";
+                    if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Fines & Penalties";
 
                     return (
                       <tr key={transaction.id}>
