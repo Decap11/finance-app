@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import Header from "../Components/Header.jsx";
 import ActionCards from "../Components/ActionCard.jsx";
 import ContributionApprovals from "../Components/ContributionApprovals.jsx";
-import QuickMemberManagement from "../Components/QuickMemberManagement.jsx";
+import WeeklyAttendanceManager from "../Components/WeeklyAttendanceManager.jsx";
 import ManualContributionLog from "../Components/manualContributionlog.jsx";
 import BroadcastMessageWidget from "../Components/BroadcastMessageWidget.jsx";
 import AdminLayout from "../layout/AdminLayout.jsx";
@@ -348,7 +348,7 @@ export default function AdminDashboardPage() {
                 <ContributionApprovals limit={7} showViewAll={true} mode="pending" />
               </div>
               <div className="features-area">
-                <QuickMemberManagement />
+                <WeeklyAttendanceManager allMembers={allMembers} />
                 <ManualContributionLog allMembers={allMembers} />
                 <BroadcastMessageWidget />
               </div>
