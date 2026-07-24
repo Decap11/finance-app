@@ -21,6 +21,9 @@ export default function AdminDashboardPage() {
     totalCapital: 0,
     totalMembers: 0,
     activeLoansTotal: 0,
+    finesProfit: 0,
+    interestProfit: 0,
+    grossProfit: 0
   });
 
   useEffect(() => {
@@ -45,38 +48,31 @@ export default function AdminDashboardPage() {
       const { data: saccoData } = await supabase
         .from("saccos")
         .select("id")
-        .eq("group_code", profileData.group_id)
-        .limit(1)
-        .single();
+        .ilike("group_code", (profileData.group_id || "").trim())
+        .limit(1);
 
-      if (!saccoData) return;
-      saccoId = saccoData.id;
+      if (saccoData && saccoData.length > 0) {
+        saccoId = saccoData[0].id;
+      }
 
-      // Fetch all members in this SACCO group directly from profiles sharing the same group_id
+      // 3. Fetch all members belonging to this sacco
       const { data: profilesList } = await supabase
         .from("profiles")
         .select("*")
-        .eq("group_id", profileData.group_id);
+        .ilike("group_id", (profileData.group_id || "").trim())
+        .order("full_name", { ascending: true });
 
       if (profilesList) {
-        setAllMembers(
-          profilesList.map((m) => {
-            const isCurrentUser = String(m.id).toLowerCase() === String(user.id).toLowerCase();
-            const localAvatar = typeof window !== "undefined" ? (localStorage.getItem(`sacco_avatar_${m.id}`) || (isCurrentUser ? localStorage.getItem(`sacco_avatar_${user.id}`) : null)) : null;
-            const avatarUrl = m.avatar_url || m.avatarUrl || m.avatar || localAvatar || "";
-            return {
-              id: m.id,
-              name: m.full_name || "Unknown",
-              memberId: m.member_number || "",
-              phone: m.phone || "N/A",
-              email: m.email || "N/A",
-              joinedDate: m.created_at ? new Date(m.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "N/A",
-              role: m.role || "member",
-              status: m.status ? m.status.toLowerCase() : "active",
-              avatarUrl: avatarUrl,
-            };
-          }),
-        );
+        const mappedMembers = profilesList.map((p) => ({
+          id: p.id,
+          name: p.full_name || p.email || "Member",
+          memberId: p.member_number || "MEM-000",
+          phone: p.phone || "",
+          status: p.status || "approved",
+          avatarUrl: p.avatar_url,
+          created_at: p.created_at
+        }));
+        setAllMembers(mappedMembers);
 
         setMetrics((prev) => ({ ...prev, totalMembers: profilesList.length }));
       }
@@ -117,11 +113,46 @@ export default function AdminDashboardPage() {
         calculatedLoans = activeLoans.reduce((sum, loan) => sum + (Number(loan.outstanding_balance) || 0), 0);
       }
 
+      // 4. Fetch Fines & Penalties Revenue
+      const { data: finesTxs } = await supabase
+        .from("transactions")
+        .select("amount, direction")
+        .eq("sacco_id", saccoId)
+        .in("category", ["fines", "fine", "penalty", "absenteeism"])
+        .in("status", ["completed", "approved"]);
+
+      let calculatedFinesProfit = 0;
+      if (finesTxs && finesTxs.length > 0) {
+        calculatedFinesProfit = finesTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+      }
+
+      // 5. Fetch Loan Interest Yield
+      const { data: allLoans } = await supabase
+        .from("loans")
+        .select("amount, interest_rate, term_months")
+        .eq("sacco_id", saccoId)
+        .in("status", ["issued", "active", "completed", "repaid"]);
+
+      let calculatedInterestProfit = 0;
+      if (allLoans && allLoans.length > 0) {
+        calculatedInterestProfit = allLoans.reduce((sum, loan) => {
+          const principal = Number(loan.amount) || 0;
+          const rate = Number(loan.interest_rate) || 5;
+          const months = Number(loan.term_months) || 1;
+          return sum + (principal * (rate / 100) * months);
+        }, 0);
+      }
+
+      const calculatedGrossProfit = calculatedFinesProfit + calculatedInterestProfit;
+
       setMetrics((prev) => ({
         ...prev,
         pendingApprovals: pendingCount || 0,
         totalCapital: calculatedCapital,
         activeLoansTotal: calculatedLoans,
+        finesProfit: calculatedFinesProfit,
+        interestProfit: calculatedInterestProfit,
+        grossProfit: calculatedGrossProfit
       }));
     }
 
@@ -341,6 +372,36 @@ export default function AdminDashboardPage() {
                   subInfo={card.subInfo}
                 />
               ))}
+
+              {/* Gross SACCO Profit Card with Source Breakdown & Emphasized Total */}
+              <div className="card card-gross-profit" style={{ borderLeft: "4px solid #10b981", background: "white", display: "flex", flexDirection: "column" }}>
+                <div className="card-header" style={{ marginBottom: "0.8rem" }}>
+                  <span className="card-title" style={{ fontWeight: 700, color: "var(--text-dark)", fontSize: "1.5rem" }}>Gross SACCO Profit</span>
+                  <div className="card-icon" style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "#10b981", width: "4rem", height: "4rem", borderRadius: "1rem" }}>
+                    <i className="fa-solid fa-chart-line" style={{ fontSize: "1.8rem" }}></i>
+                  </div>
+                </div>
+
+                {/* Categorized Sources Breakdown */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "1rem", fontSize: "1.2rem", color: "#64748b" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span><i className="fa-solid fa-gavel" style={{ color: "#ef4444", marginRight: "0.4rem" }}></i> Fines & Absenteeism:</span>
+                    <strong style={{ color: "#ef4444" }}>Shs {metrics.finesProfit.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span><i className="fa-solid fa-percent" style={{ color: "#253b8e", marginRight: "0.4rem" }}></i> Loan Interest Yield:</span>
+                    <strong style={{ color: "#253b8e" }}>Shs {metrics.interestProfit.toLocaleString()}</strong>
+                  </div>
+                </div>
+
+                {/* Aggregated Total with Maximum Emphasis */}
+                <div style={{ marginTop: "auto", paddingTop: "0.8rem", borderTop: "1px dashed #e2e8f0" }}>
+                  <span style={{ fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "0.05rem", fontWeight: 800, color: "#10b981" }}>Total Gross Revenue</span>
+                  <div style={{ fontSize: "2.4rem", fontWeight: 900, color: "#065f46", letterSpacing: "-0.05rem", marginTop: "0.1rem" }}>
+                    Shs {metrics.grossProfit.toLocaleString()}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="main-content-row">
