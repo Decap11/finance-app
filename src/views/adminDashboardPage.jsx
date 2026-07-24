@@ -411,7 +411,7 @@ export default function AdminDashboardPage() {
                         width: "5.5rem",
                         height: "5.5rem",
                         borderRadius: "50%",
-                        background: "var(--primary-color)",
+                        background: "linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%)",
                         color: "white",
                         display: "flex",
                         alignItems: "center",

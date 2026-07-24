@@ -361,7 +361,7 @@ export default function Settings({ isAdminView = false }) {
                       width: "100%",
                       height: "100%",
                       borderRadius: "50%",
-                      background: "var(--primary-color)",
+                      background: "linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%)",
                       color: "white",
                       display: "flex",
                       alignItems: "center",
