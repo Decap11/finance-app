@@ -326,28 +326,36 @@ export default function AdminDashboardPage() {
   const quickActionsCardsData = [
     {
       title: "Pending Approvals",
-      color: "rgba(248, 113, 113, 0.25)",
+      borderColor: "#ef4444",
+      bgColor: "#fef2f2",
+      iconColor: "#ef4444",
       info: `${metrics.pendingApprovals} Requests`,
-      icon: "fa-solid fa-clock",
+      icon: "fa-solid fa-file-signature",
       subInfo: "Requires Immediate Action",
     },
     {
       title: "Total SACCO Capital",
-      color: "rgba(245, 158, 11, 0.25)",
+      borderColor: "#f59e0b",
+      bgColor: "#fffbe6",
+      iconColor: "#d97706",
       info: `Shs ${metrics.totalCapital.toLocaleString()}`,
-      icon: "fa-solid fa-coins",
+      icon: "fa-solid fa-vault",
       subInfo: "Aggregate across all accounts",
     },
     {
       title: "Total Members",
-      color: "rgba(16, 185, 129, 0.25)",
+      borderColor: "#10b981",
+      bgColor: "#f0fdf4",
+      iconColor: "#10b981",
       info: `${metrics.totalMembers}`,
-      icon: "fa-solid fa-users",
+      icon: "fa-solid fa-users-rectangle",
       subInfo: "Registered users in this SACCO",
     },
     {
-      title: "Active Loans issued",
-      color: "rgba(59, 130, 246, 0.25)",
+      title: "Active Loans Issued",
+      borderColor: "#2563eb",
+      bgColor: "#eff6ff",
+      iconColor: "#2563eb",
       info: `Shs ${metrics.activeLoansTotal.toLocaleString()}`,
       icon: "fa-solid fa-hand-holding-dollar",
       subInfo: "Total outstanding balances",
@@ -366,7 +374,9 @@ export default function AdminDashboardPage() {
                 <ActionCards
                   key={card.title}
                   title={card.title}
-                  color={card.color}
+                  borderColor={card.borderColor}
+                  bgColor={card.bgColor}
+                  iconColor={card.iconColor}
                   icon={card.icon}
                   info={card.info}
                   subInfo={card.subInfo}
