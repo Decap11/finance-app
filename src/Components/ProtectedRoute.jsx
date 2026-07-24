@@ -27,7 +27,7 @@ export default function ProtectedRoute({ children }) {
 
       const userRole = (profile?.role || '').toLowerCase();
       const rawStatus = profile?.status;
-      const userStatus = rawStatus ? String(rawStatus).trim().toLowerCase() : 'active';
+      const userStatus = rawStatus ? String(rawStatus).trim().toLowerCase() : 'pending';
 
       // Admin or Super Admin bypass
       if (userRole === 'admin' || userRole === 'super_admin') {
@@ -37,10 +37,10 @@ export default function ProtectedRoute({ children }) {
       }
 
       // STRICT MEMBERSHIP ACCESS CONTROL:
-      // Only members whose status is 'active' or 'approved' get access to the dashboard.
-      // If status is 'pending', 'unapproved', 'suspended', or 'rejected', access IS DENIED!
+      // Only members whose status is explicitly 'active' or 'approved' get access to member dashboards.
+      // If status is 'pending', 'unapproved', 'suspended', 'rejected', or null/undefined, access IS LOCKED!
       if (userStatus === 'approved' || userStatus === 'active') {
-        // Auto-sync status to 'active' in BOTH profiles AND sacco_memberships tables using member's own session token!
+        // Self-sync status to 'active' in BOTH profiles AND sacco_memberships tables
         try {
           await supabase.from('profiles').update({ status: 'active' }).eq('id', userSession.user.id);
           await supabase.from('sacco_memberships').update({ status: 'active' }).eq('profile_id', userSession.user.id);
@@ -53,7 +53,7 @@ export default function ProtectedRoute({ children }) {
       }
     } catch (err) {
       console.warn("Error verifying profile status:", err);
-      setProfileStatus("active"); // Fallback to avoid blocking on transient errors
+      setProfileStatus("pending"); // Strict security fallback: lock dashboard on error
     } finally {
       setLoading(false);
     }
