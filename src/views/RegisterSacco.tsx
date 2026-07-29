@@ -30,6 +30,21 @@ export default function RegisterSacco() {
     element.classList.toggle("fa-eye-slash");
   }
 
+  function formatError(err: any): string {
+    if (!err) return "An unexpected error occurred.";
+    if (typeof err === "string" && err.trim() !== "" && err !== "{}") return err;
+    if (err.message && typeof err.message === "string" && err.message.trim() !== "" && err.message !== "{}") {
+      return err.message;
+    }
+    if (err.details && typeof err.details === "string") return err.details;
+    if (err.hint && typeof err.hint === "string") return err.hint;
+    if (err.error_description && typeof err.error_description === "string") return err.error_description;
+    
+    const str = JSON.stringify(err);
+    if (str && str !== "{}") return str;
+    return "Unable to connect to Supabase. Please verify your internet connection and Vercel Environment Variables (NEXT_PUBLIC_SUPABASE_URL).";
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!fullName || !phone || !email || !password || !memberId || !saccoName || !saccoUniqueNumber) return;
@@ -62,12 +77,13 @@ export default function RegisterSacco() {
     });
 
     if (authError) {
-      let friendlyMsg = authError.message;
-      if (authError.message.toLowerCase().includes("already registered")) {
+      const rawMsg = formatError(authError);
+      let friendlyMsg = rawMsg;
+      if (rawMsg.toLowerCase().includes("already registered")) {
         friendlyMsg = "This email is already registered. Please log in or use a different email.";
-      } else if (authError.message.toLowerCase().includes("password")) {
+      } else if (rawMsg.toLowerCase().includes("password")) {
         friendlyMsg = "Password must be at least 8 characters long.";
-      } else if (authError.message.toLowerCase().includes("invalid email")) {
+      } else if (rawMsg.toLowerCase().includes("invalid email")) {
         friendlyMsg = "Please enter a valid email address.";
       }
       setErrorMsg(friendlyMsg);
@@ -82,23 +98,27 @@ export default function RegisterSacco() {
     }
 
     // 2. Ensure admin profile exists in public.profiles
-    const { data: existingProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", authData.user.id)
-      .maybeSingle();
+    try {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", authData.user.id)
+        .maybeSingle();
 
-    if (!existingProfile) {
-      await supabase.from("profiles").upsert({
-        id: authData.user.id,
-        full_name: fullName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        member_number: adminMemberNumber,
-        group_id: generatedGroupCode,
-        role: "admin",
-        status: "active"
-      }, { onConflict: "id" });
+      if (!existingProfile) {
+        await supabase.from("profiles").upsert({
+          id: authData.user.id,
+          full_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          member_number: adminMemberNumber,
+          group_id: generatedGroupCode,
+          role: "admin",
+          status: "active"
+        }, { onConflict: "id" });
+      }
+    } catch (e) {
+      console.warn("Profile pre-check failed, continuing to RPC:", e);
     }
 
     // 3. Call the RPC to create the SACCO and link the admin atomically
@@ -112,12 +132,13 @@ export default function RegisterSacco() {
     setIsLoading(false);
 
     if (rpcError) {
-      let friendlyMsg = rpcError.message;
-      if (rpcError.message.includes("already exists")) {
+      const rawMsg = formatError(rpcError);
+      let friendlyMsg = rawMsg;
+      if (rawMsg.includes("already exists")) {
         friendlyMsg = "A SACCO with this unique number already exists. Please choose a different unique code.";
-      } else if (rpcError.message.includes("violates foreign key constraint")) {
+      } else if (rawMsg.includes("violates foreign key constraint")) {
         friendlyMsg = "Admin profile creation is still processing in the database. Please click 'Register SACCO' again.";
-      } else if (rpcError.message.includes("profile not found")) {
+      } else if (rawMsg.includes("profile not found")) {
         friendlyMsg = "Your account was created but SACCO setup took too long. Please log in and try registering your SACCO again.";
       }
       setErrorMsg("SACCO Registration Failed: " + friendlyMsg);
