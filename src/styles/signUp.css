@@ -268,30 +268,49 @@ body {
 @media (max-width: 48rem) {
   .auth-container {
     max-width: 95vw;
-    padding: 2rem 0.8rem;
+    padding: 3rem 2rem;
     min-width: 0;
   }
   .auth-title {
-    font-size: 2.1rem;
+    font-size: 2.4rem;
   }
 }
 
-@media (max-width: 30rem) {
+@media (max-width: 440px) {
   .auth-container {
-    max-width: 100vw;
-    padding: 0.5rem 0.2rem;
-    border-radius: 0.7rem;
-    box-shadow: none;
+    max-width: 96vw;
+    padding: 3.2rem 2.2rem !important;
+    border-radius: 1.6rem;
   }
   .auth-title {
-    font-size: 1.5rem;
+    font-size: 3.4rem !important; /* ~16px with html 48% root font */
   }
-  .auth-logo {
-    width: 4rem;
+  .auth-subtitle {
+    font-size: 2.2rem !important;
+  }
+  .form-label {
+    font-size: 2.1rem !important;
+  }
+  .form-input {
+    padding: 2.2rem 2rem 2.2rem 6.5rem !important;
+    font-size: 2.4rem !important;
+    border-radius: 1.4rem;
+  }
+  .form-icon {
+    font-size: 2.4rem !important;
+    left: 2rem !important;
+  }
+  .pwd-toggle {
+    font-size: 2.4rem !important;
+    right: 2rem !important;
   }
   .btn-submit {
-    font-size: 1.1rem;
-    padding: 1rem;
+    font-size: 2.5rem !important;
+    padding: 2.2rem !important;
+    border-radius: 1.4rem;
+  }
+  .auth-footer {
+    font-size: 2.2rem !important;
   }
 }
 
