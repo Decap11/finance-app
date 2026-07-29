@@ -1,6 +1,18 @@
--- SQL Migration: sacco_settings table for persistent SACCO Configuration Settings
--- Run this in your Supabase SQL Editor if sacco_settings table does not exist yet.
+-- ==============================================================================
+-- Idempotent SQL Migration for SACCO Settings Persistence
+-- Copy & Run this script in your Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/_/sql/new
+-- ==============================================================================
 
+-- 1. Add settings columns to public.saccos table if missing
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS share_price NUMERIC(15, 2) DEFAULT 25000.00;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS devt_fund NUMERIC(15, 2) DEFAULT 1000.00;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS social_fund NUMERIC(15, 2) DEFAULT 2000.00;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS current_week INTEGER DEFAULT 1;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS meeting_day TEXT DEFAULT 'Wednesday';
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+
+-- 2. Create public.sacco_settings table
 CREATE TABLE IF NOT EXISTS public.sacco_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_code TEXT UNIQUE NOT NULL,
@@ -15,15 +27,14 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Enable RLS on sacco_settings
+-- 3. Enable Row Level Security (RLS)
 ALTER TABLE public.sacco_settings ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated users and anonymous readers to view settings
+-- 4. Create RLS Policies
 DROP POLICY IF EXISTS "Anyone can view sacco settings" ON public.sacco_settings;
 CREATE POLICY "Anyone can view sacco settings" ON public.sacco_settings
   FOR SELECT USING (true);
 
--- Allow authenticated admins to insert/update settings
 DROP POLICY IF EXISTS "Admins can update sacco settings" ON public.sacco_settings;
 CREATE POLICY "Admins can update sacco settings" ON public.sacco_settings
   FOR ALL USING (true);

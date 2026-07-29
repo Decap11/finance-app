@@ -21,13 +21,13 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
     
     // 1. Try querying sacco_settings table first by group_code
     try {
-      const { data: setRow } = await supabase
+      const { data: setRow, error: setErr } = await supabase
         .from('sacco_settings')
         .select('*')
         .ilike('group_code', targetGroupCode)
         .maybeSingle();
 
-      if (setRow) {
+      if (setRow && !setErr) {
         return {
           sharePrice: Number(setRow.share_price) || 25000,
           devtFund: Number(setRow.devt_fund) || 1000,
@@ -44,13 +44,13 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
 
     // 2. Try querying saccos table
     try {
-      const { data: saccoRow } = await supabase
+      const { data: saccoRow, error: saccoErr } = await supabase
         .from('saccos')
         .select('*')
         .ilike('group_code', targetGroupCode)
         .maybeSingle();
 
-      if (saccoRow && (saccoRow.share_price !== undefined || saccoRow.current_week !== undefined)) {
+      if (saccoRow && !saccoErr && (saccoRow.share_price !== undefined || saccoRow.current_week !== undefined)) {
         return {
           sharePrice: Number(saccoRow.share_price) || 25000,
           devtFund: Number(saccoRow.devt_fund) || 1000,
@@ -68,14 +68,14 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
 
   // 3. Try reading latest record from sacco_settings table if no groupCode provided
   try {
-    const { data: latestRow } = await supabase
+    const { data: latestRow, error: latestErr } = await supabase
       .from('sacco_settings')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (latestRow) {
+    if (latestRow && !latestErr) {
       return {
         sharePrice: Number(latestRow.share_price) || 25000,
         devtFund: Number(latestRow.devt_fund) || 1000,
@@ -158,7 +158,7 @@ export async function POST(request) {
 
     const userRole = profile?.role || user.user_metadata?.role;
     
-    // Also check if user is sacco founder/admin
+    // Check if user is sacco founder/admin
     const { data: saccoAdmin } = await supabaseAdmin
       .from('saccos')
       .select('id, group_code')
@@ -187,49 +187,55 @@ export async function POST(request) {
       groupCode
     };
 
-    // 1. Try Upserting into sacco_settings table in Supabase
-    try {
-      await supabaseAdmin.from('sacco_settings').upsert({
-        group_code: groupCode,
-        sacco_id: saccoId,
-        share_price: newSettings.sharePrice,
-        devt_fund: newSettings.devtFund,
-        social_fund: newSettings.socialFund,
-        current_week: newSettings.currentWeek,
-        meeting_day: newSettings.meetingDay,
-        is_locked: newSettings.isLocked,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'group_code' });
-    } catch (e) {
-      console.warn("sacco_settings upsert warning:", e.message);
+    let dbErrors = [];
+
+    // 1. Upsert into sacco_settings table in Supabase
+    const { error: setErr } = await supabaseAdmin.from('sacco_settings').upsert({
+      group_code: groupCode,
+      sacco_id: saccoId,
+      share_price: newSettings.sharePrice,
+      devt_fund: newSettings.devtFund,
+      social_fund: newSettings.socialFund,
+      current_week: newSettings.currentWeek,
+      meeting_day: newSettings.meetingDay,
+      is_locked: newSettings.isLocked,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'group_code' });
+
+    if (setErr) {
+      console.error("sacco_settings upsert error:", setErr.message);
+      dbErrors.push(`sacco_settings: ${setErr.message}`);
     }
 
-    // 2. Try Updating saccos table if saccoId exists
-    if (saccoId) {
-      try {
-        await supabaseAdmin.from('saccos').update({
-          share_price: newSettings.sharePrice,
-          devt_fund: newSettings.devtFund,
-          social_fund: newSettings.socialFund,
-          current_week: newSettings.currentWeek,
-          meeting_day: newSettings.meetingDay,
-          is_locked: newSettings.isLocked,
-          updated_at: new Date().toISOString()
-        }).eq('id', saccoId);
-      } catch (e) {
-        console.warn("saccos table update warning:", e.message);
-      }
+    // 2. Update saccos table if saccoId exists or by group_code
+    const { error: saccoErr } = await supabaseAdmin.from('saccos').update({
+      share_price: newSettings.sharePrice,
+      devt_fund: newSettings.devtFund,
+      social_fund: newSettings.socialFund,
+      current_week: newSettings.currentWeek,
+      meeting_day: newSettings.meetingDay,
+      is_locked: newSettings.isLocked,
+      updated_at: new Date().toISOString()
+    }).ilike('group_code', groupCode);
+
+    if (saccoErr) {
+      console.error("saccos table update error:", saccoErr.message);
+      dbErrors.push(`saccos: ${saccoErr.message}`);
     }
 
-    // 3. Fallback write to local file (for local dev environments)
+    // 3. Local file fallback for dev environments
     try {
       const filePath = getFilePath();
       await fs.writeFile(filePath, JSON.stringify(newSettings, null, 2), 'utf8');
     } catch (e) {
-      // ignore on serverless environments like Vercel where fs is read-only
+      // ignore
     }
 
-    return Response.json({ success: true, settings: newSettings });
+    return Response.json({
+      success: true,
+      settings: newSettings,
+      dbWarning: dbErrors.length > 0 ? dbErrors.join("; ") : null
+    });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

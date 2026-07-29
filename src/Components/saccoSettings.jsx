@@ -364,6 +364,14 @@ export default function SaccoSettings() {
         data = {};
       }
 
+      if (!res.ok && data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.dbWarning) {
+        console.warn("DB Warning from /api/sacco-settings:", data.dbWarning);
+      }
+
       setMessage("Settings saved successfully!");
       const updatedConf = data.settings || settings;
       setSettings(updatedConf);
@@ -371,7 +379,7 @@ export default function SaccoSettings() {
         localStorage.setItem("sacco_settings_cache", JSON.stringify(updatedConf));
         window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: updatedConf }));
       }
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 4000);
     } catch (err) {
       setMessage(`Error: ${err.message}`);
     }
