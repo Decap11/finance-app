@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Idempotent SQL Migration for SACCO Settings Persistence
+-- Idempotent SQL Migration for SACCO Settings Persistence & Onboarding Week
 -- Copy & Run this script in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/_/sql/new
 -- ==============================================================================
@@ -11,6 +11,8 @@ ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS social_fund NUMERIC(15, 2) DE
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS current_week INTEGER DEFAULT 1;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS meeting_day TEXT DEFAULT 'Wednesday';
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
 
 -- 2. Create public.sacco_settings table
 CREATE TABLE IF NOT EXISTS public.sacco_settings (
@@ -23,9 +25,15 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
   current_week INTEGER NOT NULL DEFAULT 1,
   meeting_day TEXT NOT NULL DEFAULT 'Wednesday',
   is_locked BOOLEAN NOT NULL DEFAULT false,
+  is_historical_mode BOOLEAN NOT NULL DEFAULT false,
+  onboarding_date TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ensure columns exist if table was created previously
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
 
 -- 3. Enable Row Level Security (RLS)
 ALTER TABLE public.sacco_settings ENABLE ROW LEVEL SECURITY;

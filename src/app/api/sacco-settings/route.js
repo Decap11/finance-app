@@ -10,6 +10,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 
 const getFilePath = () => path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
 
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 // Helper to query settings from Supabase sacco_settings / saccos table
 export async function getActiveSaccoSettings(groupCodeInput = null) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -35,6 +37,8 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
           currentWeek: Number(setRow.current_week) || 1,
           meetingDay: setRow.meeting_day || 'Wednesday',
           isLocked: Boolean(setRow.is_locked),
+          isHistoricalMode: Boolean(setRow.is_historical_mode),
+          onboardingDate: setRow.onboarding_date || setRow.created_at || new Date().toISOString(),
           groupCode: setRow.group_code
         };
       }
@@ -50,14 +54,39 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         .ilike('group_code', targetGroupCode)
         .maybeSingle();
 
-      if (saccoRow && !saccoErr && (saccoRow.share_price !== undefined || saccoRow.current_week !== undefined)) {
+      if (saccoRow && !saccoErr) {
+        const onboardingDayName = saccoRow.created_at ? DAYS[new Date(saccoRow.created_at).getDay()] : 'Wednesday';
+        const defaultMeetingDay = saccoRow.meeting_day || onboardingDayName;
+        const initialWeek = saccoRow.current_week || 1;
+
+        // Auto-seed sacco_settings entry for this sacco
+        try {
+          await supabase.from('sacco_settings').upsert({
+            group_code: targetGroupCode,
+            sacco_id: saccoRow.id,
+            share_price: Number(saccoRow.share_price) || 25000,
+            devt_fund: Number(saccoRow.devt_fund) || 1000,
+            social_fund: Number(saccoRow.social_fund) || 2000,
+            current_week: initialWeek,
+            meeting_day: defaultMeetingDay,
+            is_locked: Boolean(saccoRow.is_locked),
+            is_historical_mode: false,
+            onboarding_date: saccoRow.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'group_code' });
+        } catch (e) {
+          // ignore
+        }
+
         return {
           sharePrice: Number(saccoRow.share_price) || 25000,
           devtFund: Number(saccoRow.devt_fund) || 1000,
           socialFund: Number(saccoRow.social_fund) || 2000,
-          currentWeek: Number(saccoRow.current_week) || 1,
-          meetingDay: saccoRow.meeting_day || 'Wednesday',
+          currentWeek: initialWeek,
+          meetingDay: defaultMeetingDay,
           isLocked: Boolean(saccoRow.is_locked),
+          isHistoricalMode: Boolean(saccoRow.is_historical_mode),
+          onboardingDate: saccoRow.created_at || new Date().toISOString(),
           groupCode: saccoRow.group_code
         };
       }
@@ -83,6 +112,8 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         currentWeek: Number(latestRow.current_week) || 1,
         meetingDay: latestRow.meeting_day || 'Wednesday',
         isLocked: Boolean(latestRow.is_locked),
+        isHistoricalMode: Boolean(latestRow.is_historical_mode),
+        onboardingDate: latestRow.onboarding_date || latestRow.created_at || new Date().toISOString(),
         groupCode: latestRow.group_code
       };
     }
@@ -105,8 +136,10 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
     devtFund: 1000,
     socialFund: 2000,
     currentWeek: 1,
-    meetingDay: 'Wednesday',
-    isLocked: false
+    meetingDay: DAYS[new Date().getDay()],
+    isLocked: false,
+    isHistoricalMode: false,
+    onboardingDate: new Date().toISOString()
   };
 }
 
@@ -124,7 +157,8 @@ export async function GET(request) {
       socialFund: 2000,
       currentWeek: 1,
       meetingDay: 'Wednesday',
-      isLocked: false
+      isLocked: false,
+      isHistoricalMode: false
     });
   }
 }
@@ -161,7 +195,7 @@ export async function POST(request) {
     // Check if user is sacco founder/admin
     const { data: saccoAdmin } = await supabaseAdmin
       .from('saccos')
-      .select('id, group_code')
+      .select('id, group_code, created_at')
       .eq('admin_profile_id', user.id)
       .limit(1);
 
@@ -172,18 +206,30 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { sharePrice, devtFund, socialFund, currentWeek, meetingDay, isLocked, groupCode: inputGroupCode } = body;
+    const {
+      sharePrice,
+      devtFund,
+      socialFund,
+      currentWeek,
+      meetingDay,
+      isLocked,
+      isHistoricalMode,
+      groupCode: inputGroupCode
+    } = body;
 
     const groupCode = (inputGroupCode || saccoAdmin?.[0]?.group_code || profile?.group_id || 'DEFAULT').toUpperCase().trim();
     const saccoId = saccoAdmin?.[0]?.id || null;
+
+    const onboardingDay = saccoAdmin?.[0]?.created_at ? DAYS[new Date(saccoAdmin[0].created_at).getDay()] : DAYS[new Date().getDay()];
 
     const newSettings = {
       sharePrice: Number(sharePrice) || 25000,
       devtFund: Number(devtFund) || 1000,
       socialFund: Number(socialFund) || 2000,
       currentWeek: Number(currentWeek) || 1,
-      meetingDay: meetingDay ? meetingDay.trim() : 'Wednesday',
+      meetingDay: meetingDay ? meetingDay.trim() : onboardingDay,
       isLocked: Boolean(isLocked),
+      isHistoricalMode: Boolean(isHistoricalMode),
       groupCode
     };
 
@@ -199,6 +245,7 @@ export async function POST(request) {
       current_week: newSettings.currentWeek,
       meeting_day: newSettings.meetingDay,
       is_locked: newSettings.isLocked,
+      is_historical_mode: newSettings.isHistoricalMode,
       updated_at: new Date().toISOString()
     }, { onConflict: 'group_code' });
 
@@ -215,6 +262,7 @@ export async function POST(request) {
       current_week: newSettings.currentWeek,
       meeting_day: newSettings.meetingDay,
       is_locked: newSettings.isLocked,
+      is_historical_mode: newSettings.isHistoricalMode,
       updated_at: new Date().toISOString()
     }).ilike('group_code', groupCode);
 

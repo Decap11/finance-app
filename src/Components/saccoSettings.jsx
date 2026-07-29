@@ -570,7 +570,28 @@ export default function SaccoSettings() {
           </label>
         </div>
 
-        <button type="submit" disabled={loadingSettings} className="btn-save-settings">
+        <div className="toggle-group">
+          <div className="toggle-info">
+            <span className="toggle-label">Historical Onboarding Mode (Legacy Past Weeks)</span>
+            <span className="toggle-desc">Enable if you need to manually enter past week records for members prior to app onboarding.</span>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              name="isHistoricalMode"
+              checked={Boolean(settings.isHistoricalMode)}
+              onChange={(e) => setSettings((prev) => ({ ...prev, isHistoricalMode: e.target.checked }))}
+            />
+            <span className="slider round"></span>
+          </label>
+        </div>
+
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "1rem 1.4rem", borderRadius: "0.8rem", marginTop: "1.5rem", fontSize: "1.25rem", color: "#166534" }}>
+          <i className="fa-solid fa-calendar-check" style={{ marginRight: "0.8rem" }}></i>
+          <strong>Onboarding Week 1 Active:</strong> Week 1 begins on the day your SACCO onboarded ({settings.meetingDay || "Wednesday"}). Historical mode allows past weeks (Week 1, Week 2...) manual entry.
+        </div>
+
+        <button type="submit" disabled={loadingSettings} className="btn-save-settings" style={{ marginTop: "1.5rem" }}>
           Save Configurations
         </button>
       </form>
