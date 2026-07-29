@@ -34,7 +34,18 @@ export default function WeeklyContributions() {
         const { data: { session } } = await supabase.auth.getSession();
         const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
 
-        const res = await fetch("/api/sacco-settings", { headers, cache: "no-store" });
+        let groupCode = "";
+        if (session?.user?.id) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("group_id")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          groupCode = prof?.group_id || "";
+        }
+
+        const apiUrl = groupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(groupCode)}` : "/api/sacco-settings";
+        const res = await fetch(apiUrl, { headers, cache: "no-store" });
         const data = await res.json();
         if (res.ok) {
           setGroupSettings(data);

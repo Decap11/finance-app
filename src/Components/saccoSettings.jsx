@@ -92,8 +92,40 @@ export default function SaccoSettings() {
         setSaccoInfo(sacco);
       }
 
-      // Fetch live active settings from /api/sacco-settings (queries sacco_settings table first)
-      const apiUrl = cleanGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(cleanGroupCode)}` : "/api/sacco-settings";
+      const effectiveGroupCode = (sacco?.group_code || cleanGroupCode || '').trim();
+
+      // 1. Direct Supabase query on sacco_settings table
+      if (effectiveGroupCode) {
+        try {
+          const { data: directSetting } = await supabase
+            .from("sacco_settings")
+            .select("*")
+            .ilike("group_code", effectiveGroupCode)
+            .maybeSingle();
+
+          if (directSetting) {
+            const formatted = {
+              sharePrice: Number(directSetting.share_price) || 25000,
+              devtFund: Number(directSetting.devt_fund) || 1000,
+              socialFund: Number(directSetting.social_fund) || 2000,
+              currentWeek: Number(directSetting.current_week) || 1,
+              meetingDay: directSetting.meeting_day || "Wednesday",
+              isLocked: Boolean(directSetting.is_locked),
+              groupCode: directSetting.group_code
+            };
+            setSettings(formatted);
+            setFilterWeek(formatted.currentWeek || 1);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("sacco_settings_cache", JSON.stringify(formatted));
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 2. Fetch live active settings from /api/sacco-settings (queries sacco_settings table first)
+      const apiUrl = effectiveGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(effectiveGroupCode)}` : "/api/sacco-settings";
       const settingsRes = await fetch(apiUrl, { headers, cache: "no-store" });
       const settingsData = await settingsRes.json();
 
@@ -282,7 +314,7 @@ export default function SaccoSettings() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      // 1. Direct Supabase update using logged-in Admin client (auth.uid() matches admin_profile_id!)
+      // 1. Direct Supabase update using logged-in Admin client
       const updatePayload = {
         share_price: Number(settings.sharePrice),
         devt_fund: Number(settings.devtFund),
@@ -293,8 +325,25 @@ export default function SaccoSettings() {
         updated_at: new Date().toISOString()
       };
 
+      const targetGroupCode = (saccoInfo?.group_code || "").trim().toUpperCase();
+      if (targetGroupCode) {
+        try {
+          await supabase.from("sacco_settings").upsert({
+            group_code: targetGroupCode,
+            sacco_id: saccoInfo?.id || null,
+            ...updatePayload
+          }, { onConflict: "group_code" });
+        } catch (e) {
+          console.warn("sacco_settings direct upsert warning:", e);
+        }
+      }
+
       if (saccoInfo?.id) {
-        await supabase.from('saccos').update(updatePayload).eq('id', saccoInfo.id);
+        try {
+          await supabase.from('saccos').update(updatePayload).eq('id', saccoInfo.id);
+        } catch (e) {
+          console.warn("saccos update warning:", e);
+        }
       }
 
       // 2. Call API route as backup
@@ -303,7 +352,7 @@ export default function SaccoSettings() {
         headers,
         body: JSON.stringify({
           ...settings,
-          groupCode: saccoInfo?.group_code || cleanGroupCode
+          groupCode: targetGroupCode || saccoInfo?.group_code
         }),
       });
 
