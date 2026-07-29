@@ -23,6 +23,15 @@ export default function SignupForm() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const router = useRouter();
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("orphan") === "1") {
+        setErrorMsg("Access Denied: You do not belong to an active SACCO group. Please join an existing SACCO or register a new SACCO.");
+      }
+    }
+  }, []);
+
   function togglePassword(element: HTMLElement, fieldId: string) {
     const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
     if (!inputField) return;
