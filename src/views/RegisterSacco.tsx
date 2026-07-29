@@ -29,10 +29,36 @@ export default function RegisterSacco() {
     : "SACCO";
   const generatedGroupCode = saccoUniqueNumber.trim()
     ? `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`
-    : `${generatedAcronym}-XXXX`;
+    : `${generatedAcronym}-8134`;
   const adminMemberNumber = memberId.trim()
     ? `MEM-${memberId.trim().toUpperCase()}`
-    : "MEM-XXX";
+    : "MEM-001";
+  const displaySaccoName = saccoName.trim() || "Your SACCO Name";
+
+  // Password strength score (0 to 4)
+  function getPasswordStrength(pwd: string): { score: number; label: string; color: string } {
+    if (!pwd) return { score: 0, label: "", color: "#e2e8f0" };
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    switch (score) {
+      case 1:
+        return { score: 25, label: "Weak", color: "#ef4444" };
+      case 2:
+        return { score: 50, label: "Fair", color: "#f59e0b" };
+      case 3:
+        return { score: 75, label: "Good", color: "#3b82f6" };
+      case 4:
+        return { score: 100, label: "Strong", color: "#10b981" };
+      default:
+        return { score: 15, label: "Too Short", color: "#ef4444" };
+    }
+  }
+
+  const pwdStrength = getPasswordStrength(password);
 
   function togglePassword(element: HTMLElement, fieldId: string) {
     const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
@@ -66,12 +92,18 @@ export default function RegisterSacco() {
     }
     setErrorMsg("");
     setCurrentStep(2);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function handlePrevStep(e: React.MouseEvent) {
     e.preventDefault();
     setErrorMsg("");
     setCurrentStep(1);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -194,260 +226,315 @@ export default function RegisterSacco() {
   }
 
   return (
-    <div className="sacco-auth-wrapper">
-      <div className="sacco-auth-header">
-        <div className="sacco-auth-logo-badge">
-          <i className="fa-solid fa-building-columns"></i>
-        </div>
-        <h1 className="sacco-auth-title">Register Your SACCO</h1>
-        <p className="sacco-auth-subtitle">
-          Establish a new SACCO group and become its lead Administrator.
-        </p>
+    <>
+      {/* Background Ambient Orbs */}
+      <div className="sacco-ambient-bg">
+        <div className="sacco-orb-1"></div>
+        <div className="sacco-orb-2"></div>
       </div>
 
-      {/* Stepper Navigation */}
-      <div className="sacco-stepper">
-        <div 
-          className="sacco-stepper-progress" 
-          style={{ width: currentStep === 1 ? "0%" : "100%" }}
-        ></div>
-
-        <button 
-          type="button" 
-          className={`sacco-step-item ${currentStep === 1 ? "active" : "completed"}`}
-          onClick={() => setCurrentStep(1)}
-        >
-          <div className="sacco-step-num">
-            {currentStep > 1 ? <i className="fa-solid fa-check"></i> : "1"}
+      <div className="sacco-auth-wrapper">
+        {/* Visual Hero Image Container */}
+        <div className="sacco-hero-container">
+          <img 
+            src="/sacco_hero_banner.jpg" 
+            alt="PEWOSA SACCO Financial Portal" 
+            className="sacco-hero-img"
+          />
+          <div className="sacco-hero-overlay">
+            <span className="sacco-hero-badge-tag">
+              <i className="fa-solid fa-wand-magic-sparkles"></i> PEWOSA SACCO PLATFORM
+            </span>
           </div>
-          <span className="sacco-step-label">SACCO Info</span>
-        </button>
+        </div>
 
-        <button 
-          type="button" 
-          className={`sacco-step-item ${currentStep === 2 ? "active" : ""}`}
-          onClick={() => {
-            if (saccoName.trim() && saccoUniqueNumber.trim()) {
-              setCurrentStep(2);
-              setErrorMsg("");
-            } else {
-              setErrorMsg("Please complete SACCO Info first.");
-            }
-          }}
-        >
-          <div className="sacco-step-num">2</div>
-          <span className="sacco-step-label">Admin Profile</span>
-        </button>
-      </div>
+        <div className="sacco-auth-header">
+          <h1 className="sacco-auth-title">Register Your SACCO</h1>
+          <p className="sacco-auth-subtitle">
+            Establish your financial group and unlock institutional admin controls.
+          </p>
+        </div>
 
-      {/* Dynamic Live Preview Card */}
-      <div className="sacco-preview-card">
-        <div className="sacco-preview-header">
-          <span className="sacco-preview-tag">
-            <i className="fa-solid fa-id-card"></i> SACCO Identity Preview
+        {/* Feature Trust Pills */}
+        <div className="sacco-trust-pills">
+          <span className="sacco-trust-pill">
+            <i className="fa-solid fa-shield-halved"></i> Bank-Grade Security
           </span>
-          <span className="sacco-preview-badge">{generatedAcronym}</span>
+          <span className="sacco-trust-pill">
+            <i className="fa-solid fa-bolt"></i> Instant Group Code
+          </span>
+          <span className="sacco-trust-pill">
+            <i className="fa-solid fa-crown"></i> Admin Master Pass
+          </span>
         </div>
-        <div className="sacco-preview-details">
-          <div className="sacco-preview-item">
-            <span className="sacco-preview-lbl">Group Code</span>
-            <span className="sacco-preview-val">{generatedGroupCode}</span>
+
+        {/* Stepper Navigation */}
+        <div className="sacco-stepper">
+          <div 
+            className="sacco-stepper-progress" 
+            style={{ width: currentStep === 1 ? "0%" : "100%" }}
+          ></div>
+
+          <button 
+            type="button" 
+            className={`sacco-step-item ${currentStep === 1 ? "active" : "completed"}`}
+            onClick={() => setCurrentStep(1)}
+          >
+            <div className="sacco-step-num">
+              {currentStep > 1 ? <i className="fa-solid fa-check"></i> : "1"}
+            </div>
+            <span className="sacco-step-label">SACCO Info</span>
+          </button>
+
+          <button 
+            type="button" 
+            className={`sacco-step-item ${currentStep === 2 ? "active" : ""}`}
+            onClick={() => {
+              if (saccoName.trim() && saccoUniqueNumber.trim()) {
+                setCurrentStep(2);
+                setErrorMsg("");
+              } else {
+                setErrorMsg("Please complete SACCO Info first.");
+              }
+            }}
+          >
+            <div className="sacco-step-num">2</div>
+            <span className="sacco-step-label">Admin Profile</span>
+          </button>
+        </div>
+
+        {/* 3D Holographic Digital SACCO Pass Card */}
+        <div className="sacco-card-pass">
+          <div className="sacco-card-top">
+            <div className="sacco-card-chip-group">
+              <div className="sacco-card-chip">
+                <i className="fa-solid fa-microchip"></i>
+              </div>
+              <i className="fa-solid fa-wifi sacco-card-wifi"></i>
+            </div>
+            <span className="sacco-card-badge">{generatedAcronym}</span>
           </div>
-          <div className="sacco-preview-item">
-            <span className="sacco-preview-lbl">Admin Member ID</span>
-            <span className="sacco-preview-val">{adminMemberNumber}</span>
+
+          <div className="sacco-card-name-title">
+            {displaySaccoName}
+          </div>
+
+          <div className="sacco-card-grid">
+            <div className="sacco-card-col">
+              <span className="sacco-card-label">Generated Group Code</span>
+              <span className="sacco-card-value">{generatedGroupCode}</span>
+            </div>
+            <div className="sacco-card-col">
+              <span className="sacco-card-label">Founder Admin ID</span>
+              <span className="sacco-card-value">{adminMemberNumber}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {errorMsg && (
-        <div className="sacco-error-box">
-          <i className="fa-solid fa-circle-exclamation" style={{ fontSize: "1.6rem" }}></i>
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      <form id="registerSaccoForm" onSubmit={handleSubmit}>
-        {currentStep === 1 ? (
-          <div className="sacco-form-section">
-            <h3 className="sacco-section-heading">
-              <i className="fa-solid fa-shield-halved"></i> SACCO Identity Details
-            </h3>
-
-            <div className="form-group">
-              <label className="form-label">SACCO Name</label>
-              <div className="form-input-container">
-                <i className="fa-solid fa-building-columns form-icon"></i>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Hope Development SACCO"
-                  value={saccoName}
-                  onChange={(e) => setSaccoName(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">SACCO Unique Number / Code</label>
-              <div className="form-input-container">
-                <i className="fa-solid fa-hashtag form-icon"></i>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. 8134"
-                  value={saccoUniqueNumber}
-                  onChange={(e) => setSaccoUniqueNumber(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="sacco-button-group">
-              <button 
-                type="button" 
-                className="btn-submit" 
-                onClick={handleNextStep}
-              >
-                <span>Continue to Admin Details</span>
-                <i className="fa-solid fa-arrow-right"></i>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="sacco-form-section">
-            <h3 className="sacco-section-heading">
-              <i className="fa-solid fa-user-gear"></i> Administrator Credentials
-            </h3>
-
-            <div className="form-group">
-              <label className="form-label">Member ID Number</label>
-              <div className="form-input-container">
-                <i className="fa-solid fa-id-badge form-icon"></i>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. 006"
-                  value={memberId}
-                  onChange={(e) => setMemberId(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <div className="form-input-container">
-                <i className="fa-regular fa-user form-icon"></i>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Joseph Ssembatya"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <div className="form-input-container">
-                <i className="fa-regular fa-envelope form-icon"></i>
-                <input
-                  type="email"
-                  className="form-input"
-                  placeholder="admin@sacco.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Phone Number</label>
-              <div className="form-input-container">
-                <i className="fa-solid fa-phone form-icon"></i>
-                <input
-                  type="tel"
-                  className="form-input"
-                  placeholder="+256 700 000000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <div className="form-input-container">
-                <i className="fa-solid fa-lock form-icon"></i>
-                <input
-                  type="password"
-                  id="password"
-                  className="form-input"
-                  placeholder="Create a strong password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
-                />
-                <i
-                  className="fa-regular fa-eye pwd-toggle"
-                  onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
-                ></i>
-              </div>
-            </div>
-
-            <div className="terms-checkbox">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                required
-              />
-              <label htmlFor="terms">
-                I agree to the{" "}
-                <a href="#" className="auth-link">Terms of Service</a>{" "}
-                and{" "}
-                <a href="#" className="auth-link">Privacy Policy</a>.
-              </label>
-            </div>
-
-            <div className="sacco-button-group">
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                onClick={handlePrevStep}
-              >
-                <i className="fa-solid fa-arrow-left"></i>
-                <span>Back</span>
-              </button>
-              
-              <button 
-                type="submit" 
-                className="btn-submit" 
-                disabled={isLoading}
-              >
-                <span>{isLoading ? "Registering..." : "Register SACCO"}</span>
-                {!isLoading && <i className="fa-solid fa-check"></i>}
-              </button>
-            </div>
+        {errorMsg && (
+          <div className="sacco-error-box">
+            <i className="fa-solid fa-circle-exclamation" style={{ fontSize: "1.8rem" }}></i>
+            <span>{errorMsg}</span>
           </div>
         )}
-      </form>
 
-      <div className="auth-footer">
-        Are you just a member?{" "}
-        <Link href="/signup" className="auth-link">
-          Join an existing SACCO
-        </Link>
+        <form id="registerSaccoForm" onSubmit={handleSubmit}>
+          {currentStep === 1 ? (
+            <div className="sacco-form-section">
+              <h3 className="sacco-section-heading">
+                <i className="fa-solid fa-building-columns"></i> SACCO Identity Details
+              </h3>
+
+              <div className="form-group">
+                <label className="form-label">SACCO Name</label>
+                <div className="form-input-container">
+                  <i className="fa-solid fa-building-columns form-icon"></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Hope Development SACCO"
+                    value={saccoName}
+                    onChange={(e) => setSaccoName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">SACCO Unique Number / Code</label>
+                <div className="form-input-container">
+                  <i className="fa-solid fa-hashtag form-icon"></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 8134"
+                    value={saccoUniqueNumber}
+                    onChange={(e) => setSaccoUniqueNumber(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="sacco-button-group">
+                <button 
+                  type="button" 
+                  className="btn-submit" 
+                  onClick={handleNextStep}
+                >
+                  <span>Continue to Admin Details</span>
+                  <i className="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="sacco-form-section">
+              <h3 className="sacco-section-heading">
+                <i className="fa-solid fa-user-shield"></i> Administrator Credentials
+              </h3>
+
+              <div className="form-group">
+                <label className="form-label">Member ID Number</label>
+                <div className="form-input-container">
+                  <i className="fa-solid fa-id-badge form-icon"></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 006"
+                    value={memberId}
+                    onChange={(e) => setMemberId(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <div className="form-input-container">
+                  <i className="fa-regular fa-user form-icon"></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Joseph Ssembatya"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <div className="form-input-container">
+                  <i className="fa-regular fa-envelope form-icon"></i>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="admin@sacco.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Phone Number</label>
+                <div className="form-input-container">
+                  <i className="fa-solid fa-phone form-icon"></i>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="+256 700 000000"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label className="form-label">Password</label>
+                  {password && (
+                    <span style={{ fontSize: "1.15rem", fontWeight: 700, color: pwdStrength.color }}>
+                      {pwdStrength.label}
+                    </span>
+                  )}
+                </div>
+                <div className="form-input-container">
+                  <i className="fa-solid fa-lock form-icon"></i>
+                  <input
+                    type="password"
+                    id="password"
+                    className="form-input"
+                    placeholder="Create a strong password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <i
+                    className="fa-regular fa-eye pwd-toggle"
+                    onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
+                  ></i>
+                </div>
+                {password && (
+                  <div className="pwd-strength-meter">
+                    <div 
+                      className="pwd-strength-bar" 
+                      style={{ width: `${pwdStrength.score}%`, backgroundColor: pwdStrength.color }}
+                    ></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="terms-checkbox">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  required
+                />
+                <label htmlFor="terms">
+                  I agree to the{" "}
+                  <a href="#" className="auth-link">Terms of Service</a>{" "}
+                  and{" "}
+                  <a href="#" className="auth-link">Privacy Policy</a>.
+                </label>
+              </div>
+
+              <div className="sacco-button-group">
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={handlePrevStep}
+                >
+                  <i className="fa-solid fa-arrow-left"></i>
+                  <span>Back</span>
+                </button>
+                
+                <button 
+                  type="submit" 
+                  className="btn-submit" 
+                  disabled={isLoading}
+                >
+                  <span>{isLoading ? "Registering..." : "Register SACCO"}</span>
+                  {!isLoading && <i className="fa-solid fa-rocket"></i>}
+                </button>
+              </div>
+            </div>
+          )}
+        </form>
+
+        <div className="auth-footer">
+          Are you just a member?{" "}
+          <Link href="/signup" className="auth-link">
+            Join an existing SACCO
+          </Link>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

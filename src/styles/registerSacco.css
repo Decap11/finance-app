@@ -1,33 +1,81 @@
-/* Register SACCO Dedicated Stylesheet - Uniform with login.css & signUp.css */
+/* Premium Masterpiece SACCO Registration Stylesheet */
 
 :root {
+  --primary-gradient: linear-gradient(135deg, #253b8e 0%, #3b82f6 100%);
   --primary-color: #253b8e;
-  --primary-light: #ebf0fe;
-  --primary-hover: #1e317a;
-  --secondary-color: #f7f9fc;
-  --bg-color: #f8fbff;
+  --primary-hover: #1d2d70;
+  --accent-gold: #f59e0b;
+  --accent-cyan: #06b6d4;
+  --bg-gradient: radial-gradient(circle at 10% 10%, rgba(37, 59, 142, 0.08) 0%, transparent 40%),
+                  radial-gradient(circle at 90% 90%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                  #f8fbff;
   --white: #ffffff;
-  --text-dark: #1e293b;
+  --text-dark: #0f172a;
+  --text-medium: #334155;
   --text-light: #64748b;
-  --text-muted: #94a3b8;
-  --success: #10b981;
-  --danger: #ef4444;
   --input-border: #e2e8f0;
-  --card-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
-  --border-radius: 2rem;
-  --input-radius: 1.2rem;
-  --badge-bg: #f1f5f9;
+  --input-focus-border: #3b82f6;
+  --card-shadow: 0 2rem 5rem rgba(37, 59, 142, 0.12), 0 0.5rem 1.5rem rgba(0, 0, 0, 0.03);
+  --border-radius: 2.4rem;
+  --input-radius: 1.4rem;
 }
 
+body {
+  background: var(--bg-gradient);
+  min-height: 100vh;
+}
+
+/* Background Ambient Orbs */
+.sacco-ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.sacco-orb-1 {
+  position: absolute;
+  top: -10rem;
+  left: -10rem;
+  width: 40rem;
+  height: 40rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 59, 142, 0.12) 0%, transparent 70%);
+  animation: orbFloat 12s infinite alternate ease-in-out;
+}
+
+.sacco-orb-2 {
+  position: absolute;
+  bottom: -10rem;
+  right: -10rem;
+  width: 45rem;
+  height: 45rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%);
+  animation: orbFloat 15s infinite alternate-reverse ease-in-out;
+}
+
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(3rem, 4rem) scale(1.1); }
+}
+
+/* Main Container */
 .sacco-auth-wrapper {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 52rem;
-  margin: 2rem auto;
-  background-color: var(--white);
+  max-width: 56rem;
+  margin: 3rem auto;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.1rem solid rgba(255, 255, 255, 0.8);
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);
-  padding: 3.5rem 3rem;
-  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 3.5rem 3.2rem;
+  animation: slideUpFade 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
 }
@@ -35,7 +83,7 @@
 @keyframes slideUpFade {
   0% {
     opacity: 0;
-    transform: translateY(2rem);
+    transform: translateY(2.5rem);
   }
   100% {
     opacity: 1;
@@ -43,38 +91,96 @@
   }
 }
 
+/* Hero Banner & Logo */
+.sacco-hero-container {
+  width: 100%;
+  border-radius: 1.8rem;
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+  position: relative;
+  box-shadow: 0 0.8rem 2rem rgba(37, 59, 142, 0.15);
+}
+
+.sacco-hero-img {
+  width: 100%;
+  height: 14rem;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.sacco-hero-container:hover .sacco-hero-img {
+  transform: scale(1.03);
+}
+
+.sacco-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.75) 100%);
+  display: flex;
+  align-items: flex-end;
+  padding: 1.6rem 2rem;
+}
+
+.sacco-hero-badge-tag {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border: 0.1rem solid rgba(255, 255, 255, 0.3);
+  color: var(--white);
+  padding: 0.5rem 1.2rem;
+  border-radius: 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06rem;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .sacco-auth-header {
   text-align: center;
   margin-bottom: 2.5rem;
 }
 
-.sacco-auth-logo-badge {
-  width: 5.4rem;
-  height: 5.4rem;
-  margin: 0 auto 1.5rem;
-  background: var(--primary-light);
-  color: var(--primary-color);
-  border-radius: 1.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.4rem;
-  box-shadow: 0 0.4rem 1.2rem rgba(37, 59, 142, 0.12);
-}
-
 .sacco-auth-title {
-  font-size: 2.6rem;
-  font-weight: 700;
-  color: var(--text-dark);
+  font-size: 2.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #0f172a 0%, #253b8e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin-bottom: 0.8rem;
-  letter-spacing: -0.04rem;
+  letter-spacing: -0.05rem;
 }
 
 .sacco-auth-subtitle {
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   color: var(--text-light);
   font-weight: 400;
   line-height: 1.5;
+}
+
+/* Feature Pills Row */
+.sacco-trust-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.sacco-trust-pill {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  font-size: 1.15rem;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0.1rem solid rgba(37, 59, 142, 0.1);
 }
 
 /* Stepper Navigation */
@@ -82,18 +188,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2.8rem;
   position: relative;
-  padding: 0 1rem;
+  padding: 0 1.5rem;
 }
 
 .sacco-stepper::before {
   content: "";
   position: absolute;
   top: 50%;
-  left: 3rem;
-  right: 3rem;
-  height: 0.2rem;
+  left: 4rem;
+  right: 4rem;
+  height: 0.3rem;
   background-color: var(--input-border);
   transform: translateY(-50%);
   z-index: 1;
@@ -102,12 +208,12 @@
 .sacco-stepper-progress {
   position: absolute;
   top: 50%;
-  left: 3rem;
-  height: 0.2rem;
-  background-color: var(--primary-color);
+  left: 4rem;
+  height: 0.3rem;
+  background: var(--primary-gradient);
   transform: translateY(-50%);
   z-index: 1;
-  transition: width 0.4s ease;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sacco-step-item {
@@ -124,8 +230,8 @@
 }
 
 .sacco-step-num {
-  width: 3.6rem;
-  height: 3.6rem;
+  width: 4rem;
+  height: 4rem;
   border-radius: 50%;
   background-color: var(--white);
   border: 0.2rem solid var(--input-border);
@@ -133,26 +239,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 700;
   transition: all 0.3s ease;
+  box-shadow: 0 0.4rem 1rem rgba(0, 0, 0, 0.04);
 }
 
 .sacco-step-item.active .sacco-step-num {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--primary-gradient);
+  border-color: transparent;
   color: var(--white);
-  box-shadow: 0 0.4rem 1.2rem rgba(37, 59, 142, 0.3);
+  box-shadow: 0 0.6rem 1.6rem rgba(37, 59, 142, 0.35);
+  transform: scale(1.1);
 }
 
 .sacco-step-item.completed .sacco-step-num {
-  background-color: var(--success);
-  border-color: var(--success);
+  background-color: #10b981;
+  border-color: #10b981;
   color: var(--white);
+  box-shadow: 0 0.4rem 1.2rem rgba(16, 185, 129, 0.3);
 }
 
 .sacco-step-label {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-light);
   transition: color 0.3s ease;
@@ -163,77 +272,118 @@
   font-weight: 700;
 }
 
-/* Live Dynamic Preview Card */
-.sacco-preview-card {
-  background: linear-gradient(135deg, #253b8e 0%, #1e293b 100%);
+/* 3D Holographic SACCO Pass Card */
+.sacco-card-pass {
+  background: linear-gradient(135deg, #1e293b 0%, #1e1b4b 50%, #253b8e 100%);
   color: var(--white);
-  border-radius: 1.6rem;
-  padding: 1.6rem;
-  margin-bottom: 2.5rem;
-  box-shadow: 0 0.8rem 2.4rem rgba(37, 59, 142, 0.2);
+  border-radius: 2rem;
+  padding: 2.2rem;
+  margin-bottom: 2.8rem;
+  box-shadow: 0 1.2rem 3rem rgba(30, 41, 59, 0.25);
   position: relative;
   overflow: hidden;
+  border: 0.1rem solid rgba(255, 255, 255, 0.15);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.sacco-preview-card::after {
+.sacco-card-pass:hover {
+  transform: translateY(-0.3rem);
+  box-shadow: 0 1.6rem 3.6rem rgba(37, 59, 142, 0.32);
+}
+
+/* Holographic shine & metallic pattern overlay */
+.sacco-card-pass::before {
   content: "";
   position: absolute;
-  top: -50%;
-  right: -30%;
-  width: 15rem;
-  height: 15rem;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 50%;
+  inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.12) 0%, transparent 50%),
+              linear-gradient(45deg, transparent 45%, rgba(255, 255, 255, 0.05) 50%, transparent 55%);
   pointer-events: none;
 }
 
-.sacco-preview-header {
+.sacco-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.8rem;
 }
 
-.sacco-preview-tag {
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+.sacco-card-chip-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1.2rem;
 }
 
-.sacco-preview-badge {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(4px);
-  padding: 0.4rem 1rem;
+.sacco-card-chip {
+  width: 3.4rem;
+  height: 2.6rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #78350f;
+  font-size: 1.4rem;
+  box-shadow: inset 0 0.1rem 0.2rem rgba(255, 255, 255, 0.4);
+}
+
+.sacco-card-wifi {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.4rem;
+  transform: rotate(90deg);
+}
+
+.sacco-card-badge {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  border: 0.1rem solid rgba(255, 255, 255, 0.2);
+  padding: 0.4rem 1.2rem;
   border-radius: 2rem;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.05rem;
+  color: #fef08a;
 }
 
-.sacco-preview-details {
+.sacco-card-name-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--white);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sacco-card-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 1.4rem;
+  border-top: 0.1rem solid rgba(255, 255, 255, 0.12);
+  padding-top: 1.4rem;
 }
 
-.sacco-preview-item {
+.sacco-card-col {
   display: flex;
   flex-direction: column;
 }
 
-.sacco-preview-lbl {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.65);
-  margin-bottom: 0.2rem;
+.sacco-card-label {
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.3rem;
+  font-weight: 600;
 }
 
-.sacco-preview-val {
-  font-size: 1.3rem;
+.sacco-card-value {
+  font-size: 1.4rem;
   font-weight: 700;
+  color: var(--white);
+  font-family: monospace, sans-serif;
+  letter-spacing: 0.04rem;
   word-break: break-word;
 }
 
@@ -242,48 +392,56 @@
   background-color: #fef2f2;
   border: 0.1rem solid #fecaca;
   color: #991b1b;
-  padding: 1.2rem 1.6rem;
+  padding: 1.4rem 1.8rem;
   border-radius: var(--input-radius);
-  font-size: 1.3rem;
-  margin-bottom: 2rem;
+  font-size: 1.35rem;
+  margin-bottom: 2.2rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  line-height: 1.4;
+  gap: 1.2rem;
+  line-height: 1.45;
+  box-shadow: 0 0.4rem 1.2rem rgba(239, 68, 68, 0.08);
   animation: slideUpFade 0.3s ease;
 }
 
-/* Form Section Card */
+/* Form Sections */
 .sacco-form-section {
   animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sacco-section-heading {
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.7rem;
+  font-weight: 800;
   color: var(--text-dark);
-  margin-bottom: 1.8rem;
+  margin-bottom: 2rem;
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 1rem;
 }
 
 .sacco-section-heading i {
   color: var(--primary-color);
-  font-size: 1.6rem;
+  background: var(--primary-light);
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
 }
 
 .form-group {
-  margin-bottom: 1.8rem;
+  margin-bottom: 2rem;
   position: relative;
 }
 
 .form-label {
   display: block;
   font-size: 1.3rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-dark);
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.7rem;
 }
 
 .form-input-container {
@@ -294,33 +452,35 @@
 
 .form-icon {
   position: absolute;
-  left: 1.5rem;
+  left: 1.6rem;
   color: var(--text-light);
-  font-size: 1.4rem;
-  transition: color 0.2s ease;
+  font-size: 1.5rem;
+  transition: color 0.25s ease;
   pointer-events: none;
 }
 
 .form-input {
   width: 100%;
-  padding: 1.4rem 1.5rem 1.4rem 4.5rem;
+  padding: 1.5rem 1.6rem 1.5rem 4.8rem;
   border: 0.15rem solid var(--input-border);
   border-radius: var(--input-radius);
   font-family: inherit;
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   color: var(--text-dark);
   background-color: var(--white);
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
+  box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.02);
 }
 
 .form-input::placeholder {
-  color: var(--text-muted);
+  color: #94a3b8;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.12);
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 0.4rem rgba(59, 130, 246, 0.15);
+  background-color: #ffffff;
 }
 
 .form-input-container:focus-within .form-icon {
@@ -329,10 +489,10 @@
 
 .pwd-toggle {
   position: absolute;
-  right: 1.5rem;
+  right: 1.6rem;
   color: var(--text-light);
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   padding: 0.5rem;
   transition: color 0.2s ease;
 }
@@ -341,42 +501,60 @@
   color: var(--text-dark);
 }
 
+/* Password Strength Meter */
+.pwd-strength-meter {
+  height: 0.4rem;
+  width: 100%;
+  background: var(--input-border);
+  border-radius: 0.4rem;
+  margin-top: 0.8rem;
+  overflow: hidden;
+}
+
+.pwd-strength-bar {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Terms Checkbox */
 .terms-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
-  margin: 2rem 0;
-  font-size: 1.3rem;
+  gap: 1.2rem;
+  margin: 2.4rem 0;
+  font-size: 1.35rem;
   color: var(--text-light);
   line-height: 1.5;
 }
 
 .terms-checkbox input[type="checkbox"] {
-  margin-top: 0.3rem;
-  width: 1.8rem;
-  height: 1.8rem;
+  margin-top: 0.2rem;
+  width: 1.9rem;
+  height: 1.9rem;
   accent-color: var(--primary-color);
   cursor: pointer;
   flex-shrink: 0;
+  border-radius: 0.4rem;
 }
 
+/* Buttons */
 .sacco-button-group {
   display: flex;
-  gap: 1.2rem;
-  margin-top: 2.5rem;
+  gap: 1.4rem;
+  margin-top: 2.8rem;
 }
 
 .btn-secondary {
   flex: 1;
-  background-color: var(--secondary-color);
+  background-color: #f1f5f9;
   color: var(--text-dark);
   border: 0.15rem solid var(--input-border);
-  padding: 1.4rem;
+  padding: 1.5rem;
   border-radius: var(--input-radius);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -385,30 +563,36 @@
 
 .btn-secondary:hover {
   background-color: #e2e8f0;
+  color: var(--text-dark);
 }
 
 .btn-submit {
   flex: 2;
-  background-color: var(--primary-color);
+  background: var(--primary-gradient);
   color: var(--white);
   border: none;
-  padding: 1.5rem 2rem;
+  padding: 1.6rem 2.4rem;
   border-radius: var(--input-radius);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.55rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0.8rem 2rem rgba(37, 59, 142, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0.8rem 2.4rem rgba(37, 59, 142, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.8rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-0.2rem);
-  box-shadow: 0 1rem 2.5rem rgba(37, 59, 142, 0.3);
-  background-color: var(--primary-hover);
+  box-shadow: 0 1.2rem 3rem rgba(37, 59, 142, 0.38);
+}
+
+.btn-submit:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn-submit:disabled {
@@ -417,7 +601,7 @@
 }
 
 .auth-footer {
-  margin-top: 3rem;
+  margin-top: 3.2rem;
   text-align: center;
   font-size: 1.4rem;
   color: var(--text-light);
@@ -426,12 +610,12 @@
 .auth-link {
   color: var(--primary-color);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   transition: color 0.2s ease;
 }
 
 .auth-link:hover {
-  color: var(--primary-hover);
+  color: #1d2d70;
   text-decoration: underline;
 }
 
@@ -441,154 +625,183 @@
 
 @media (max-width: 480px) {
   .sacco-auth-wrapper {
-    margin: 1rem auto;
-    padding: 2.5rem 2rem;
+    margin: 1.5rem auto;
+    padding: 2.8rem 2.2rem;
     max-width: 96vw;
   }
 
   .sacco-auth-title {
-    font-size: 2.2rem;
+    font-size: 2.4rem;
+  }
+
+  .sacco-hero-img {
+    height: 12rem;
   }
 }
 
 @media (max-width: 440px) {
-  /* Compensate for html { font-size: 48% } at <= 440px */
+  /* Fix root rem compensation for html { font-size: 48% } */
   .sacco-auth-wrapper {
     margin: 0.5rem auto;
-    padding: 3rem 2.4rem !important;
+    padding: 3.5rem 2.6rem !important;
     max-width: 100vw;
-    border-radius: 1.8rem;
-    box-shadow: 0 0.4rem 2rem rgba(0, 0, 0, 0.06);
+    border-radius: 2rem;
+    box-shadow: 0 0.6rem 2.4rem rgba(0, 0, 0, 0.08);
   }
 
-  .sacco-auth-logo-badge {
-    width: 6.5rem;
-    height: 6.5rem;
-    font-size: 3rem;
-    border-radius: 1.8rem;
+  .sacco-hero-container {
+    margin-bottom: 3rem;
+    border-radius: 2rem;
+  }
+
+  .sacco-hero-img {
+    height: 18rem;
+  }
+
+  .sacco-hero-badge-tag {
+    font-size: 1.8rem;
+    padding: 0.8rem 1.6rem;
   }
 
   .sacco-auth-title {
-    font-size: 3.2rem !important; /* ~15px rendered */
+    font-size: 3.6rem !important; /* Crisp & bold heading on mobile */
     line-height: 1.25;
   }
 
   .sacco-auth-subtitle {
-    font-size: 2.2rem !important; /* ~10.5px rendered */
+    font-size: 2.3rem !important;
+  }
+
+  .sacco-trust-pills {
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .sacco-trust-pill {
+    font-size: 1.8rem;
+    padding: 0.8rem 1.6rem;
   }
 
   .sacco-step-num {
-    width: 5rem;
-    height: 5rem;
-    font-size: 2.2rem;
+    width: 5.5rem;
+    height: 5.5rem;
+    font-size: 2.4rem;
   }
 
   .sacco-step-label {
-    font-size: 1.8rem;
+    font-size: 2rem;
   }
 
   .sacco-stepper::before,
   .sacco-stepper-progress {
-    left: 4rem;
-    right: 4rem;
-    height: 0.3rem;
+    left: 4.5rem;
+    right: 4.5rem;
+    height: 0.4rem;
   }
 
-  .sacco-preview-card {
-    padding: 2.2rem;
-    border-radius: 2rem;
-    margin-bottom: 3rem;
+  .sacco-card-pass {
+    padding: 2.8rem;
+    border-radius: 2.2rem;
+    margin-bottom: 3.5rem;
   }
 
-  .sacco-preview-tag {
+  .sacco-card-chip {
+    width: 4.5rem;
+    height: 3.4rem;
+    font-size: 1.8rem;
+  }
+
+  .sacco-card-wifi {
+    font-size: 2rem;
+  }
+
+  .sacco-card-badge {
+    font-size: 1.8rem;
+    padding: 0.6rem 1.5rem;
+  }
+
+  .sacco-card-name-title {
+    font-size: 2.6rem;
+  }
+
+  .sacco-card-label {
     font-size: 1.6rem;
   }
 
-  .sacco-preview-badge {
-    font-size: 1.7rem;
-    padding: 0.6rem 1.4rem;
-  }
-
-  .sacco-preview-lbl {
-    font-size: 1.6rem;
-  }
-
-  .sacco-preview-val {
+  .sacco-card-value {
     font-size: 2.2rem;
   }
 
   .sacco-section-heading {
-    font-size: 2.6rem;
-    margin-bottom: 2.2rem;
+    font-size: 2.8rem;
+    margin-bottom: 2.5rem;
   }
 
   .sacco-section-heading i {
-    font-size: 2.6rem;
+    width: 4.8rem;
+    height: 4.8rem;
+    font-size: 2.2rem;
   }
 
   .form-group {
-    margin-bottom: 2.4rem;
+    margin-bottom: 2.6rem;
   }
 
   .form-label {
-    font-size: 2.2rem !important;
-    margin-bottom: 1rem;
-  }
-
-  .form-input-container {
-    min-height: 7rem; /* Touch-friendly hit target */
+    font-size: 2.3rem !important;
+    margin-bottom: 1.2rem;
   }
 
   .form-icon {
-    left: 2rem;
-    font-size: 2.4rem;
-  }
-
-  .form-input {
-    padding: 2rem 2rem 2rem 6.5rem !important;
-    font-size: 2.4rem !important; /* ~11.5px, crisp and readable */
-    border-radius: 1.6rem;
-    min-height: 6.8rem;
-  }
-
-  .pwd-toggle {
-    right: 2rem;
+    left: 2.2rem;
     font-size: 2.6rem;
   }
 
+  .form-input {
+    padding: 2.2rem 2.2rem 2.2rem 6.8rem !important;
+    font-size: 2.4rem !important;
+    border-radius: 1.8rem;
+    min-height: 7.2rem;
+  }
+
+  .pwd-toggle {
+    right: 2.2rem;
+    font-size: 2.8rem;
+  }
+
   .terms-checkbox {
-    font-size: 2.1rem;
-    gap: 1.4rem;
-    margin: 2.5rem 0;
+    font-size: 2.2rem;
+    gap: 1.6rem;
+    margin: 3rem 0;
   }
 
   .terms-checkbox input[type="checkbox"] {
-    width: 2.8rem;
-    height: 2.8rem;
+    width: 3rem;
+    height: 3rem;
   }
 
   .sacco-button-group {
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.8rem;
   }
 
   .btn-secondary,
   .btn-submit {
     width: 100%;
-    padding: 2.2rem 2rem;
-    font-size: 2.6rem !important;
-    border-radius: 1.6rem;
-    min-height: 6.8rem;
+    padding: 2.4rem 2rem;
+    font-size: 2.8rem !important;
+    border-radius: 1.8rem;
+    min-height: 7.2rem;
   }
 
   .auth-footer {
-    font-size: 2.2rem;
-    margin-top: 3.5rem;
+    font-size: 2.3rem;
+    margin-top: 4rem;
   }
 
   .sacco-error-box {
-    font-size: 2.1rem;
-    padding: 1.8rem 2rem;
-    border-radius: 1.6rem;
+    font-size: 2.2rem;
+    padding: 2rem 2.2rem;
+    border-radius: 1.8rem;
   }
 }
