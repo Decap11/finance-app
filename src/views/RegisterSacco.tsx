@@ -33,6 +33,9 @@ export default function RegisterSacco() {
   function formatError(err: any): string {
     if (!err) return "An unexpected error occurred.";
     console.error("RegisterSacco Error:", err);
+    if (err.name === "AuthRetryableFetchError" || err.status === 500) {
+      return "Supabase Auth Trigger Exception (500): The database trigger on auth.users experienced an unhandled error. Please execute supabase-patch-trigger.sql in your Supabase SQL Editor.";
+    }
     if (typeof err === "string" && err.trim() !== "" && err !== "{}") return err;
     if (err.message && typeof err.message === "string" && err.message.trim() !== "" && err.message !== "{}") {
       return err.message;
