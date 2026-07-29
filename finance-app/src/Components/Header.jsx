@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Search from "./Search";
 import { useSidebar } from "../context/useSidebar";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 import "../styles/userHeader.css";
 
 export default function Header() {

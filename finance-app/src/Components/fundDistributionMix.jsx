@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 
 export default function FundDistributionMix() {
   const [loading, setLoading] = useState(true);

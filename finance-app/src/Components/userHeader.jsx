@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 import Search from "./Search";
 import "../styles/userHeader.css";
 

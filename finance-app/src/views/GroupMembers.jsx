@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import UserHeader from "../Components/userHeader";
 import MemberLayout from "../layout/MemberLayout";
-import { supabase } from "../supabaseClient.js";
-import Loader from "../Components/loader.jsx";
+import { supabase } from "../supabaseClient";
+import Loader from "../Components/loader";
 import "../styles/GroupMembers.css";
 
 export default function GroupMembers() {

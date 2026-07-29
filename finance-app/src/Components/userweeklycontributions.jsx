@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 import "../styles/weeklyContributions.css";
 
 export default function WeeklyContributions() {

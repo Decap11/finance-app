@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "../supabaseClient.js";
-import Header from "../Components/Header.jsx";
-import ActionCards from "../Components/ActionCard.jsx";
-import ContributionApprovals from "../Components/ContributionApprovals.jsx";
-import QuickMemberManagement from "../Components/QuickMemberManagement.jsx";
-import ManualContributionLog from "../Components/manualContributionlog.jsx";
-import BroadcastMessageWidget from "../Components/BroadcastMessageWidget.jsx";
-import AdminLayout from "../layout/AdminLayout.jsx";
-import PaymentPlans from "../Components/Payments.jsx";
-import SaccoSettings from "../Components/saccoSettings.jsx";
+import { supabase } from "../supabaseClient";
+import Header from "../Components/Header";
+import ActionCards from "../Components/ActionCard";
+import ContributionApprovals from "../Components/ContributionApprovals";
+import QuickMemberManagement from "../Components/QuickMemberManagement";
+import ManualContributionLog from "../Components/manualContributionlog";
+import BroadcastMessageWidget from "../Components/BroadcastMessageWidget";
+import AdminLayout from "../layout/AdminLayout";
+import PaymentPlans from "../Components/Payments";
+import SaccoSettings from "../Components/saccoSettings";
 
 export default function AdminDashboardPage() {
   const searchParams = useSearchParams();

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 
 const navItems = [
   { to: "/dashboard", icon: "fa-solid fa-house", label: "Dashboard" },

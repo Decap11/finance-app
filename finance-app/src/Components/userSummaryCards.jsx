@@ -1,7 +1,7 @@
 import "../styles/summary-cards-row.css";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 
 export default function UserSummaryCards() {
   const [loading, setLoading] = useState(true);

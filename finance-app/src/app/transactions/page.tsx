@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../supabaseClient.js";
+import React, { useEffect, useState } from "react";
+import { supabase } from "../../supabaseClient";
 import ProtectedRoute from "../../Components/ProtectedRoute";
 import MemberLayout from "../../layout/MemberLayout";
 import UserHeader from "../../Components/userHeader";
 import Link from "next/link";
 import "../../styles/UserRecentTransactionsTable.css";
+import { Transaction } from "../../types/sacco";
 
-function TransactionTypeBadge({ type }) {
-  const typeStyles = {
+function TransactionTypeBadge({ type }: { type: string }) {
+  const typeStyles: Record<string, { color: string; backgroundColor: string }> = {
     "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
     Development: { color: "#10b981", backgroundColor: "#10b9811a" },
     "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
@@ -34,8 +35,8 @@ function TransactionTypeBadge({ type }) {
 }
 
 function TransactionsList() {
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   async function fetchTransactions() {
     try {
@@ -117,47 +118,47 @@ function TransactionsList() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", padding: "2rem" }}>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
                       Loading transactions...
                     </td>
                   </tr>
                 ) : transactions.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", padding: "2rem" }}>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
                       No transactions found.
                     </td>
                   </tr>
                 ) : (
                   transactions.map((transaction) => {
-                    const dateObj = new Date(transaction.created_at);
+                    const dateObj = new Date(transaction.created_at || Date.now());
                     const day = dateObj.getDate();
                     const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
                     
-                    let weekNum = null;
+                    let weekNum: number | null = null;
                     const match = transaction.description?.match(/\|\s*Week\s*(\d+)/i);
                     if (match) {
                       weekNum = parseInt(match[1], 10);
                     }
                     if (!weekNum) {
                       const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                      const diffInMs = dateObj - startOfYear;
+                      const diffInMs = dateObj.getTime() - startOfYear.getTime();
                       const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
                       weekNum = Math.floor(diffInDays / 7) + 1;
                     }
 
-                    const getOrdinal = (d) => {
+                    const getOrdinal = (d: number) => {
                       if (d > 3 && d < 21) return 'th';
                       switch (d % 10) {
-                        case 1:  return "st";
-                        case 2:  return "nd";
-                        case 3:  return "rd";
+                        case 1: return "st";
+                        case 2: return "nd";
+                        case 3: return "rd";
                         default: return "th";
                       }
                     };
 
                     const formattedDate = `${day}${getOrdinal(day)} ${month}, week ${weekNum}`;
                     
-                    let displayType = transaction.category;
+                    let displayType: string = transaction.category;
                     if (displayType === "social_fund") displayType = "Social Fund";
                     if (displayType === "development_fund") displayType = "Development";
                     if (displayType === "shares") displayType = "Shares";
