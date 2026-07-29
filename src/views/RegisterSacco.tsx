@@ -71,17 +71,19 @@ export default function RegisterSacco() {
 
   function formatError(err: any): string {
     if (!err) return "An unexpected error occurred.";
+    console.error("RegisterSacco Error:", err);
     if (typeof err === "string" && err.trim() !== "" && err !== "{}") return err;
     if (err.message && typeof err.message === "string" && err.message.trim() !== "" && err.message !== "{}") {
       return err.message;
     }
-    if (err.details && typeof err.details === "string") return err.details;
-    if (err.hint && typeof err.hint === "string") return err.hint;
+    if (err.details && typeof err.details === "string" && err.details.trim() !== "") return err.details;
+    if (err.hint && typeof err.hint === "string" && err.hint.trim() !== "") return err.hint;
     if (err.error_description && typeof err.error_description === "string") return err.error_description;
-    
+    if (err.code && typeof err.code === "string") return `Database Error Code: ${err.code}`;
+
     const str = JSON.stringify(err);
-    if (str && str !== "{}") return str;
-    return "Unable to connect to Supabase. Please verify your internet connection and Vercel Environment Variables (NEXT_PUBLIC_SUPABASE_URL).";
+    if (str && str !== "{}" && str !== "null") return str;
+    return "Unable to connect to Supabase backend. Please check your internet connection or Vercel Environment Variables.";
   }
 
   function handleNextStep(e?: React.MouseEvent) {
@@ -165,31 +167,8 @@ export default function RegisterSacco() {
       return;
     }
 
-    // 2. Ensure admin profile exists in public.profiles
-    try {
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", authData.user.id)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        await supabase.from("profiles").upsert({
-          id: authData.user.id,
-          full_name: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          member_number: fullAdminMemberNumber,
-          group_id: fullGroupCode,
-          role: "admin",
-          status: "active"
-        }, { onConflict: "id" });
-      }
-    } catch (err) {
-      console.warn("Profile pre-check failed, continuing to RPC:", err);
-    }
-
-    // 3. Call the RPC to create the SACCO and link the admin atomically
+    // 2. Call the RPC to create the SACCO and link the admin atomically
+    // (Self-healing RPC handles profile creation & linking inside PostgreSQL)
     const { error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
@@ -204,8 +183,6 @@ export default function RegisterSacco() {
       let friendlyMsg = rawMsg;
       if (rawMsg.includes("already exists")) {
         friendlyMsg = "A SACCO with this unique code already exists. Please choose a different code.";
-      } else if (rawMsg.includes("violates foreign key constraint")) {
-        friendlyMsg = "Admin profile creation is processing. Please click 'Register SACCO' again.";
       } else if (rawMsg.includes("profile not found")) {
         friendlyMsg = "Account created but SACCO setup timed out. Please log in and retry SACCO setup.";
       }

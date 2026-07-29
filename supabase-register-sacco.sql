@@ -67,3 +67,7 @@ EXCEPTION
 END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Grant execution permissions explicitly to anon, authenticated, and service_role
+GRANT EXECUTE ON FUNCTION public.register_new_sacco(TEXT, TEXT, TEXT, UUID) TO anon, authenticated, service_role;
+
+
