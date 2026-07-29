@@ -47,8 +47,7 @@
     font-size: 58%;
   }
   .dashboard-body {
-    padding-left: 2.4rem;
-    padding-right: 2.4rem;
+    padding: 0 !important;
   }
 
   .dashboard-grid,
@@ -156,20 +155,23 @@
   }
 
   .dashboard-body {
-    padding: 1.6rem;
+    padding: 0 !important;
   }
 
   .sidebar-overlay {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-    z-index: 998;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 999998 !important;
     opacity: 0;
     visibility: hidden;
     transition:
       opacity 0.3s ease,
-      visibility 0.3s ease;
+      visibility 0.3s ease,
+      backdrop-filter 0.3s ease;
   }
 
   .sidebar-overlay.active {
@@ -183,10 +185,11 @@
     left: 0;
     height: 100vh;
     width: min(28rem, 85vw);
-    z-index: 99999 !important;
+    z-index: 999999 !important;
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
+    box-shadow: 1rem 0 3rem rgba(0, 0, 0, 0.3);
   }
 
   .sidebar.active {
@@ -242,8 +245,8 @@
   }
 
   .notification-bell {
-    width: 4rem;
-    height: 4rem;
+    width: 2.4rem;
+    height: 2.4rem;
     font-size: 1.8rem;
   }
 
@@ -273,6 +276,27 @@
 @media (max-width: 440px) {
   html {
     font-size: 48%;
+  }
+
+  .dashboard-body {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+    overflow: visible !important;
+  }
+
+  .main-content,
+  .dashboard-container {
+    overflow: visible !important;
+  }
+
+  header,
+  .admin-header,
+  .payment-header {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.25) !important;
   }
 
   .summary-cards {

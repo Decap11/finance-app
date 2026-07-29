@@ -105,24 +105,40 @@
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
-@media (max-width: 30.5rem) {
+@media (max-width: 44rem) {
   .recent-transactions-section .quick-actions {
     padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
   }
-}
-@media (max-width: 26.5rem) {
-  .recent-transactions-section .quick-actions {
-    padding: 1rem !important;
+  
+  .recent-transactions-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1rem;
   }
+  
+  .transactions-table {
+    min-width: 50rem;
+  }
+  
+  .transactions-table th {
+    padding: 1.2rem 1rem !important;
+    font-size: 1.2rem !important;
+  }
+  
   .transactions-table td {
-    padding: 1.3rem;
+    padding: 1.2rem 1rem !important;
+    font-size: 1.3rem !important;
   }
-}
-@media (max-width: 23rem) {
-  .recent-transactions-section .quick-actions {
-    padding: 0.6rem !important;
+  
+  .transaction-badge, 
+  .status-badge {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 1.1rem !important;
+    border-radius: 0.6rem !important;
   }
-  .transactions-table td {
-    padding: 1rem;
+  
+  .section-header h3 {
+    font-size: 1.5rem !important;
   }
 }

@@ -1,6 +1,30 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import "../styles/loans.css";
+
+const loanTypeOptions = [
+  { value: "normal", label: "Normal Loan (5% p.m.)" },
+  { value: "social_fund", label: "Social Fund Emergency (0%)" }
+];
+
+const periodOptions = [
+  { value: "1", label: "1 Month" },
+  { value: "2", label: "2 Months" },
+  { value: "3", label: "3 Months" }
+];
+
+const socialPeriodOptions = [
+  { value: "2w", label: "2 Weeks (Interest-Free)" }
+];
+
+const reasonOptions = [
+  { value: "business", label: "Business Expansion" },
+  { value: "emergency", label: "Emergency / Healthcare" },
+  { value: "school_fees", label: "School Fees" },
+  { value: "agriculture", label: "Agricultural / Farm Inputs" },
+  { value: "personal", label: "Personal Needs" }
+];
 
 export default function LoanRequestWidget() {
   const [loanType, setLoanType] = useState("normal"); // "normal" or "social_fund"
@@ -19,31 +43,55 @@ export default function LoanRequestWidget() {
 
   const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
-  useEffect(() => {
-    async function loadSharesBalance() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+  async function loadSharesBalance() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-        const res = await fetch("/api/user-balances", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          }
-        });
-        const data = await res.json();
-        if (res.ok && data.accounts) {
-          const sharesAcc = data.accounts.find(acc => acc.account_type === "shares");
-          if (sharesAcc) {
-            setSharesBalance(Number(sharesAcc.balance) || 0);
-          }
+      const res = await fetch("/api/user-balances", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
         }
-      } catch (err) {
-        console.warn("Failed to load shares balance:", err);
-      } finally {
-        setLoadingBalance(false);
+      });
+      const data = await res.json();
+      if (res.ok && data.accounts) {
+        const sharesAcc = data.accounts.find(acc => acc.account_type === "shares");
+        if (sharesAcc) {
+          setSharesBalance(Number(sharesAcc.balance) || 0);
+        }
       }
+    } catch (err) {
+      console.warn("Failed to load shares balance:", err);
+    } finally {
+      setLoadingBalance(false);
     }
+  }
+
+  useEffect(() => {
     loadSharesBalance();
+
+    const channel = supabase
+      .channel('loan-widget-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadSharesBalance)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, loadSharesBalance)
+      .subscribe();
+
+    function handleTransactionUpdate() {
+      loadSharesBalance();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+        window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
+      }
+    };
   }, []);
 
   const calculateLoan = (amount, type, period) => {
@@ -87,8 +135,7 @@ export default function LoanRequestWidget() {
     setDbDueDate(`${yyyy}-${mm}-${dd}`);
   };
 
-  const handleTypeChange = (e) => {
-    const selectedType = e.target.value;
+  const handleTypeChange = (selectedType) => {
     setLoanType(selectedType);
     
     // Set default periods
@@ -104,14 +151,13 @@ export default function LoanRequestWidget() {
     calculateLoan(amount, loanType, repaymentPeriod);
   };
 
-  const handlePeriodChange = (e) => {
-    const selectedPeriod = e.target.value;
+  const handlePeriodChange = (selectedPeriod) => {
     setRepaymentPeriod(selectedPeriod);
     calculateLoan(parseFloat(loanAmount) || "", loanType, selectedPeriod);
   };
 
-  const handleReasonChange = (e) => {
-    setLoanReason(e.target.value);
+  const handleReasonChange = (selectedReason) => {
+    setLoanReason(selectedReason);
   };
 
   const maxAllowedAmount = loanType === "social_fund" ? 50000 : sharesBalance * 2;
@@ -202,20 +248,11 @@ export default function LoanRequestWidget() {
         <div className="form-group">
           <label htmlFor="loan-type">Loan Type</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-layer-group"></i>
-            <select
-              id="loan-type"
+            <CustomSelect
               value={loanType}
+              options={loanTypeOptions}
               onChange={handleTypeChange}
-              required
-            >
-              <option value="normal">Normal Loan (5% interest p.m.)</option>
-              <option value="social_fund">Social Fund Loan (Interest-free)</option>
-            </select>
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+            />
           </div>
         </div>
 
@@ -231,9 +268,7 @@ export default function LoanRequestWidget() {
             <input
               type="number"
               id="loan-amount"
-              placeholder={loanType === "social_fund" ? "e.g. 30000" : "e.g. 500000"}
-              min="1000"
-              max={maxAllowedAmount}
+              placeholder="Enter amount"
               value={loanAmount}
               onChange={handleAmountChange}
               required
@@ -244,53 +279,24 @@ export default function LoanRequestWidget() {
         <div className="form-group">
           <label htmlFor="repayment-period">Repayment Period</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-calendar-days"></i>
-            {loanType === "social_fund" ? (
-              <select id="repayment-period" value="2w" disabled>
-                <option value="2w">2 Weeks (Fixed)</option>
-              </select>
-            ) : (
-              <select
-                id="repayment-period"
-                value={repaymentPeriod}
-                onChange={handlePeriodChange}
-                required
-              >
-                <option value="1">1 Month</option>
-                <option value="2">2 Months</option>
-                <option value="3">3 Months</option>
-              </select>
-            )}
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+            <CustomSelect
+              value={loanType === "social_fund" ? "2w" : repaymentPeriod}
+              options={loanType === "social_fund" ? socialPeriodOptions : periodOptions}
+              onChange={(val) => setRepaymentPeriod(val)}
+              disabled={loanType === "social_fund"}
+            />
           </div>
         </div>
 
         <div className="form-group">
           <label htmlFor="loan-reason">Reason for Loan</label>
           <div className="input-wrapper">
-            <i className="fa-solid fa-pen-to-square"></i>
-            <select
-              id="loan-reason"
+            <CustomSelect
               value={loanReason}
-              onChange={handleReasonChange}
-              required
-            >
-              <option value="" disabled>
-                Select a reason...
-              </option>
-              <option value="business">Business / Development</option>
-              <option value="education">Education / School Fees</option>
-              <option value="medical">Medical Emergency</option>
-              <option value="personal">Personal / Home</option>
-              <option value="other">Other</option>
-            </select>
-            <i
-              className="fa-solid fa-chevron-down"
-              style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-            ></i>
+              options={reasonOptions}
+              onChange={(val) => setLoanReason(val)}
+              placeholder="Select a reason..."
+            />
           </div>
         </div>
 

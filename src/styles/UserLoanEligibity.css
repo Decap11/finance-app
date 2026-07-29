@@ -105,3 +105,52 @@
   transform: translateY(-0.2rem);
   box-shadow: 0 0.8rem 1.6rem rgba(37, 59, 142, 0.25);
 }
+
+@media (max-width: 44rem) {
+  .loan-widget {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+    margin-top: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .eligibility-content {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1.8rem !important;
+  }
+
+  .score-circle {
+    width: 9rem !important;
+    height: 9rem !important;
+  }
+
+  .score-value {
+    font-size: 2.2rem !important;
+  }
+
+  .score-label {
+    font-size: 1.2rem !important;
+  }
+
+  .eligibility-details {
+    width: 100% !important;
+    gap: 1.2rem !important;
+  }
+
+  .detail-label {
+    font-size: 1.25rem !important;
+  }
+
+  .detail-value {
+    font-size: 1.35rem !important;
+  }
+
+  .btn-loan {
+    width: 100% !important;
+    margin-top: 0.8rem !important;
+    padding: 1.2rem !important;
+    font-size: 1.4rem !important;
+    text-align: center !important;
+  }
+}

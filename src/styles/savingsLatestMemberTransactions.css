@@ -1,10 +1,10 @@
-/* .recent-transactions {
+.recent-transactions {
   background-color: var(--white);
-  border-radius: var(--border-radius);
-  padding: 3rem;
+  border-radius: 1.6rem;
+  padding: 2.5rem;
   box-shadow: var(--card-shadow);
-  height: 100%;
-} */
+  border: 0.1rem solid #f1f5f9;
+}
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -123,5 +123,54 @@
   background-color: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
 }
-@media (max-width: 34rem) {
+@media (max-width: 44rem) {
+  .recent-transactions {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+  }
+
+  .section-header {
+    margin-bottom: 1.8rem !important;
+    gap: 1rem !important;
+  }
+
+  .section-title {
+    font-size: 1.5rem !important;
+  }
+
+  .transaction-item {
+    padding: 1.4rem 0 !important;
+  }
+
+  .tx-info {
+    gap: 1.2rem !important;
+  }
+
+  .tx-icon {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 1.6rem !important;
+    flex-shrink: 0 !important;
+    border-radius: 1.2rem !important;
+  }
+
+  .tx-details h4 {
+    font-size: 1.35rem !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .tx-details p {
+    font-size: 1.15rem !important;
+  }
+
+  .tx-amount {
+    font-size: 1.35rem !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .tx-status {
+    font-size: 1.1rem !important;
+    padding: 0.3rem 0.8rem !important;
+    border-radius: 0.6rem !important;
+  }
 }

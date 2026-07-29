@@ -148,47 +148,73 @@ body {
   transform: translateY(-2px);
 }
 
-@media (max-width: 768px) {
-  .contribution-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1.5rem;
-  }
-  .fund-input-area {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-@media (max-width: 35rem) {
-  .contributions-section {
-    font-size: 2.4rem !important;
-  }
+@media (max-width: 44rem) {
   .contributions-section .quick-actions {
     padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
   }
+  
   .section-header {
-    margin-bottom: 2.5rem;
-    display: flex;
-    justify-content: space-around;
-    width: 100%;
+    margin-bottom: 2rem !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
   }
+  
   .section-title {
-    align-self: flex-start;
-
-    font-size: 1.4rem;
+    font-size: 1.5rem !important;
   }
-
+  
+  .contribution-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1.6rem !important;
+    gap: 1.5rem !important;
+    border-radius: 1.2rem !important;
+  }
+  
+  .fund-info {
+    width: 100% !important;
+    gap: 1.2rem !important;
+  }
+  
   .fund-icon {
-    width: 4rem;
-    height: 4rem;
+    width: 4.2rem !important;
+    height: 4.2rem !important;
+    font-size: 1.8rem !important;
+    flex-shrink: 0 !important;
   }
+  
+  .fund-title {
+    font-size: 1.6rem !important;
+  }
+  
+  .fund-desc {
+    font-size: 1.25rem !important;
+  }
+  
   .fund-input-area {
-    gap: 1.5rem;
+    width: 100% !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
   }
-  .calculated-total {
-    justify-self: left;
-  }
+  
   .number-input {
-    width: 12rem;
+    width: 12rem !important;
+    font-size: 1.4rem !important;
+    padding: 1rem 1.2rem !important;
+  }
+  
+  .calculated-total {
+    font-size: 1.5rem !important;
+    width: auto !important;
+    text-align: right !important;
+  }
+  
+  .btn-pay {
+    margin-left: 0 !important;
+    width: 100% !important;
+    margin-top: 1rem !important;
+    padding: 1.2rem !important;
+    font-size: 1.4rem !important;
   }
 }

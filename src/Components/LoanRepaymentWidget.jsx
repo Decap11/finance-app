@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import "../styles/loans.css";
 
 export default function LoanRepaymentWidget() {
@@ -75,16 +76,38 @@ export default function LoanRepaymentWidget() {
       setMessage(`Cannot repay more than remaining amount: Shs ${remainingAmount.toLocaleString()}`);
       return;
     }
+    setLoading(true);
+    setMessage("");
 
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be logged in.");
 
+      const res = await fetch("/api/loans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: "repay_loan",
+          amount: amount,
+          paymentSource: paymentSource
+        })
+      });
 
-    // In a real scenario, call an RPC to process the loan repayment.
-    // For now, we simulate success since we don't have a specific repay_loan RPC yet.
-    setMessage("Repayment requested successfully (pending approval).");
-    
-    // Reset form
-    setRepayAmount("");
-    setPaymentSource("");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit repayment request.");
+
+      setMessage("success: Repayment requested successfully (pending approval).");
+      setRepayAmount("");
+      setPaymentSource("");
+    } catch (err) {
+      console.warn("Failed to request repayment:", err);
+      setMessage(err.message || "An error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -128,21 +151,16 @@ export default function LoanRepaymentWidget() {
           <div className="form-group">
             <label htmlFor="payment-source">Payment Source</label>
             <div className="input-wrapper">
-              <i className="fa-solid fa-wallet"></i>
-              <select
-                id="payment-source"
+              <CustomSelect
                 value={paymentSource}
-                onChange={handleSourceChange}
-                required
-              >
-                <option value="">Select source...</option>
-                <option value="mobile_money">Mobile Money</option>
-                <option value="bank">Bank Transfer</option>
-              </select>
-              <i
-                className="fa-solid fa-chevron-down"
-                style={{ left: "auto", right: "1.5rem", pointerEvents: "none" }}
-              ></i>
+                options={[
+                  { value: "", label: "Select source..." },
+                  { value: "mobile_money", label: "Mobile Money" },
+                  { value: "bank", label: "Bank Transfer" }
+                ]}
+                onChange={(val) => setPaymentSource(val)}
+                placeholder="Select source..."
+              />
             </div>
           </div>
 

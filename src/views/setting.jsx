@@ -5,6 +5,7 @@ import UserHeader from "../Components/userHeader";
 import MemberLayout from "../layout/MemberLayout";
 import { supabase } from "../supabaseClient";
 import Loader from "../Components/loader";
+import CustomSelect from "../Components/CustomSelect";
 import "../styles/settings.css";
 
 export default function Settings({ isAdminView = false }) {
@@ -17,6 +18,47 @@ export default function Settings({ isAdminView = false }) {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const [activeTab, setActiveTab] = useState("profile");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState("");
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState("");
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      setPasswordUpdating(true);
+      setPasswordSuccessMsg("");
+      setPasswordErrorMsg("");
+
+      if (!newPassword || newPassword.length < 6) {
+        throw new Error("Password must be at least 6 characters long.");
+      }
+
+      if (newPassword !== confirmPassword) {
+        throw new Error("New password and confirm password do not match.");
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccessMsg("Your password has been updated successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.warn("Error resetting password:", err);
+      setPasswordErrorMsg(err.message || "Failed to reset password.");
+    } finally {
+      setPasswordUpdating(false);
+    }
+  };
+
   useEffect(() => {
     async function loadUserProfile() {
       try {
@@ -25,19 +67,23 @@ export default function Settings({ isAdminView = false }) {
 
         // 1. Get authenticated user session
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setErrorMsg("User session not found. Please log in.");
-          setLoading(false);
-          return;
+        const token = session?.access_token;
+        const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
+
+        // Automatic repair: If token is bloated (> 3000 bytes), clear auth metadata
+        if (token && token.length >= 3000) {
+          supabase.auth.updateUser({ data: { avatar_url: null } }).then(() => {});
         }
 
         // 2. Query profile through local server-side proxy API
-        const res = await fetch("/api/profile", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          }
-        });
-        const data = await res.json();
+        const res = await fetch("/api/profile", { headers });
+        const text = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(text || "Server returned a non-JSON profile response.");
+        }
 
         if (!res.ok) {
           throw new Error(data.error || "Failed to load settings profile.");
@@ -47,14 +93,11 @@ export default function Settings({ isAdminView = false }) {
         setEmail(data.profile.email || "");
         setPhone(data.profile.phone || "");
 
-        // 3. Load avatar from local storage with metadata fallback
-        if (data.profile?.id) {
+        // 3. Load avatar from database with local storage fallback
+        if (data.profile) {
           const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
-          if (localAvatar) {
-            setAvatarUrl(localAvatar);
-          } else if (data.user?.user_metadata?.avatar_url) {
-            setAvatarUrl(data.user.user_metadata.avatar_url);
-          }
+          const avatar = data.profile.avatar_url || localAvatar || data.user?.user_metadata?.avatar_url || "";
+          setAvatarUrl(avatar);
         }
       } catch (err) {
         console.warn("Error fetching user profile:", err);
@@ -67,6 +110,49 @@ export default function Settings({ isAdminView = false }) {
     loadUserProfile();
   }, []);
 
+  const processAvatarImage = (file, max = 300) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > max) {
+              height = Math.round((height * max) / width);
+              width = max;
+            }
+          } else {
+            if (height > max) {
+              width = Math.round((width * max) / height);
+              height = max;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          canvas.toBlob(
+            (blob) => resolve({ blob, dataUrl }),
+            "image/jpeg",
+            0.85
+          );
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleAvatarUpload = async (e) => {
     try {
       setErrorMsg("");
@@ -74,43 +160,71 @@ export default function Settings({ isAdminView = false }) {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        try {
-          const base64Url = reader.result;
+      setUpdating(true);
+      const { blob, dataUrl } = await processAvatarImage(file, 300);
 
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            setErrorMsg("Your session has expired. Please log in again.");
-            return;
-          }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setErrorMsg("Your session has expired. Please log in again.");
+        setUpdating(false);
+        return;
+      }
 
-          // Save to local storage
-          if (session.user?.id) {
-            localStorage.setItem(`sacco_avatar_${session.user.id}`, base64Url);
-          }
+      const userId = session.user.id;
+      let finalUrl = dataUrl;
 
-          // Save through client-side auth update directly to prevent stateless server session failures
-          const { error: updateErr } = await supabase.auth.updateUser({
-            data: { avatar_url: "" } // Do not store base64 in metadata to prevent JWT bloating & 431 errors
-          });
+      // 1. Try uploading file blob to Supabase Storage bucket 'avatars' (WhatsApp / Industry Standard)
+      const filePath = `${userId}/avatar.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, blob, { upsert: true, contentType: "image/jpeg" });
 
-          if (updateErr) {
-            throw updateErr;
-          }
-
-          setAvatarUrl(base64Url);
-          setSuccessMsg("Avatar uploaded successfully!");
-        } catch (err) {
-          console.warn("Error uploading avatar in onload:", err);
-          setErrorMsg("Failed to upload avatar: " + err.message);
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(filePath);
+        if (urlData?.publicUrl) {
+          // Add timestamp query parameter to bypass browser caching when updated
+          finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
         }
-      };
+      } else {
+        console.warn("Supabase Storage bucket upload warning:", uploadErr.message);
+      }
 
-      reader.onerror = (error) => {
-        throw error;
-      };
+      // 2. Save CDN URL or fallback data URL to public.profiles table
+      const { error: dbErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: finalUrl })
+        .eq("id", userId);
+
+      if (dbErr) {
+        console.warn("Database profiles table avatar_url update warning:", dbErr.message);
+      }
+
+      // 3. Save to auth user metadata (only if short HTTPS URL, to prevent bloated JWT tokens)
+      if (finalUrl && !finalUrl.startsWith("data:image")) {
+        try {
+          await supabase.auth.updateUser({
+            data: { avatar_url: finalUrl }
+          });
+        } catch (e) {
+          // Ignore metadata update errors
+        }
+      }
+
+      // 4. Save locally for instant UI update
+      localStorage.setItem(`sacco_avatar_${userId}`, finalUrl);
+
+      setAvatarUrl(finalUrl);
+
+      // 5. Broadcast avatar update event to all active header and directory components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_avatar_updated", {
+          detail: { avatarUrl: finalUrl, userId }
+        }));
+      }
+
+      setSuccessMsg("Profile avatar updated successfully!");
     } catch (err) {
       console.warn("Error uploading avatar:", err);
       setErrorMsg("Failed to upload avatar: " + err.message);
@@ -196,50 +310,9 @@ export default function Settings({ isAdminView = false }) {
     );
   }
 
-  const isOnboarding = typeof window !== "undefined" && window.location.search.includes("onboarding=1");
-
   const settingsContent = (
     <section className="settings-container">
-      {isOnboarding && (
-        <div style={{
-          gridColumn: "1 / -1",
-          background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
-          color: "white",
-          padding: "2rem 2.5rem",
-          borderRadius: "1.6rem",
-          marginBottom: "2rem",
-          boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "2rem"
-        }}>
-          <div>
-            <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-              🎉 Welcome to PEWOSA SACCO Group Management!
-            </h2>
-            <p style={{ fontSize: "1.4rem", opacity: 0.9 }}>
-              Your SACCO group has been successfully registered. Please complete your admin profile, contact information, and group parameters below.
-            </p>
-          </div>
-          <button 
-            onClick={() => window.history.replaceState({}, '', '/settings')}
-            style={{
-              background: "rgba(255, 255, 255, 0.2)",
-              border: "1px solid rgba(255, 255, 255, 0.4)",
-              color: "white",
-              padding: "0.8rem 1.6rem",
-              borderRadius: "0.8rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              whiteSpace: "nowrap"
-            }}
-          >
-            Dismiss Guide
-          </button>
-        </div>
-      )}
-      {/* Settings Sidebar */}
+          {/* Settings Sidebar */}
           <div
             className="settings-sidebar"
             style={{
@@ -383,18 +456,23 @@ export default function Settings({ isAdminView = false }) {
               style={{ listStyle: "none", padding: 0 }}
             >
               <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("profile")}
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    width: "100%",
                     padding: "1.2rem 1.5rem",
+                    border: "none",
                     textDecoration: "none",
-                    color: "var(--primary-color)",
-                    background: "var(--bg-color)",
+                    color: activeTab === "profile" ? "var(--primary-color)" : "var(--text-dark)",
+                    background: activeTab === "profile" ? "var(--bg-color)" : "transparent",
                     borderRadius: "1rem",
-                    fontWeight: 600,
+                    fontWeight: activeTab === "profile" ? 600 : 500,
                     fontSize: "1.4rem",
+                    cursor: "pointer",
+                    textAlign: "left"
                   }}
                 >
                   <i
@@ -402,73 +480,34 @@ export default function Settings({ isAdminView = false }) {
                     style={{ width: "2.5rem" }}
                   />
                   Edit Profile
-                </a>
+                </button>
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("security")}
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    width: "100%",
                     padding: "1.2rem 1.5rem",
+                    border: "none",
                     textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
+                    color: activeTab === "security" ? "var(--primary-color)" : "var(--text-dark)",
+                    background: activeTab === "security" ? "var(--bg-color)" : "transparent",
                     borderRadius: "1rem",
+                    fontWeight: activeTab === "security" ? 600 : 500,
+                    fontSize: "1.4rem",
+                    cursor: "pointer",
+                    textAlign: "left"
                   }}
                 >
                   <i
                     className="fa-solid fa-shield-halved"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
+                    style={{ width: "2.5rem", color: activeTab === "security" ? "var(--primary-color)" : "var(--text-light)" }}
                   />
-                  Security
-                </a>
-              </li>
-              <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "1.2rem 1.5rem",
-                    textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
-                    borderRadius: "1rem",
-                  }}
-                >
-                  <i
-                    className="fa-solid fa-bell"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
-                  />
-                  Notifications
-                </a>
-              </li>
-              <li style={{ marginBottom: "0.5rem" }}>
-                <a
-                  href="#"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "1.2rem 1.5rem",
-                    textDecoration: "none",
-                    color: "var(--text-dark)",
-                    fontWeight: 500,
-                    fontSize: "1.4rem",
-                    transition: "background 0.2s",
-                    borderRadius: "1rem",
-                  }}
-                >
-                  <i
-                    className="fa-solid fa-building-columns"
-                    style={{ width: "2.5rem", color: "var(--text-light)" }}
-                  />
-                  Linked Accounts
-                </a>
+                  Security & Password
+                </button>
               </li>
             </ul>
           </div>
@@ -483,381 +522,407 @@ export default function Settings({ isAdminView = false }) {
               boxShadow: "var(--card-shadow)",
             }}
           >
-            <h2
-              style={{
-                fontSize: "2rem",
-                color: "var(--text-dark)",
-                marginBottom: "2.5rem",
-              }}
-            >
-              Personal Information
-            </h2>
-
-            {/* Notification Badges */}
-            {successMsg && (
-              <div
-                style={{
-                  background: "#d1e7dd",
-                  color: "#0f5132",
-                  padding: "1.2rem 1.5rem",
-                  borderRadius: "0.8rem",
-                  fontSize: "1.4rem",
-                  marginBottom: "2rem",
-                  fontWeight: 500,
-                }}
-              >
-                <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
-                {successMsg}
-              </div>
-            )}
-            {errorMsg && (
-              <div
-                style={{
-                  background: "#f8d7da",
-                  color: "#842029",
-                  padding: "1.2rem 1.5rem",
-                  borderRadius: "0.8rem",
-                  fontSize: "1.4rem",
-                  marginBottom: "2rem",
-                  fontWeight: 500,
-                }}
-              >
-                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div className="settings-form-grid">
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "1.3rem",
-                      fontWeight: 600,
-                      color: "var(--text-dark)",
-                      marginBottom: "0.8rem",
-                    }}
-                  >
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    disabled
-                    style={{
-                      width: "100%",
-                      padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-light)",
-                      fontFamily: "inherit",
-                      background: "#f8fafc",
-                      cursor: "not-allowed",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "1.3rem",
-                      fontWeight: 600,
-                      color: "var(--text-dark)",
-                      marginBottom: "0.8rem",
-                    }}
-                  >
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    disabled
-                    style={{
-                      width: "100%",
-                      padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-light)",
-                      fontFamily: "inherit",
-                      background: "#f8fafc",
-                      cursor: "not-allowed",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "2rem" }}>
-                <label
+            {activeTab === "profile" && (
+              <>
+                <h2
                   style={{
-                    display: "block",
-                    fontSize: "1.3rem",
-                    fontWeight: 600,
+                    fontSize: "2rem",
+                    color: "var(--text-dark)",
+                    marginBottom: "2.5rem",
+                  }}
+                >
+                  Personal Information
+                </h2>
+
+                {/* Notification Badges */}
+                {successMsg && (
+                  <div
+                    style={{
+                      background: "#d1e7dd",
+                      color: "#0f5132",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
+                    {successMsg}
+                  </div>
+                )}
+                {errorMsg && (
+                  <div
+                    style={{
+                      background: "#f8d7da",
+                      color: "#842029",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
+                    {errorMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  <div className="settings-form-grid">
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "1.3rem",
+                          fontWeight: 600,
+                          color: "var(--text-dark)",
+                          marginBottom: "0.8rem",
+                        }}
+                      >
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        value={firstName}
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-light)",
+                          fontFamily: "inherit",
+                          background: "#f8fafc",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "1.3rem",
+                          fontWeight: 600,
+                          color: "var(--text-dark)",
+                          marginBottom: "0.8rem",
+                        }}
+                      >
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        value={lastName}
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-light)",
+                          fontFamily: "inherit",
+                          background: "#f8fafc",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "2rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "1.2rem 1.5rem",
+                        border: "0.1rem solid #e2e8f0",
+                        borderRadius: "0.8rem",
+                        fontSize: "1.4rem",
+                        color: "var(--text-dark)",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: "3rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Phone Number
+                    </label>
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      <CustomSelect
+                        value="+256"
+                        options={[
+                          { value: "+256", label: "+256" },
+                          { value: "+254", label: "+254" },
+                          { value: "+255", label: "+255" },
+                          { value: "+250", label: "+250" }
+                        ]}
+                        onChange={() => {}}
+                        minWidth="100px"
+                      />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                        style={{
+                          flex: 1,
+                          padding: "1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      paddingTop: "2rem",
+                      borderTop: "0.1rem solid #f1f5f9",
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      disabled={updating}
+                      style={{
+                        padding: "1.2rem 2.4rem",
+                        background: "var(--primary-color)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.8rem",
+                        fontWeight: 600,
+                        fontSize: "1.4rem",
+                        cursor: updating ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.8rem",
+                        opacity: updating ? 0.7 : 1,
+                      }}
+                    >
+                      {updating ? "Saving..." : "Save Changes"} <i className="fa-solid fa-check" />
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {activeTab === "security" && (
+              <div>
+                <h2
+                  style={{
+                    fontSize: "2rem",
                     color: "var(--text-dark)",
                     marginBottom: "0.8rem",
                   }}
                 >
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "1.2rem 1.5rem",
-                    border: "0.1rem solid #e2e8f0",
-                    borderRadius: "0.8rem",
-                    fontSize: "1.4rem",
-                    color: "var(--text-dark)",
-                    fontFamily: "inherit",
-                  }}
-                />
-              </div>
+                  Security & Password Reset
+                </h2>
+                <p style={{ fontSize: "1.3rem", color: "var(--text-light)", marginBottom: "2.5rem" }}>
+                  Reset and update your login password to secure your SACCO member account.
+                </p>
 
-              <div style={{ marginBottom: "3rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "1.3rem",
-                    fontWeight: 600,
-                    color: "var(--text-dark)",
-                    marginBottom: "0.8rem",
-                  }}
-                >
-                  Phone Number
-                </label>
-                <div style={{ display: "flex", gap: "1rem" }}>
-                  <select
-                    defaultValue="+256"
+                {passwordSuccessMsg && (
+                  <div
                     style={{
-                      padding: "1.2rem",
-                      border: "0.1rem solid #e2e8f0",
-                      borderRadius: "0.8rem",
-                      fontSize: "1.4rem",
-                      color: "var(--text-dark)",
-                      fontFamily: "inherit",
-                      background: "white",
-                    }}
-                  >
-                    <option value="+256">+256</option>
-                  </select>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    style={{
-                      flex: 1,
+                      background: "#d1e7dd",
+                      color: "#0f5132",
                       padding: "1.2rem 1.5rem",
-                      border: "0.1rem solid #e2e8f0",
                       borderRadius: "0.8rem",
                       fontSize: "1.4rem",
-                      color: "var(--text-dark)",
-                      fontFamily: "inherit",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <h2
-                style={{
-                  fontSize: "2rem",
-                  color: "var(--text-dark)",
-                  marginBottom: "2.5rem",
-                  paddingTop: "2rem",
-                  borderTop: "0.1rem solid #f1f5f9",
-                }}
-              >
-                Preferences
-              </h2>
-
-              <div style={{ marginBottom: "3rem" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "1.5rem",
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        marginBottom: "0.3rem",
-                      }}
-                    >
-                      Monthly Statements
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: "1.2rem",
-                        color: "var(--text-light)",
-                      }}
-                    >
-                      Receive PDF statements of your pool balances via email.
-                    </p>
-                  </div>
-                  <label
-                    style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: "4.8rem",
-                      height: "2.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        cursor: "pointer",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: "var(--primary-color)",
-                        transition: ".4s",
-                        borderRadius: "3.4rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: "absolute",
-                          height: "1.8rem",
-                          width: "1.8rem",
-                          left: "2.6rem",
-                          bottom: "0.3rem",
-                          backgroundColor: "white",
-                          transition: ".4s",
-                          borderRadius: "50%",
-                        }}
-                      />
-                    </span>
-                  </label>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: "1.4rem",
-                        color: "var(--text-dark)",
-                        marginBottom: "0.3rem",
-                      }}
-                    >
-                      SMS Alerts
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: "1.2rem",
-                        color: "var(--text-light)",
-                      }}
-                    >
-                      Get instant texts when admin approves a contribution.
-                    </p>
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: "0.8rem" }} />
+                    {passwordSuccessMsg}
                   </div>
-                  <label
+                )}
+                {passwordErrorMsg && (
+                  <div
                     style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: "4.8rem",
-                      height: "2.4rem",
+                      background: "#f8d7da",
+                      color: "#842029",
+                      padding: "1.2rem 1.5rem",
+                      borderRadius: "0.8rem",
+                      fontSize: "1.4rem",
+                      marginBottom: "2rem",
+                      fontWeight: 500,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.8rem" }} />
+                    {passwordErrorMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handlePasswordReset}>
+                  <div style={{ marginBottom: "2rem" }}>
+                    <label
                       style={{
-                        position: "absolute",
-                        cursor: "pointer",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: "var(--primary-color)",
-                        transition: ".4s",
-                        borderRadius: "3.4rem",
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
                       }}
                     >
-                      <span
+                      New Password
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (at least 6 characters)"
+                        required
+                        minLength={6}
                         style={{
-                          position: "absolute",
-                          height: "1.8rem",
-                          width: "1.8rem",
-                          left: "2.6rem",
-                          bottom: "0.3rem",
-                          backgroundColor: "white",
-                          transition: ".4s",
-                          borderRadius: "50%",
+                          width: "100%",
+                          padding: "1.2rem 4rem 1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
                         }}
                       />
-                    </span>
-                  </label>
-                </div>
-              </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "1.2rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#64748b",
+                          fontSize: "1.4rem",
+                          padding: "0.4rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
+                        title={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        <i className={showNewPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"} />
+                      </button>
+                    </div>
+                  </div>
 
-              <div
-                style={{
-                  textAlign: "right",
-                  paddingTop: "2rem",
-                  borderTop: "0.1rem solid #f1f5f9",
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    padding: "1.2rem 2.4rem",
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--text-light)",
-                    fontWeight: 600,
-                    fontSize: "1.4rem",
-                    cursor: "pointer",
-                    marginRight: "1rem",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating}
-                  style={{
-                    padding: "1.2rem 2.4rem",
-                    background: "var(--primary-color)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "0.8rem",
-                    fontWeight: 600,
-                    fontSize: "1.4rem",
-                    cursor: updating ? "not-allowed" : "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.8rem",
-                    opacity: updating ? 0.7 : 1,
-                  }}
-                >
-                  {updating ? "Saving..." : "Save Changes"} <i className="fa-solid fa-check" />
-                </button>
+                  <div style={{ marginBottom: "3rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "1.3rem",
+                        fontWeight: 600,
+                        color: "var(--text-dark)",
+                        marginBottom: "0.8rem",
+                      }}
+                    >
+                      Confirm New Password
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                        required
+                        minLength={6}
+                        style={{
+                          width: "100%",
+                          padding: "1.2rem 4rem 1.2rem 1.5rem",
+                          border: "0.1rem solid #e2e8f0",
+                          borderRadius: "0.8rem",
+                          fontSize: "1.4rem",
+                          color: "var(--text-dark)",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "1.2rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#64748b",
+                          fontSize: "1.4rem",
+                          padding: "0.4rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
+                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        <i className={showConfirmPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      paddingTop: "2rem",
+                      borderTop: "0.1rem solid #f1f5f9",
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      disabled={passwordUpdating}
+                      style={{
+                        padding: "1.2rem 2.4rem",
+                        background: "var(--primary-color)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.8rem",
+                        fontWeight: 600,
+                        fontSize: "1.4rem",
+                        cursor: passwordUpdating ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.8rem",
+                        opacity: passwordUpdating ? 0.7 : 1,
+                      }}
+                    >
+                      {passwordUpdating ? "Updating..." : "Reset Password"} <i className="fa-solid fa-key" />
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            )}
           </div>
         </section>
   );

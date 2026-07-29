@@ -9,23 +9,44 @@ export default function WeeklyContributions() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const [groupSettings, setGroupSettings] = useState({
-    sharePrice: 25000,
-    devtFund: 1000,
-    socialFund: 2000,
-    currentWeek: 1,
-    isLocked: false,
+  const [groupSettings, setGroupSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("sacco_settings_cache");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+    }
+    return {
+      sharePrice: 25000,
+      devtFund: 1000,
+      socialFund: 2000,
+      currentWeek: 1,
+      isLocked: false,
+    };
   });
   const [loadingSettings, setLoadingSettings] = useState(true);
 
   useEffect(() => {
     async function loadGroupSettings() {
       try {
-        const res = await fetch("/api/sacco-settings");
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {};
+
+        const res = await fetch("/api/sacco-settings", { headers, cache: "no-store" });
         const data = await res.json();
         if (res.ok) {
           setGroupSettings(data);
-          setDevtFund(data.devtFund || 1000);
+          if (data.devtFund !== undefined && data.devtFund !== null) {
+            setDevtFund(data.devtFund);
+          }
+          if (data.socialFund !== undefined && data.socialFund !== null) {
+            setsocialFund(data.socialFund);
+          }
+          if (typeof window !== "undefined") {
+            localStorage.setItem("sacco_settings_cache", JSON.stringify(data));
+          }
         }
       } catch (err) {
         console.warn("Failed to load active group settings:", err);
@@ -34,6 +55,47 @@ export default function WeeklyContributions() {
       }
     }
     loadGroupSettings();
+
+    // Subscribe to real-time sacco_settings updates
+    const channel = supabase
+      .channel('weekly-contributions-sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadGroupSettings();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadGroupSettings();
+        }
+      )
+      .subscribe();
+
+    const handleSettingsUpdated = (e) => {
+      if (e.detail) {
+        setGroupSettings(e.detail);
+        if (e.detail.devtFund !== undefined) setDevtFund(e.detail.devtFund);
+        if (e.detail.socialFund !== undefined) setsocialFund(e.detail.socialFund);
+      }
+    };
+
+    window.addEventListener("sacco_settings_updated", handleSettingsUpdated);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("sacco_settings_updated", handleSettingsUpdated);
+    };
   }, []);
 
   const sharePrice = groupSettings.sharePrice;
@@ -84,6 +146,12 @@ export default function WeeklyContributions() {
       if (!res.ok) throw new Error(data.error || "Failed to submit contributions.");
 
       setMessage("Contributions submitted successfully (Pending Admin approval).");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+        window.dispatchEvent(new CustomEvent("manual_contribution_logged"));
+      }
+
       // Reset states
       setShares("");
       setDevtFund(groupSettings.devtFund || 1000); // Reset back to default

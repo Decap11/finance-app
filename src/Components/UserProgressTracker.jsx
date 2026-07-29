@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useToast } from "../context/ToastContext";
 import "../styles/UserProgressTracker.css";
 
 export default function UserProgressTracker() {
   const [loading, setLoading] = useState(true);
+  const { showError, showSuccess } = useToast();
   const [balances, setBalances] = useState({
     shares: 0,
     development_fund: 0,
@@ -52,8 +54,13 @@ export default function UserProgressTracker() {
         });
       }
 
-      // Fetch settings
-      const settingsRes = await fetch("/api/sacco-settings");
+      // Fetch settings with authorization and no-store policy
+      const settingsRes = await fetch("/api/sacco-settings", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        cache: "no-store"
+      });
       const settingsData = await settingsRes.json();
       
       let currentSharePrice = 5000;
@@ -119,8 +126,21 @@ export default function UserProgressTracker() {
       )
       .subscribe();
 
+    function handleUpdate() {
+      loadData();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", handleUpdate);
+      window.addEventListener("manual_contribution_logged", handleUpdate);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", handleUpdate);
+        window.removeEventListener("manual_contribution_logged", handleUpdate);
+      }
     };
   }, []);
 
@@ -160,8 +180,9 @@ export default function UserProgressTracker() {
         social: newSocialTarget,
       });
       setIsEditing(false);
+      showSuccess("Financial goal targets updated successfully!");
     } catch (err) {
-      alert("Failed to save targets: " + err.message);
+      showError("Failed to save targets: " + err.message);
     } finally {
       setSavingTargets(false);
     }

@@ -1,16 +1,39 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
+import { useToast } from "../context/ToastContext";
 import "../styles/UserRecentTransactionsTable.css";
 
 export default function UserRecentTransactions() {
   const [transactions, setTransactions] = useState([]);
+  const [saccoCurrentWeek, setSaccoCurrentWeek] = useState(1);
   const [loading, setLoading] = useState(true);
+  const { showSuccess, showError } = useToast();
 
   async function fetchTransactions() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+
+      // Fetch user's sacco group current_week setting
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('group_id')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.group_id) {
+        const { data: saccoData } = await supabase
+          .from('saccos')
+          .select('current_week')
+          .ilike('group_code', profile.group_id.trim())
+          .limit(1)
+          .single();
+
+        if (saccoData?.current_week) {
+          setSaccoCurrentWeek(Number(saccoData.current_week) || 1);
+        }
+      }
 
       const res = await fetch("/api/user-transactions?limit=10", {
         headers: {
@@ -18,13 +41,11 @@ export default function UserRecentTransactions() {
         }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      if (data.transactions) {
+      if (res.ok && data.transactions) {
         setTransactions(data.transactions);
       }
     } catch (err) {
-      console.warn("Error loading user transactions:", err);
+      console.warn("Failed to fetch transactions:", err);
     } finally {
       setLoading(false);
     }
@@ -49,8 +70,21 @@ export default function UserRecentTransactions() {
       )
       .subscribe();
 
+    function handleTransactionUpdate() {
+      fetchTransactions();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
+      window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
+        window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
+      }
     };
   }, []);
 
@@ -60,9 +94,10 @@ export default function UserRecentTransactions() {
         p_transaction_id: transactionId
       });
       if (error) throw error;
+      showSuccess("Transaction approved successfully!");
       fetchTransactions();
     } catch (err) {
-      alert("Failed to approve transaction: " + err.message);
+      showError("Failed to approve transaction: " + err.message);
     }
   };
 
@@ -72,9 +107,10 @@ export default function UserRecentTransactions() {
         p_transaction_id: transactionId
       });
       if (error) throw error;
+      showSuccess("Transaction rejected.");
       fetchTransactions();
     } catch (err) {
-      alert("Failed to reject transaction: " + err.message);
+      showError("Failed to reject transaction: " + err.message);
     }
   };
 
@@ -129,15 +165,16 @@ export default function UserRecentTransactions() {
                   const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
                   
                   let weekNum = null;
-                  const match = transaction.description?.match(/\|\s*Week\s*(\d+)/i);
-                  if (match) {
-                    weekNum = parseInt(match[1], 10);
+                  if (transaction.week_number) {
+                    weekNum = Number(transaction.week_number);
+                  } else if (transaction.description) {
+                    const match = transaction.description.match(/week\s*(\d+)/i);
+                    if (match) {
+                      weekNum = parseInt(match[1], 10);
+                    }
                   }
                   if (!weekNum) {
-                    const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                    const diffInMs = dateObj - startOfYear;
-                    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-                    weekNum = Math.floor(diffInDays / 7) + 1;
+                    weekNum = saccoCurrentWeek || 1;
                   }
 
                   const getOrdinal = (d) => {
@@ -158,6 +195,12 @@ export default function UserRecentTransactions() {
                   if (displayType === "development_fund") displayType = "Development";
                   if (displayType === "shares") displayType = "Shares";
                   if (displayType === "savings") displayType = "Savings";
+                  if (displayType === "loan_disbursement") displayType = "Loan";
+                  if (displayType === "loan_repayment") displayType = "Loan Repayment";
+                  if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Fines & Penalties";
+
+                  const isApproved = transaction.status === "completed" || transaction.status === "approved";
+                  const isPending = transaction.status === "pending";
 
                   return (
                     <tr key={transaction.id}>
@@ -174,15 +217,16 @@ export default function UserRecentTransactions() {
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                           <span
-                            className={`status-badge ${
-                              transaction.status === "completed" || transaction.status === "approved"
-                                ? "success"
-                                : transaction.status === "pending" ? "pending" : "danger"
-                            }`}
+                            className={`status-badge ${isApproved ? "success" : isPending ? "pending" : "danger"}`}
+                            style={{
+                              background: isApproved ? "#f0fdf4" : isPending ? "#fef3c7" : "#fef2f2",
+                              color: isApproved ? "#22c55e" : isPending ? "#d97706" : "#ef4444",
+                              fontWeight: 700
+                            }}
                           >
-                            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                            {isApproved ? "Completed" : isPending ? "Pending" : "Rejected"}
                           </span>
-                          {transaction.status === 'pending' && transaction.requested_by && transaction.requested_by !== transaction.profile_id && (
+                          {isPending && transaction.requested_by && transaction.requested_by !== transaction.profile_id && (
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                               <button 
                                 onClick={() => handleApprove(transaction.id)}
@@ -230,27 +274,31 @@ export default function UserRecentTransactions() {
   );
 }
 
-//Updating the badge component to handle conditional rendering
+// Updating the badge component to handle conditional rendering & defined category colors
 function TransactionTypeBadge({ type }) {
   const typeStyles = {
-    "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
-    Development: { color: "#10b981", backgroundColor: "#10b9811a" },
-    "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" }, // Extrapolated colors for the loan badge
+    "Social Fund": { color: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.1)" },
+    Development: { color: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.1)" },
+    Loan: { color: "#d97706", backgroundColor: "#fef3c7" },
+    "Loan Repayment": { color: "#059669", backgroundColor: "#d1fae5" },
+    Savings: { color: "#2563eb", backgroundColor: "rgba(59, 130, 246, 0.1)" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
   };
-  // Fallback styling just in case a type comes back that isn't in the map above
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
-
-  // Select the style based on the type, or use the default
   const currentStyle = typeStyles[type] || defaultStyle;
 
   return (
     <td>
       <span
-        className="transaction-badge transfer"
+        className="transaction-badge"
         style={{
           color: currentStyle.color,
           backgroundColor: currentStyle.backgroundColor,
+          fontWeight: 700,
+          padding: "0.5rem 1rem",
+          borderRadius: "0.6rem",
+          fontSize: "1.15rem",
+          display: "inline-block"
         }}
       >
         {type}

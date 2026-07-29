@@ -1,12 +1,27 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import "../styles/featureArea.css";
+
+const fundTypeOptions = [
+  { value: "shares", label: "Shares Contribution" },
+  { value: "development_fund", label: "Development Fund" },
+  { value: "social_fund", label: "Social Fund" },
+  { value: "fines", label: "Fines / Penalties" },
+  { value: "loan_disbursement", label: "Loan Disbursement (Issue Loan)" }
+];
+
+const loanTypeOptions = [
+  { value: "normal", label: "Normal Loan (5% p.m.)" },
+  { value: "social_fund", label: "Social Fund Emergency (0%)" }
+];
 
 export default function ManualContributionLog({ allMembers }) {
   const [addMember, setAddMember] = useState("");
   const [addFundType, setAddFundType] = useState("shares");
   const [addAmount, setAddAmount] = useState("");
   const [currentWeek, setCurrentWeek] = useState(1);
+  const [meetingDay, setMeetingDay] = useState("Wednesday");
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [loggingMode, setLoggingMode] = useState("current"); // "current" or "historical"
   const [loading, setLoading] = useState(false);
@@ -17,6 +32,45 @@ export default function ManualContributionLog({ allMembers }) {
   const [loanType, setLoanType] = useState("normal");
   const [purpose, setPurpose] = useState("Onboarded historical loan");
 
+  const memberOptions = (allMembers || []).map((m) => ({
+    value: m.id,
+    label: `${m.name} (${m.memberId || m.phone || "Member"})`
+  }));
+
+  function getMeetingDateLabel(year, meetingDayName, weekNum) {
+    const DAY_INDICES = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    const targetDayIndex = DAY_INDICES[meetingDayName] !== undefined ? DAY_INDICES[meetingDayName] : 3;
+
+    let meetingCount = 0;
+    const isLeap = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+    const daysInYear = isLeap ? 366 : 365;
+
+    let targetDate = new Date(year, 0, 1);
+
+    for (let d = 1; d <= daysInYear; d++) {
+      const current = new Date(year, 0, d);
+      if (current.getDay() === targetDayIndex) {
+        meetingCount++;
+        if (meetingCount === weekNum) {
+          targetDate = current;
+          break;
+        }
+      }
+    }
+
+    return targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  const currentYear = new Date().getFullYear();
+  const targetWeekOptions = Array.from({ length: 52 }, (_, i) => {
+    const weekNum = i + 1;
+    const dateLabel = getMeetingDateLabel(currentYear, meetingDay, weekNum);
+    return {
+      value: weekNum,
+      label: `Week ${weekNum} (${dateLabel})${weekNum === currentWeek ? " [Active]" : ""}`
+    };
+  });
+
   useEffect(() => {
     async function loadSettings() {
       try {
@@ -25,12 +79,17 @@ export default function ManualContributionLog({ allMembers }) {
         const res = await fetch("/api/sacco-settings", {
           headers: {
             "Authorization": `Bearer ${session.access_token}`
-          }
+          },
+          cache: "no-store"
         });
         const data = await res.json();
-        if (res.ok && data.settings) {
-          const cw = Number(data.settings.currentWeek) || 1;
+        if (res.ok) {
+          const settingsObj = data.settings || data;
+          const cw = Number(settingsObj.currentWeek) || 1;
           setCurrentWeek(cw);
+          if (settingsObj.meetingDay) {
+            setMeetingDay(settingsObj.meetingDay);
+          }
           if (loggingMode === "current") {
             setSelectedWeek(cw);
           }
@@ -40,6 +99,54 @@ export default function ManualContributionLog({ allMembers }) {
       }
     }
     loadSettings();
+
+    // Subscribe to real-time sacco_settings updates over WebSockets
+    const channel = supabase
+      .channel('manual-log-sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadSettings();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadSettings();
+        }
+      )
+      .subscribe();
+
+    function handleSettingsUpdate(e) {
+      if (e.detail) {
+        if (e.detail.meetingDay) {
+          setMeetingDay(e.detail.meetingDay);
+        }
+        if (e.detail.currentWeek) {
+          setCurrentWeek(Number(e.detail.currentWeek));
+        }
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
+    }
+    return () => {
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
+      }
+    };
   }, [loggingMode]);
 
   // Adjust selected week based on logging mode selection
@@ -89,6 +196,12 @@ export default function ManualContributionLog({ allMembers }) {
       if (!res.ok) throw new Error(data.error || "Failed to log contribution");
 
       setMessage(`${addFundType === "loan_disbursement" ? "Loan record" : "Contribution"} logged successfully for Week ${selectedWeek}!`);
+
+      // Dispatch global events to instantly update all cards, progress bars, tables, and lists
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+        window.dispatchEvent(new CustomEvent("manual_contribution_logged"));
+      }
 
       // Reset form fields
       setAddMember("");
@@ -143,10 +256,9 @@ export default function ManualContributionLog({ allMembers }) {
           Backfilling paper records for past weeks.
         </div>
       )}
-      
+
       {message && (
         <div style={{
-          marginBottom: '1.2rem',
           padding: '0.8rem',
           borderRadius: '0.8rem',
           background: message.includes('successfully') ? '#d1fae5' : '#fee2e2',
@@ -161,34 +273,21 @@ export default function ManualContributionLog({ allMembers }) {
 
       <div className="admin-form-group admin-form-group-member">
         <label className="admin-label-member">Select Member</label>
-        <select
-          className="admin-select-member"
+        <CustomSelect
           value={addMember}
-          onChange={(e) => setAddMember(e.target.value)}
-          required
-        >
-          <option value="">-- Select Member --</option>
-          {allMembers.map(({ id, name, memberId }) => (
-            <option key={id} value={id}>
-              {name} ({memberId})
-            </option>
-          ))}
-        </select>
+          options={memberOptions}
+          onChange={(val) => setAddMember(val)}
+          placeholder="-- Select Member --"
+        />
       </div>
 
       <div className="admin-form-group admin-form-group-fund">
         <label className="admin-label-fund">Fund Pool / Transaction Type</label>
-        <select
-          className="admin-select-fund"
+        <CustomSelect
           value={addFundType}
-          onChange={(e) => setAddFundType(e.target.value)}
-          required
-        >
-          <option value="shares">Shares Pool</option>
-          <option value="development_fund">Development Fund</option>
-          <option value="social_fund">Social Fund</option>
-          <option value="loan_disbursement">Loan Disbursement (New Loan)</option>
-        </select>
+          options={fundTypeOptions}
+          onChange={(val) => setAddFundType(val)}
+        />
       </div>
 
       {/* Dynamic Loan Fields */}
@@ -196,14 +295,11 @@ export default function ManualContributionLog({ allMembers }) {
         <>
           <div className="admin-form-group">
             <label>Loan Type</label>
-            <select
+            <CustomSelect
               value={loanType}
-              onChange={(e) => setLoanType(e.target.value)}
-              required
-            >
-              <option value="normal">Normal Loan (5% p.m. interest)</option>
-              <option value="social_fund">Social Fund Loan (Interest-free, 2 weeks)</option>
-            </select>
+              options={loanTypeOptions}
+              onChange={(val) => setLoanType(val)}
+            />
           </div>
 
           <div className="admin-form-group">
@@ -233,28 +329,11 @@ export default function ManualContributionLog({ allMembers }) {
       {loggingMode === "historical" ? (
         <div className="admin-form-group">
           <label>Target Week</label>
-          <select
+          <CustomSelect
             value={selectedWeek}
-            onChange={(e) => setSelectedWeek(Number(e.target.value))}
-            style={{
-              width: "100%",
-              padding: "1rem",
-              fontSize: "1.3rem",
-              border: "0.1rem solid var(--border-color)",
-              borderRadius: "0.8rem",
-              backgroundColor: "var(--white)",
-              color: "var(--text-dark)",
-              outline: "none"
-            }}
-            required
-          >
-            {/* Allow selecting any week from Week 1 to currentWeek - 1 for onboarding */}
-            {Array.from({ length: currentWeek - 1 }, (_, i) => i + 1).map((w) => (
-              <option key={w} value={w}>
-                Week {w}
-              </option>
-            ))}
-          </select>
+            options={targetWeekOptions}
+            onChange={(val) => setSelectedWeek(Number(val))}
+          />
         </div>
       ) : (
         <div className="admin-form-group" style={{ marginBottom: "1.6rem" }}>

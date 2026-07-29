@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import "../styles/saccoSettings.css";
 
 export default function SaccoSettings() {
-  const [settings, setSettings] = useState({
-    sharePrice: 25000,
-    devtFund: 1000,
-    socialFund: 2000,
-    currentWeek: 1,
-    isLocked: false,
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("sacco_settings_cache");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+    }
+    return {
+      sharePrice: 25000,
+      devtFund: 1000,
+      socialFund: 2000,
+      currentWeek: 1,
+      meetingDay: "Wednesday",
+      isLocked: false,
+    };
   });
 
   const [allMembers, setAllMembers] = useState([]);
@@ -36,82 +48,125 @@ export default function SaccoSettings() {
   const [message, setMessage] = useState("");
   const [saccoInfo, setSaccoInfo] = useState(null);
 
-  // Load Sacco configuration
-  async function loadSettings() {
-    try {
-      const res = await fetch("/api/sacco-settings");
-      const data = await res.json();
-      if (res.ok) {
-        setSettings(data);
-        setFilterWeek(data.currentWeek || 1);
-      }
-    } catch (err) {
-      console.warn("Failed to load Sacco settings:", err);
-    } finally {
-      setLoadingSettings(false);
-    }
-  }
-
-  // Load live transactions and profiles from database
+  // Load Sacco configuration and live records cleanly
   async function loadDatabaseData() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
+
+      const token = session?.access_token;
+      const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
 
       const { data: profileData } = await supabase
         .from("profiles")
         .select("group_id")
         .eq("id", user.id)
-        .maybeSingle();
+        .single();
 
-      const groupId = profileData?.group_id || user.user_metadata?.group_id;
-      if (!groupId) return;
-
-      const { data: sacco } = await supabase
-        .from("saccos")
-        .select("*")
-        .eq("group_code", groupId)
-        .maybeSingle();
-
-      if (!sacco) return;
-      setSaccoInfo(sacco);
-
-      // 1. Fetch Sacco profiles
-      const { data: profilesList } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("group_id", profileData.group_id);
-
-      if (profilesList) {
-        setAllMembers(
-          profilesList.map((m) => ({
-            id: m.id,
-            name: m.full_name || "Unknown",
-            memberId: m.member_number || "N/A",
-          }))
-        );
+      let sacco = null;
+      const cleanGroupCode = (profileData?.group_id || '').trim();
+      if (cleanGroupCode) {
+        const { data: saccoRows } = await supabase
+          .from("saccos")
+          .select("*")
+          .ilike("group_code", cleanGroupCode)
+          .limit(1);
+        if (saccoRows && saccoRows.length > 0) {
+          sacco = saccoRows[0];
+        }
       }
 
-      // 2. Fetch all Sacco transactions of status completed/approved/pending
-      const { data: txsList } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("sacco_id", sacco.id)
-        .in("status", ["approved", "completed", "pending"]);
+      if (!sacco) {
+        const { data: adminRows } = await supabase
+          .from("saccos")
+          .select("*")
+          .eq("admin_profile_id", user.id)
+          .limit(1);
+        if (adminRows && adminRows.length > 0) {
+          sacco = adminRows[0];
+        }
+      }
 
-      if (txsList) {
-        setAllTransactions(txsList);
+      if (sacco) {
+        setSaccoInfo(sacco);
+      }
+
+      // Fetch live active settings from /api/sacco-settings (queries sacco_settings table first)
+      const apiUrl = cleanGroupCode ? `/api/sacco-settings?group_code=${encodeURIComponent(cleanGroupCode)}` : "/api/sacco-settings";
+      const settingsRes = await fetch(apiUrl, { headers, cache: "no-store" });
+      const settingsData = await settingsRes.json();
+
+      if (settingsRes.ok && settingsData && settingsData.sharePrice !== undefined) {
+        setSettings(settingsData);
+        setFilterWeek(settingsData.currentWeek || 1);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sacco_settings_cache", JSON.stringify(settingsData));
+        }
+      }
+
+      if (sacco) {
+        // Parallelize profile list and transaction list lookups
+        const [profilesRes, txsRes] = await Promise.all([
+          supabase.from("profiles").select("*").ilike("group_id", sacco.group_code || cleanGroupCode),
+          supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"])
+        ]);
+
+        if (profilesRes.data) {
+          setAllMembers(
+            profilesRes.data.map((m) => ({
+              id: m.id,
+              name: m.full_name || "Unknown",
+              memberId: m.member_number || "N/A",
+            }))
+          );
+        }
+
+        if (txsRes.data) {
+          setAllTransactions(txsRes.data);
+        }
       }
     } catch (err) {
-      console.warn("Failed to load database data:", err);
+      console.warn("Failed to load database settings data:", err);
     } finally {
+      setLoadingSettings(false);
       setLoadingData(false);
     }
   }
 
   useEffect(() => {
-    loadSettings();
     loadDatabaseData();
+
+    // Realtime WebSocket listener for SACCO Settings updates
+    const channel = supabase
+      .channel('sacco-settings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sacco_settings'
+        },
+        () => {
+          loadDatabaseData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'saccos'
+        },
+        () => {
+          loadDatabaseData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Compute Weekly Table and overall totals dynamically
@@ -119,20 +174,29 @@ export default function SaccoSettings() {
     if (allMembers.length === 0) return;
 
     const rows = allMembers.map((member) => {
-      // Find matching transactions for the selected week/month/year
+      // Find matching transactions for the selected week & year
       const memberTxs = allTransactions.filter((tx) => {
         if (tx.profile_id !== member.id) return false;
 
+        // 1. Extract SACCO Week Number from database row or description text
+        let txWeek = Number(tx.week_number) || Number(tx.week);
+        if (!txWeek && tx.description) {
+          const match = tx.description.match(/\|\s*Week\s*(\d+)/i);
+          if (match) {
+            txWeek = parseInt(match[1], 10);
+          }
+        }
+        if (!txWeek && tx.created_at) {
+          const txDate = new Date(tx.created_at);
+          txWeek = Math.ceil(txDate.getDate() / 7);
+        }
+
         const txDate = new Date(tx.created_at);
         const txYear = txDate.getFullYear();
-        const txMonth = txDate.getMonth();
-        const txDay = txDate.getDate();
-        const txWeek = Math.ceil(txDay / 7);
 
         return (
-          txYear === Number(filterYear) &&
-          txMonth === Number(filterMonth) &&
-          txWeek === Number(filterWeek)
+          Number(txWeek) === Number(filterWeek) &&
+          txYear === Number(filterYear)
         );
       });
 
@@ -210,19 +274,51 @@ export default function SaccoSettings() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Authentication session not found.");
 
+      const token = session.access_token;
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      // 1. Direct Supabase update using logged-in Admin client (auth.uid() matches admin_profile_id!)
+      const updatePayload = {
+        share_price: Number(settings.sharePrice),
+        devt_fund: Number(settings.devtFund),
+        social_fund: Number(settings.socialFund),
+        current_week: Number(settings.currentWeek),
+        meeting_day: (settings.meetingDay || "Wednesday").trim(),
+        is_locked: Boolean(settings.isLocked),
+        updated_at: new Date().toISOString()
+      };
+
+      if (saccoInfo?.id) {
+        await supabase.from('saccos').update(updatePayload).eq('id', saccoInfo.id);
+      }
+
+      // 2. Call API route as backup
       const res = await fetch("/api/sacco-settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers,
         body: JSON.stringify(settings),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update settings.");
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        data = {};
+      }
 
       setMessage("Settings saved successfully!");
+      const updatedConf = data.settings || settings;
+      setSettings(updatedConf);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sacco_settings_cache", JSON.stringify(updatedConf));
+        window.dispatchEvent(new CustomEvent("sacco_settings_updated", { detail: updatedConf }));
+      }
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
       setMessage(`Error: ${err.message}`);
@@ -231,6 +327,47 @@ export default function SaccoSettings() {
 
   const handlePrintReport = () => {
     window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (reportRows.length === 0) return;
+    
+    // Construct CSV header & rows
+    const headers = ["Member ID", "Member Name", "Shares Quantity", "Shares Amount (Shs)", "Development Fund (Shs)", "Social Fund (Shs)", "Fines (Shs)", "Row Total (Shs)"];
+    
+    const csvRows = [
+      headers.join(","),
+      ...reportRows.map(row => [
+        `"${row.memberId}"`,
+        `"${row.name.replace(/"/g, '""')}"`,
+        row.sharesQty,
+        row.sharesAmt,
+        row.devtAmt,
+        row.socialAmt,
+        row.finesAmt,
+        row.rowTotal
+      ].join(",")),
+      // Add totals row
+      [
+        `"TOTALS"`,
+        `""`,
+        `""`,
+        reportTotals.shares,
+        reportTotals.devt,
+        reportTotals.social,
+        reportTotals.fines,
+        reportTotals.grandTotal
+      ].join(",")
+    ];
+    
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${saccoInfo?.acronym || "sacco"}_weekly_report_week_${filterWeek}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getMonthName = (mIndex) => {
@@ -247,6 +384,34 @@ export default function SaccoSettings() {
     month: "long",
     day: "numeric",
   });
+  const yearOptions = [
+    { value: 2025, label: "2025" },
+    { value: 2026, label: "2026" },
+    { value: 2027, label: "2027" },
+  ];
+
+  const monthOptions = [
+    { value: 0, label: "January" },
+    { value: 1, label: "February" },
+    { value: 2, label: "March" },
+    { value: 3, label: "April" },
+    { value: 4, label: "May" },
+    { value: 5, label: "June" },
+    { value: 6, label: "July" },
+    { value: 7, label: "August" },
+    { value: 8, label: "September" },
+    { value: 9, label: "October" },
+    { value: 10, label: "November" },
+    { value: 11, label: "December" },
+  ];
+
+  const weekOptions = Array.from(
+    { length: Math.max(52, settings.currentWeek) },
+    (_, i) => i + 1
+  ).map((w) => ({
+    value: w,
+    label: `Week ${w}${w === settings.currentWeek ? " (Active)" : ""}`,
+  }));
 
   return (
     <div className="sacco-settings-container">
@@ -309,6 +474,24 @@ export default function SaccoSettings() {
               required
             />
           </div>
+
+          <div className="form-group">
+            <label htmlFor="meetingDay">Weekly Meeting Day</label>
+            <CustomSelect
+              value={settings.meetingDay || "Wednesday"}
+              options={[
+                { value: "Monday", label: "Monday" },
+                { value: "Tuesday", label: "Tuesday" },
+                { value: "Wednesday", label: "Wednesday" },
+                { value: "Thursday", label: "Thursday" },
+                { value: "Friday", label: "Friday" },
+                { value: "Saturday", label: "Saturday" },
+                { value: "Sunday", label: "Sunday" },
+              ]}
+              onChange={(val) => setSettings((prev) => ({ ...prev, meetingDay: val }))}
+              minWidth="100%"
+            />
+          </div>
         </div>
 
         <div className="toggle-group">
@@ -341,40 +524,36 @@ export default function SaccoSettings() {
           </div>
           
           {/* Filters controls */}
-          <div className="report-filters no-print" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="report-filters no-print">
             <div className="filter-group">
-              <select value={filterYear} onChange={(e) => setFilterYear(Number(e.target.value))}>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-                <option value="2027">2027</option>
-              </select>
+              <CustomSelect
+                value={filterYear}
+                options={yearOptions}
+                onChange={(val) => setFilterYear(Number(val))}
+                minWidth="100px"
+              />
             </div>
             <div className="filter-group">
-              <select value={filterMonth} onChange={(e) => setFilterMonth(Number(e.target.value))}>
-                <option value="0">January</option>
-                <option value="1">February</option>
-                <option value="2">March</option>
-                <option value="3">April</option>
-                <option value="4">May</option>
-                <option value="5">June</option>
-                <option value="6">July</option>
-                <option value="7">August</option>
-                <option value="8">September</option>
-                <option value="9">October</option>
-                <option value="10">November</option>
-                <option value="11">December</option>
-              </select>
+              <CustomSelect
+                value={filterMonth}
+                options={monthOptions}
+                onChange={(val) => setFilterMonth(Number(val))}
+                minWidth="135px"
+              />
             </div>
             <div className="filter-group">
-              <select value={filterWeek} onChange={(e) => setFilterWeek(Number(e.target.value))}>
-                <option value="1">Week 1</option>
-                <option value="2">Week 2</option>
-                <option value="3">Week 3</option>
-                <option value="4">Week 4</option>
-              </select>
+              <CustomSelect
+                value={filterWeek}
+                options={weekOptions}
+                onChange={(val) => setFilterWeek(Number(val))}
+                minWidth="165px"
+              />
             </div>
             <button onClick={handlePrintReport} className="btn-print-report">
               <i className="fa-solid fa-print"></i> Print Report
+            </button>
+            <button onClick={handleExportCSV} className="btn-print-report" style={{ backgroundColor: "#059669", marginLeft: "1rem" }}>
+              <i className="fa-solid fa-file-csv"></i> Export CSV
             </button>
           </div>
         </div>
@@ -390,6 +569,11 @@ export default function SaccoSettings() {
 
           <div className="report-period-badge">
             <span>Active Operational Period: <strong>Week {filterWeek} ({getMonthName(filterMonth)} {filterYear})</strong></span>
+          </div>
+
+          {/* Mobile Swipe Hint Banner */}
+          <div className="mobile-scroll-hint no-print">
+            <i className="fa-solid fa-arrows-left-right"></i> Scroll table horizontally to view full ledger breakdown
           </div>
 
           {/* Tabular performance display */}
@@ -425,7 +609,7 @@ export default function SaccoSettings() {
                       <td>{row.memberId}</td>
                       <td><strong>{row.name}</strong></td>
                       <td>
-                        {row.sharesQty > 0 ? `${row.sharesQty} (Shs ${row.sharesAmt.toLocaleString()})` : "Shs 0"}
+                        {row.sharesAmt > 0 ? `Shs ${row.sharesAmt.toLocaleString()} (${row.sharesQty} ${row.sharesQty === 1 ? 'Share' : 'Shares'})` : "Shs 0"}
                       </td>
                       <td>Shs {row.devtAmt.toLocaleString()}</td>
                       <td>Shs {row.socialAmt.toLocaleString()}</td>

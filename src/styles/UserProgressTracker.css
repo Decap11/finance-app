@@ -339,3 +339,65 @@
 .targets-cancel-btn:hover {
   background-color: #e2e8f0;
 }
+
+@media (max-width: 44rem) {
+  .progress-tracker {
+    padding: 1.6rem !important;
+    border-radius: 1.6rem !important;
+  }
+  
+  .progress-name {
+    font-size: 1.3rem !important;
+  }
+  
+  .progress-percent {
+    font-size: 1.3rem !important;
+  }
+  
+  .progress-summary {
+    grid-template-columns: 1fr !important;
+    gap: 1.2rem !important;
+  }
+  
+  .calendar-heatmap {
+    padding: 1.4rem 1.2rem !important;
+    border-radius: 1.4rem !important;
+  }
+  
+  .heatmap-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.6rem !important;
+  }
+  
+  .heatmap-header h4 {
+    font-size: 1.4rem !important;
+  }
+  
+  .heatmap-header p {
+    font-size: 1.2rem !important;
+  }
+  
+  .heatmap-month span {
+    flex: 0 0 3.2rem !important;
+    font-size: 1.2rem !important;
+  }
+  
+  .heatmap-weekdays {
+    gap: 0.4rem !important;
+  }
+  
+  .heatmap-day {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    min-width: 1.5rem !important;
+    min-height: 1.5rem !important;
+  }
+  
+  .heatmap-legend {
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0.8rem !important;
+    font-size: 1.1rem !important;
+  }
+}

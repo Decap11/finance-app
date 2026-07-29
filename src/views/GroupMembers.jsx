@@ -52,9 +52,21 @@ export default function GroupMembers() {
         const groupCount = profiles.length;
 
         const combined = profiles.map((p) => {
-          const isCurrentUser = p.id === session.user.id;
-          const localAvatar = isCurrentUser ? localStorage.getItem(`sacco_avatar_${p.id}`) : null;
-          const avatarUrl = localAvatar || (isCurrentUser ? (session.user.user_metadata?.avatar_url || "") : "");
+          const isCurrentUser = String(p.id).toLowerCase() === String(session.user.id).toLowerCase();
+          const localAvatar = localStorage.getItem(`sacco_avatar_${p.id}`) || (isCurrentUser ? localStorage.getItem(`sacco_avatar_${session.user.id}`) : null);
+          const metaAvatar = isCurrentUser ? (session.user?.user_metadata?.avatar_url || "") : "";
+          const avatarUrl = p.avatar_url || p.avatarUrl || p.avatar || localAvatar || metaAvatar || "";
+
+          // Auto-backfill database table if missing for current user
+          if (isCurrentUser && !p.avatar_url && avatarUrl) {
+            supabase
+              .from("profiles")
+              .update({ avatar_url: avatarUrl })
+              .eq("id", p.id)
+              .then(({ error }) => {
+                if (error) console.warn("Auto-sync profile avatar error:", error.message);
+              });
+          }
 
           return {
             id: p.member_number || `MEM-${p.id.substring(0, 8)}`,
@@ -85,6 +97,28 @@ export default function GroupMembers() {
     }
 
     loadMembers();
+
+    const handleAvatarBroadcast = (event) => {
+      if (event.detail?.avatarUrl && event.detail?.userId) {
+        setMembersList((prev) =>
+          prev.map((m) =>
+            m.isCurrentUser || String(m.id).toLowerCase().includes(String(event.detail.userId).toLowerCase())
+              ? { ...m, avatarUrl: event.detail.avatarUrl }
+              : m
+          )
+        );
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
+      }
+    };
   }, []);
 
   const filteredMembers = membersList.filter(
@@ -156,7 +190,7 @@ export default function GroupMembers() {
           ) : (
             <div className="members-grid">
               {filteredMembers.map((member) => (
-                <div key={member.id} className="member-card" style={{ paddingBottom: "2.4rem" }}>
+                <div key={member.id} className="member-card">
                   {/* Card Header: Avatar & Badges */}
                   <div className="member-card-header">
                     {member.avatarUrl ? (
@@ -164,12 +198,6 @@ export default function GroupMembers() {
                         src={member.avatarUrl}
                         alt={`${member.name} Avatar`}
                         className="member-avatar"
-                        style={{
-                          width: "5rem",
-                          height: "5rem",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
                       />
                     ) : (
                       <div className="member-avatar-initials">
@@ -188,7 +216,7 @@ export default function GroupMembers() {
                   </div>
 
                   {/* Contact & Registration Info */}
-                  <div className="member-contact-info" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div className="member-contact-info">
                     <div className="contact-row">
                       <i className="fa-solid fa-phone" />
                       <span>
@@ -212,20 +240,6 @@ export default function GroupMembers() {
                         <span className="contact-value">
                           {member.joinedDate}
                         </span>
-                      </span>
-                    </div>
-                    <div className="contact-row">
-                      <i className="fa-solid fa-id-card" />
-                      <span>
-                        Group ID:{" "}
-                        <span className="contact-value">{member.groupId}</span>
-                      </span>
-                    </div>
-                    <div className="contact-row">
-                      <i className="fa-solid fa-users" />
-                      <span>
-                        Number of members:{" "}
-                        <span className="contact-value">{member.groupMembersCount}</span>
                       </span>
                     </div>
                   </div>

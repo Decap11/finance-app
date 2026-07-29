@@ -1,27 +1,32 @@
+html {
+  font-size: 62.5% !important; /* Ensures 1rem = 10px on initial page loads */
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
-  overflow-y: auto;
-  font-size: 62.5%;
+  background-color: var(--bg-color, #f8fbff);
 }
+
 .dashboard-container {
   display: flex;
-  position: fixed;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   width: 100%;
-  max-width: 95%;
-  height: 100vh;
-  max-height: 100vh;
-  overflow: hidden;
-  background-color: var(--bg-color);
+  max-width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: visible;
+  background-color: var(--bg-color, #f8fbff);
   box-sizing: border-box;
   padding: 0;
-  box-shadow: 0 0 3rem rgba(0, 0, 0, 0.05);
 }
 
 .main-content {
@@ -29,16 +34,14 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  max-height: 100vh;
-  overflow-y: auto;
-  background-color: var(--bg-color);
+  min-height: 100vh;
+  background-color: var(--bg-color, #f8fbff);
 }
 
 /* Dashboard Body */
 .dashboard-body {
-  padding: 0 3rem;
-  overflow-x: hidden;
+  padding: 0 1.6rem 2rem 1.6rem;
+  overflow: visible !important;
 }
 /* .loan-progress-section {
   display: grid;
@@ -90,11 +93,19 @@ body {
   }
 }
 
-/* Sticky Header and Fixed Sidebar Globals */
-header {
-  position: sticky;
-  top: 0;
-  z-index: 999;
+/* Universal Non-Overflowing Sticky Header across all views & screen sizes */
+header,
+.admin-header,
+.payment-header,
+.user-header {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  z-index: 100 !important;
+  box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.15) !important;
 }
 
 .sidebar {
