@@ -70,7 +70,11 @@ export default function Login() {
     }
 
     if (profile && profile.role === 'admin') {
-      router.push("/admin");
+      if (typeof window !== "undefined" && window.location.search.includes("onboarding=1")) {
+        router.push("/settings?onboarding=1");
+      } else {
+        router.push("/admin");
+      }
     } else {
       router.push("/dashboard");
     }

@@ -171,11 +171,11 @@ export default function RegisterSacco() {
     }
 
     if (!authData.session) {
-      router.push(`/login?registered=1&email=${encodeURIComponent(email.trim())}`);
+      router.push(`/login?registered=1&onboarding=1&email=${encodeURIComponent(email.trim())}`);
       return;
     }
 
-    router.push("/admin");
+    router.push("/settings?onboarding=1");
   }
 
   return (

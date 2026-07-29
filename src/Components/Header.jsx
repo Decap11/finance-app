@@ -12,6 +12,7 @@ export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isOpen, toggleSidebar } = useSidebar();
   const [profile, setProfile] = useState(null);
+  const [sessionUser, setSessionUser] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState("");
   const router = useRouter();
 
@@ -28,6 +29,7 @@ export default function Header() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        setSessionUser(session.user);
 
         const res = await fetch("/api/profile", {
           headers: {
@@ -42,6 +44,8 @@ export default function Header() {
           const localAvatar = localStorage.getItem(`sacco_avatar_${data.profile.id}`);
           if (localAvatar) {
             setAvatarUrl(localAvatar);
+          } else if (data.profile.avatar_url) {
+            setAvatarUrl(data.profile.avatar_url);
           } else if (data.user?.user_metadata?.avatar_url) {
             setAvatarUrl(data.user.user_metadata.avatar_url);
           }
@@ -57,17 +61,16 @@ export default function Header() {
     loadHeaderProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user?.id) {
+      if (session?.user) {
+        setSessionUser(session.user);
         const localAvatar = localStorage.getItem(`sacco_avatar_${session.user.id}`);
         if (localAvatar) {
           setAvatarUrl(localAvatar);
           return;
         }
-      }
-      if (session?.user?.user_metadata?.avatar_url) {
-        setAvatarUrl(session.user.user_metadata.avatar_url);
-      } else {
-        setAvatarUrl("");
+        if (session.user.user_metadata?.avatar_url) {
+          setAvatarUrl(session.user.user_metadata.avatar_url);
+        }
       }
     });
 
@@ -146,11 +149,12 @@ export default function Header() {
     router.push("/login");
   };
 
-  const getFirstNameInitial = (nameStr) => {
-    if (!nameStr) return "A";
-    const parts = nameStr.trim().split(/\s+/);
-    const firstName = parts[0] || "";
-    return firstName ? firstName[0].toUpperCase() : "A";
+  const getInitials = (nameStr) => {
+    if (!nameStr) return "U";
+    const parts = nameStr.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "U";
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   // Notification action handlers
@@ -209,8 +213,8 @@ export default function Header() {
     };
   }, []);
 
-  const displayName = profile?.full_name || "Administrator";
-  const memberId = profile?.member_number || (profile?.id ? `MEM-${profile.id.substring(0, 4)}` : "System");
+  const displayName = profile?.full_name || sessionUser?.user_metadata?.full_name || "Administrator";
+  const memberId = profile?.member_number || sessionUser?.user_metadata?.member_number || (profile?.id ? `MEM-${profile.id.substring(0, 4).toUpperCase()}` : "System");
 
   return (
     <>
@@ -294,7 +298,7 @@ export default function Header() {
               <img src={avatarUrl} alt="Admin Avatar" />
             ) : (
               <div className="header-avatar-initials">
-                {getFirstNameInitial(displayName)}
+                {getInitials(displayName)}
               </div>
             )}
             <div className="user-info">

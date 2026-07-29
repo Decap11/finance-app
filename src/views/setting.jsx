@@ -196,9 +196,50 @@ export default function Settings({ isAdminView = false }) {
     );
   }
 
+  const isOnboarding = typeof window !== "undefined" && window.location.search.includes("onboarding=1");
+
   const settingsContent = (
     <section className="settings-container">
-          {/* Settings Sidebar */}
+      {isOnboarding && (
+        <div style={{
+          gridColumn: "1 / -1",
+          background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+          color: "white",
+          padding: "2rem 2.5rem",
+          borderRadius: "1.6rem",
+          marginBottom: "2rem",
+          boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "2rem"
+        }}>
+          <div>
+            <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.5rem" }}>
+              🎉 Welcome to PEWOSA SACCO Group Management!
+            </h2>
+            <p style={{ fontSize: "1.4rem", opacity: 0.9 }}>
+              Your SACCO group has been successfully registered. Please complete your admin profile, contact information, and group parameters below.
+            </p>
+          </div>
+          <button 
+            onClick={() => window.history.replaceState({}, '', '/settings')}
+            style={{
+              background: "rgba(255, 255, 255, 0.2)",
+              border: "1px solid rgba(255, 255, 255, 0.4)",
+              color: "white",
+              padding: "0.8rem 1.6rem",
+              borderRadius: "0.8rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              whiteSpace: "nowrap"
+            }}
+          >
+            Dismiss Guide
+          </button>
+        </div>
+      )}
+      {/* Settings Sidebar */}
           <div
             className="settings-sidebar"
             style={{
