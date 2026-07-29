@@ -40,64 +40,64 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         const groupId = (profile?.group_id || session.user.user_metadata?.group_id || "").trim();
         const role = profile?.role || session.user.user_metadata?.role || "member";
 
-        // If user has no group_id at all, they are an orphan user
-        if (!groupId) {
-          console.warn("Access Denied: Orphan user without group_id", userId);
-          setIsOrphan(true);
-          setLoading(false);
-          router.replace("/signup?orphan=1");
-          return;
-        }
+        // If user has a group_id or is an admin, they are associated with a SACCO
+        if (groupId || role === "admin") {
+          const cleanGroupCode = groupId.toUpperCase();
 
-        // 2. Check if the SACCO group exists in public.saccos
-        let { data: saccoRow } = await supabase
-          .from("saccos")
-          .select("id, name, group_code")
-          .ilike("group_code", groupId)
-          .maybeSingle();
-
-        // Self-healing check for Admin accounts (e.g. Sarah Namuli)
-        if (!saccoRow && role === "admin") {
-          try {
-            const acronym = groupId.split("-")[0] || "SACCO";
-            const saccoName = (profile?.full_name || "SACCO Admin") + " SACCO";
-
-            const { data: rpcRes } = await supabase.rpc("register_new_sacco", {
-              p_sacco_name: saccoName,
-              p_acronym: acronym,
-              p_group_code: groupId.toUpperCase(),
-              p_admin_profile_id: userId
-            });
-
-            if (rpcRes?.sacco_id) {
-              saccoRow = { id: rpcRes.sacco_id, name: saccoName, group_code: groupId.toUpperCase() };
-            }
-          } catch (e) {
-            console.warn("Self-healing SACCO creation failed:", e);
-          }
-        }
-
-        // 3. Verify membership or valid SACCO existence
-        if (!saccoRow) {
-          // Double-check sacco_memberships table
-          const { data: membership } = await supabase
-            .from("sacco_memberships")
-            .select("sacco_id")
-            .eq("profile_id", userId)
+          // Check if SACCO row exists in public.saccos
+          let { data: saccoRow } = await supabase
+            .from("saccos")
+            .select("id, name, group_code")
+            .or(`group_code.ilike.${cleanGroupCode},admin_profile_id.eq.${userId}`)
             .limit(1)
             .maybeSingle();
 
-          if (!membership) {
-            console.warn("Access Denied: Orphan member not found in any active SACCO", userId);
-            setIsOrphan(true);
-            setLoading(false);
-            router.replace("/signup?orphan=1");
-            return;
+          // Self-healing check for Admin accounts if SACCO row is still pending
+          if (!saccoRow && role === "admin" && cleanGroupCode) {
+            try {
+              const acronym = cleanGroupCode.split("-")[0] || "SACCO";
+              const saccoName = (profile?.full_name || session.user.user_metadata?.full_name || "SACCO Admin") + " SACCO";
+
+              const { data: rpcRes } = await supabase.rpc("register_new_sacco", {
+                p_sacco_name: saccoName,
+                p_acronym: acronym,
+                p_group_code: cleanGroupCode,
+                p_admin_profile_id: userId
+              });
+
+              if (rpcRes?.sacco_id) {
+                saccoRow = { id: rpcRes.sacco_id, name: saccoName, group_code: cleanGroupCode };
+              }
+            } catch (e) {
+              console.warn("Self-healing SACCO registration notice:", e);
+            }
           }
+
+          // SACCO access validated successfully
+          setIsOrphan(false);
+          setLoading(false);
+          return;
         }
 
-        setIsOrphan(false);
+        // 2. Fallback check for regular members without group_id in metadata: check sacco_memberships
+        const { data: membership } = await supabase
+          .from("sacco_memberships")
+          .select("sacco_id")
+          .eq("profile_id", userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (membership?.sacco_id) {
+          setIsOrphan(false);
+          setLoading(false);
+          return;
+        }
+
+        // 3. User has NO group_id in profile/metadata and NO membership -> Orphan User
+        console.warn("Access Denied: Orphan user without SACCO group association", userId);
+        setIsOrphan(true);
         setLoading(false);
+        router.replace("/signup?orphan=1");
       } catch (err) {
         console.warn("Protected route validation error:", err);
         setLoading(false);

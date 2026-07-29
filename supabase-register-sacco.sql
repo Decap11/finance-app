@@ -1,5 +1,5 @@
 -- RPC 4: Register a new SACCO (hardened, self-healing & atomic)
--- Guarantees creation of rows in `saccos`, `profiles`, `sacco_memberships`, `accounts`, and `sacco_settings`
+-- Idempotent: If SACCO already exists, updates admin link and returns sacco_id without throwing.
 CREATE OR REPLACE FUNCTION register_new_sacco(
   p_sacco_name TEXT,
   p_acronym TEXT,
@@ -9,9 +9,13 @@ CREATE OR REPLACE FUNCTION register_new_sacco(
 DECLARE
   v_sacco_id UUID;
   v_meeting_day TEXT;
+  v_clean_code TEXT;
 BEGIN
   -- Bypass RLS inside this SECURITY DEFINER function
   SET LOCAL row_security = off;
+
+  v_clean_code := UPPER(TRIM(p_group_code));
+  v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
 
   -- 1. Ensure admin profile exists in public.profiles.
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_admin_profile_id) THEN
@@ -22,7 +26,7 @@ BEGIN
       u.email,
       u.raw_user_meta_data->>'phone',
       COALESCE(u.raw_user_meta_data->>'member_number', 'ADMIN-' || substring(u.id::text, 1, 8)),
-      UPPER(p_group_code),
+      v_clean_code,
       'admin',
       'active'
     FROM auth.users u
@@ -33,76 +37,76 @@ BEGIN
       status = EXCLUDED.status;
   ELSE
     UPDATE public.profiles
-    SET group_id = UPPER(p_group_code), role = 'admin', status = 'active', updated_at = now()
+    SET group_id = v_clean_code, role = 'admin', status = 'active', updated_at = now()
     WHERE id = p_admin_profile_id;
   END IF;
 
-  v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
-
-  -- 2. Insert or retrieve the SACCO row in public.saccos
-  IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = UPPER(p_group_code)) THEN
-    SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = UPPER(p_group_code);
+  -- 2. Insert or retrieve the SACCO row in public.saccos (Idempotent)
+  IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
+    SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
 
     UPDATE public.saccos
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-    VALUES (p_sacco_name, UPPER(p_acronym), UPPER(p_group_code), p_admin_profile_id, 'active', 1, v_meeting_day)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day)
     RETURNING id INTO v_sacco_id;
   END IF;
 
   -- 3. Insert admin membership in public.sacco_memberships
-  INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
-  VALUES (v_sacco_id, p_admin_profile_id, 'admin', 'active')
-  ON CONFLICT (sacco_id, profile_id) DO UPDATE
-    SET role = 'admin', status = 'active';
+  IF v_sacco_id IS NOT NULL THEN
+    INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
+    VALUES (v_sacco_id, p_admin_profile_id, 'admin', 'active')
+    ON CONFLICT (sacco_id, profile_id) DO UPDATE
+      SET role = 'admin', status = 'active';
 
-  -- 4. Initialize default member accounts in public.accounts
-  INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
-  VALUES 
-    (v_sacco_id, p_admin_profile_id, 'savings', 0.00, 'active'),
-    (v_sacco_id, p_admin_profile_id, 'shares', 0.00, 'active'),
-    (v_sacco_id, p_admin_profile_id, 'development_fund', 0.00, 'active'),
-    (v_sacco_id, p_admin_profile_id, 'social_fund', 0.00, 'active'),
-    (v_sacco_id, p_admin_profile_id, 'loan', 0.00, 'active')
-  ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
+    -- 4. Initialize default member accounts in public.accounts
+    INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
+    VALUES 
+      (v_sacco_id, p_admin_profile_id, 'savings', 0.00, 'active'),
+      (v_sacco_id, p_admin_profile_id, 'shares', 0.00, 'active'),
+      (v_sacco_id, p_admin_profile_id, 'development_fund', 0.00, 'active'),
+      (v_sacco_id, p_admin_profile_id, 'social_fund', 0.00, 'active'),
+      (v_sacco_id, p_admin_profile_id, 'loan', 0.00, 'active')
+    ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-  -- 5. Auto-initialize sacco_settings for Week 1
-  INSERT INTO public.sacco_settings (
-    group_code,
-    sacco_id,
-    share_price,
-    devt_fund,
-    social_fund,
-    current_week,
-    meeting_day,
-    is_locked,
-    is_historical_mode,
-    onboarding_date,
-    created_at,
-    updated_at
-  )
-  VALUES (
-    UPPER(p_group_code),
-    v_sacco_id,
-    25000.00,
-    1000.00,
-    2000.00,
-    1,
-    v_meeting_day,
-    false,
-    false,
-    now(),
-    now(),
-    now()
-  )
-  ON CONFLICT (group_code) DO NOTHING;
+    -- 5. Auto-initialize sacco_settings for Week 1
+    INSERT INTO public.sacco_settings (
+      group_code,
+      sacco_id,
+      share_price,
+      devt_fund,
+      social_fund,
+      current_week,
+      meeting_day,
+      is_locked,
+      is_historical_mode,
+      onboarding_date,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      v_clean_code,
+      v_sacco_id,
+      25000.00,
+      1000.00,
+      2000.00,
+      1,
+      v_meeting_day,
+      false,
+      false,
+      now(),
+      now(),
+      now()
+    )
+    ON CONFLICT (group_code) DO NOTHING;
+  END IF;
 
   RETURN json_build_object(
     'success', true,
     'sacco_id', v_sacco_id,
-    'group_code', UPPER(p_group_code),
+    'group_code', v_clean_code,
     'message', 'SACCO registered successfully and admin linked'
   );
 
