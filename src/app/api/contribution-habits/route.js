@@ -36,9 +36,8 @@ export async function GET(request) {
       isLocked: false
     };
     try {
-      const filePath = path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
-      const data = await fs.readFile(filePath, 'utf8');
-      settings = JSON.parse(data);
+      const { getActiveSaccoSettings } = await import('../sacco-settings/route.js');
+      settings = await getActiveSaccoSettings(groupCode);
     } catch (err) {
       console.warn("Failed to load active settings, using fallback:", err);
     }

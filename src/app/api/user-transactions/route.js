@@ -114,9 +114,8 @@ export async function POST(request) {
     let sharePrice = 25000;
     let currentWeek = 1;
     try {
-      const filePath = path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
-      const data = await fs.readFile(filePath, 'utf8');
-      const settings = JSON.parse(data);
+      const { getActiveSaccoSettings } = await import('../sacco-settings/route.js');
+      const settings = await getActiveSaccoSettings(saccoData?.group_code);
       if (settings) {
         if (settings.sharePrice) sharePrice = settings.sharePrice;
         if (settings.currentWeek) currentWeek = settings.currentWeek;

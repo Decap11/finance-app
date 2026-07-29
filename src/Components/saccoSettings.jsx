@@ -301,7 +301,10 @@ export default function SaccoSettings() {
       const res = await fetch("/api/sacco-settings", {
         method: "POST",
         headers,
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          groupCode: saccoInfo?.group_code || cleanGroupCode
+        }),
       });
 
       const text = await res.text();
