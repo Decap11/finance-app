@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import ProtectedRoute from "../../Components/ProtectedRoute";
-import MemberSavingsPage from "../../views/memberSavingsPage";
+import MemberDashboardPage from "../../views/memberDashboardpage";
 
 export default function Page() {
   return (
     <ProtectedRoute>
-      <MemberSavingsPage />
+      <MemberDashboardPage />
     </ProtectedRoute>
   );
 }

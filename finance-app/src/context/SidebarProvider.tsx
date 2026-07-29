@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { SidebarContext } from "./sidebarContext.js";
+import React, { useCallback, useEffect, useState, ReactNode } from "react";
+import { SidebarContext } from "./sidebarContext";
 
 const MOBILE_BREAKPOINT = 768;
 
-export function SidebarProvider({ children }) {
-  const [isOpen, setIsOpen] = useState(false);
+interface SidebarProviderProps {
+  children: ReactNode;
+}
+
+export function SidebarProvider({ children }: SidebarProviderProps) {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const toggleSidebar = useCallback(() => {
     setIsOpen((prev) => !prev);

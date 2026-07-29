@@ -1,36 +1,36 @@
 "use client";
 
-import "../styles/login.css";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, FormEvent, SyntheticEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-
-// import { useSaccoState } from "../context/useSaccoState";
+import { useRouter, useSearchParams } from "next/navigation";
+import "../styles/login.css";
+import { supabase } from "../supabaseClient";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [LogInpassword, setLogInPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [email, setEmail] = useState<string>("");
+  const [LogInpassword, setLogInPassword] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const justRegistered = searchParams?.get("registered") === "1";
+  const registeredEmail = searchParams?.get("email") || "";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedEmail = localStorage.getItem("rememberedEmail");
-      const savedPassword = localStorage.getItem("rememberedPassword");
       if (savedEmail) setEmail(savedEmail);
-      if (savedPassword) setLogInPassword(savedPassword);
     }
-  }, []);
+    if (registeredEmail) setEmail(decodeURIComponent(registeredEmail));
+  }, [registeredEmail]);
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email || !LogInpassword) return;
 
     setIsLoading(true);
     setErrorMsg("");
-
-    const { supabase } = await import("../supabaseClient.js");
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -39,11 +39,24 @@ export default function Login() {
 
     if (error) {
       setIsLoading(false);
-      setErrorMsg(error.message);
+      let friendlyMsg = error.message;
+      if (error.message.toLowerCase().includes("invalid login") || error.message.toLowerCase().includes("invalid credentials")) {
+        friendlyMsg = "Incorrect email or password. Please try again.";
+      } else if (error.message.toLowerCase().includes("email not confirmed")) {
+        friendlyMsg = "Please confirm your email address before logging in. Check your inbox.";
+      } else if (error.message.toLowerCase().includes("too many requests")) {
+        friendlyMsg = "Too many login attempts. Please wait a moment and try again.";
+      }
+      setErrorMsg(friendlyMsg);
       return;
     }
 
-    // Fetch user profile role to route appropriately
+    if (!data.user) {
+      setIsLoading(false);
+      setErrorMsg("Failed to retrieve user data.");
+      return;
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -54,7 +67,6 @@ export default function Login() {
 
     if (typeof window !== "undefined") {
       localStorage.setItem("rememberedEmail", email.trim());
-      localStorage.setItem("rememberedPassword", LogInpassword);
     }
 
     if (profile && profile.role === 'admin') {
@@ -65,14 +77,14 @@ export default function Login() {
   };
 
   const togglePassword = () => {
-    const passwordInput = document.getElementById("password");
+    const passwordInput = document.getElementById("password") as HTMLInputElement | null;
     if (passwordInput) {
       passwordInput.type =
         passwordInput.type === "password" ? "text" : "password";
     }
   };
 
-  const handleImageError = (event) => {
+  const handleImageError = (event: SyntheticEvent<HTMLImageElement, Event>) => {
     event.currentTarget.src =
       "https://placehold.co/100x100/253b8e/ffffff?text=Logo";
   };
@@ -91,6 +103,24 @@ export default function Login() {
           Sign in to securely access your SACCO financial records.
         </p>
       </div>
+
+      {justRegistered && (
+        <div style={{
+          background: 'linear-gradient(135deg, #d4edda, #c3e6cb)',
+          border: '1px solid #28a745',
+          borderRadius: '0.8rem',
+          padding: '1.2rem 1.6rem',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+          fontSize: '1.3rem',
+          color: '#155724',
+          lineHeight: '1.5',
+        }}>
+          <strong>✅ SACCO registered successfully!</strong><br />
+          We&apos;ve sent a confirmation link to <strong>{registeredEmail}</strong>.<br />
+          Please check your email, click the link, then log in here.
+        </div>
+      )}
 
       {errorMsg && <div className="error-message" style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{errorMsg}</div>}
 
@@ -172,7 +202,7 @@ export default function Login() {
 
       <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <div>
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/signup" className="auth-link">
             Sign up here
           </Link>

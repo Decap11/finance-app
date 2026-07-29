@@ -1,19 +1,43 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 import "../styles/contributionApprovals.css";
 
-export default function ContributionApprovals({ limit, showViewAll }) {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+export interface TransactionApprovalItem {
+  id: string;
+  amount: number;
+  category: string;
+  status: string;
+  created_at: string;
+  profile_id: string;
+  requested_by?: string;
+  description?: string;
+  profiles?: {
+    full_name: string;
+    member_number: string;
+  } | null;
+  requester?: {
+    full_name: string;
+  } | null;
+}
+
+interface ContributionApprovalsProps {
+  limit?: number;
+  showViewAll?: boolean;
+}
+
+export default function ContributionApprovals({ limit, showViewAll }: ContributionApprovalsProps) {
+  const [requests, setRequests] = useState<TransactionApprovalItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [message, setMessage] = useState<string>("");
 
   async function fetchRequests() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch the admin's group_id from profiles (bypassing memberships)
       const { data: profileData } = await supabase
         .from('profiles')
         .select('group_id')
@@ -25,7 +49,6 @@ export default function ContributionApprovals({ limit, showViewAll }) {
         return;
       }
 
-      // Fetch matching Sacco ID
       const { data: saccoData } = await supabase
         .from('saccos')
         .select('id')
@@ -73,7 +96,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
       const { data, error } = await query;
 
       if (data && !error) {
-        setRequests(data);
+        setRequests(data as unknown as TransactionApprovalItem[]);
       }
     } catch (err) {
       console.warn("Error loading approvals list:", err);
@@ -85,7 +108,6 @@ export default function ContributionApprovals({ limit, showViewAll }) {
   useEffect(() => {
     fetchRequests();
 
-    // Subscribe to real-time database changes on the transactions table
     const channel = supabase
       .channel('admin-transactions-realtime')
       .on(
@@ -95,7 +117,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
           schema: 'public',
           table: 'transactions'
         },
-        (payload) => {
+        () => {
           fetchRequests();
         }
       )
@@ -106,12 +128,10 @@ export default function ContributionApprovals({ limit, showViewAll }) {
     };
   }, []);
 
-  const handleApprove = async (transactionId) => {
-    // Optimistic UI Update: update locally first to prevent shifting
+  const handleApprove = async (transactionId: string) => {
     setRequests(prev => prev.map(req => req.id === transactionId ? { ...req, status: 'completed' } : req));
     setMessage("Approving...");
     try {
-      // Try running the database RPC to update account balances
       const { error: rpcError } = await supabase.rpc('approve_transaction', {
         p_transaction_id: transactionId
       });
@@ -120,28 +140,26 @@ export default function ContributionApprovals({ limit, showViewAll }) {
         console.warn("RPC approval failed, falling back to direct table update:", rpcError.message);
       }
 
-      // Fallback/Direct Update: Set status to 'completed' directly to guarantee UI update
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ status: 'completed' })
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
-      
+
       setMessage("Transaction approved and completed!");
       fetchRequests();
-    } catch (err) {
-      setMessage(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      setMessage(`Error: ${errObj.message}`);
       fetchRequests();
     }
   };
 
-  const handleReject = async (transactionId) => {
-    // Optimistic UI Update: update locally first to prevent shifting
+  const handleReject = async (transactionId: string) => {
     setRequests(prev => prev.map(req => req.id === transactionId ? { ...req, status: 'rejected' } : req));
     setMessage("Rejecting...");
     try {
-      // Call the secure reject_transaction RPC
       const { error: rpcError } = await supabase.rpc('reject_transaction', {
         p_transaction_id: transactionId
       });
@@ -150,7 +168,6 @@ export default function ContributionApprovals({ limit, showViewAll }) {
         console.warn("RPC rejection failed, falling back to direct table update:", rpcError.message);
       }
 
-      // Fallback/Direct Update: Set status to 'rejected' directly to guarantee UI update
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ status: 'rejected' })
@@ -160,8 +177,9 @@ export default function ContributionApprovals({ limit, showViewAll }) {
 
       setMessage("Transaction rejected.");
       fetchRequests();
-    } catch (err) {
-      setMessage(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      setMessage(`Error: ${errObj.message}`);
       fetchRequests();
     }
   };
@@ -169,7 +187,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
   return (
     <div className="recent-transactions recent-transactions-verifications">
       <MainHeader showViewAll={showViewAll} />
-      
+
       {message && (
         <div style={{ marginBottom: '1rem', padding: '0.5rem', borderRadius: '4px', background: '#f3f4f6', textAlign: 'center' }}>
           {message}
@@ -194,31 +212,31 @@ export default function ContributionApprovals({ limit, showViewAll }) {
               const dateObj = new Date(request.created_at);
               const day = dateObj.getDate();
               const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
-              
-              let weekNum = null;
+
+              let weekNum: number | null = null;
               const match = request.description?.match(/\|\s*Week\s*(\d+)/i);
               if (match) {
                 weekNum = parseInt(match[1], 10);
               }
               if (!weekNum) {
                 const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                const diffInMs = dateObj - startOfYear;
+                const diffInMs = dateObj.getTime() - startOfYear.getTime();
                 const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
                 weekNum = Math.floor(diffInDays / 7) + 1;
               }
 
-              const getOrdinal = (d) => {
+              const getOrdinal = (d: number) => {
                 if (d > 3 && d < 21) return 'th';
                 switch (d % 10) {
-                  case 1:  return "st";
-                  case 2:  return "nd";
-                  case 3:  return "rd";
+                  case 1: return "st";
+                  case 2: return "nd";
+                  case 3: return "rd";
                   default: return "th";
                 }
               };
               const datePrefix = `${day}${getOrdinal(day)} ${month}, `;
               const dateSuffix = `week ${weekNum}`;
-              
+
               let displayType = request.category;
               if (displayType === "social_fund") displayType = "Social Fund";
               if (displayType === "development_fund") displayType = "Dev Fund";
@@ -295,7 +313,7 @@ export default function ContributionApprovals({ limit, showViewAll }) {
   );
 }
 
-function MainHeader({ showViewAll }) {
+function MainHeader({ showViewAll }: { showViewAll?: boolean }) {
   return (
     <div className="section-header">
       <h3 className="section-title">Pending Contribution Approvals</h3>

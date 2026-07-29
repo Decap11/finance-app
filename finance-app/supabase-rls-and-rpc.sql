@@ -10,11 +10,14 @@ ALTER TABLE public.loan_repayments ENABLE ROW LEVEL SECURITY;
 -- 1. Profiles Policies
 -- Users can read all profiles (to see other members in their SACCO), but only update their own.
 CREATE POLICY "Users can view all profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Allow profile creation on signup" ON public.profiles FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- 2. SACCOs Policies
 -- Anyone can view active SACCOs
 CREATE POLICY "Anyone can view saccos" ON public.saccos FOR SELECT USING (true);
+-- Authenticated users can register a new SACCO (business rules enforced in the RPC)
+CREATE POLICY "Authenticated users can create saccos" ON public.saccos FOR INSERT WITH CHECK (true);
 -- Only SACCO admins can update SACCO details
 CREATE POLICY "Admins can update sacco" ON public.saccos FOR UPDATE USING (
   EXISTS (
@@ -32,6 +35,8 @@ CREATE POLICY "Users can view their memberships" ON public.sacco_memberships FOR
     WHERE sm.sacco_id = sacco_id AND sm.profile_id = auth.uid() AND sm.role IN ('admin', 'loan_officer')
   )
 );
+-- Allow insert (used by both the handle_new_user trigger and the register_new_sacco RPC)
+CREATE POLICY "Allow membership inserts via trusted functions" ON public.sacco_memberships FOR INSERT WITH CHECK (true);
 
 -- 4. Accounts Policies
 -- Users can only view their own accounts

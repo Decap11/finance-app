@@ -147,8 +147,10 @@ RETURNS trigger AS $$
 DECLARE
   v_sacco_id UUID;
   v_group_id TEXT;
+  v_role TEXT;
 BEGIN
   v_group_id := NEW.raw_user_meta_data->>'group_id';
+  v_role     := COALESCE(NEW.raw_user_meta_data->>'role', 'member');
 
   INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
   VALUES (
@@ -158,12 +160,15 @@ BEGIN
     NEW.raw_user_meta_data->>'phone',
     COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEMBER-' || substring(NEW.id::text, 1, 8)),
     v_group_id,
-    COALESCE(NEW.raw_user_meta_data->>'role', 'member'),
+    v_role,
     COALESCE(NEW.raw_user_meta_data->>'status', 'pending')
   );
 
-  -- If a group_id is provided, try to find the matching SACCO and create a pending membership
-  IF v_group_id IS NOT NULL AND v_group_id <> '' THEN
+  -- Only create a membership here for regular MEMBERS joining an existing SACCO.
+  -- Admins registering a NEW SACCO are handled atomically by the register_new_sacco RPC,
+  -- which runs AFTER this trigger. Creating an admin membership here would either fail
+  -- (SACCO not yet created) or leave a duplicate/wrong-status row.
+  IF v_role != 'admin' AND v_group_id IS NOT NULL AND v_group_id <> '' THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE group_code = UPPER(v_group_id);
     IF v_sacco_id IS NOT NULL THEN
       INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)

@@ -1,3 +1,4 @@
+import React, { ReactNode } from "react";
 import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
@@ -7,7 +8,11 @@ export const metadata = {
   description: "Sacco Management SaaS Application",
 };
 
-export default function RootLayout({ children }) {
+interface RootLayoutProps {
+  children: ReactNode;
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <head>

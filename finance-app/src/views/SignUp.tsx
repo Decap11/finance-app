@@ -1,33 +1,35 @@
 "use client";
 
-import "../styles/signUp.css";
-import { useState } from "react";
+import React, { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import "../styles/signUp.css";
+import { supabase } from "../supabaseClient";
 
 export default function SignupForm() {
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [memberId, setMemberId] = useState("");
-  const [saccoName, setSaccoName] = useState("");
-  const [saccoUniqueNumber, setSaccoUniqueNumber] = useState("");
-  const [password, setPassword] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [fullName, setFullName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [memberId, setMemberId] = useState<string>("");
+  const [saccoName, setSaccoName] = useState<string>("");
+  const [saccoUniqueNumber, setSaccoUniqueNumber] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const router = useRouter();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
-  function togglePassword(element, fieldId) {
-    const inputField = document.getElementById(fieldId);
+  function togglePassword(element: HTMLElement, fieldId: string) {
+    const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
+    if (!inputField) return;
     const isPassword = inputField.type === "password";
     inputField.type = isPassword ? "text" : "password";
     element.classList.toggle("fa-eye");
     element.classList.toggle("fa-eye-slash");
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!fullName || !phone || !email || !memberId || !saccoName || !saccoUniqueNumber || !password) return;
     if (!termsAccepted) {
@@ -39,9 +41,6 @@ export default function SignupForm() {
     setErrorMsg("");
 
     const formattedMemberId = `MEM-${memberId.trim().toUpperCase()}`;
-
-    // Initialize Supabase Client dynamically so it doesn't break if not set yet
-    const { supabase } = await import("../supabaseClient.js");
 
     // Generate acronym and group code using entered sacco name and unique number
     const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
@@ -89,10 +88,8 @@ export default function SignupForm() {
 
     if (typeof window !== "undefined") {
       localStorage.setItem("rememberedEmail", email.trim());
-      localStorage.setItem("rememberedPassword", password);
     }
 
-    // Reset form fields after submission
     setFullName("");
     setPhone("");
     setEmail("");
@@ -102,7 +99,6 @@ export default function SignupForm() {
     setPassword("");
     setTermsAccepted(false);
 
-    // Redirect the user to the login page or members page
     router.push("/login");
   }
 
@@ -231,11 +227,11 @@ export default function SignupForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength="8"
+              minLength={8}
             />
             <i
               className="fa-regular fa-eye pwd-toggle"
-              onClick={(e) => togglePassword(e.currentTarget, "password")}
+              onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
             ></i>
           </div>
         </div>

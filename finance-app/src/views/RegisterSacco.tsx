@@ -1,35 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import "../styles/signUp.css"; // Reuse the signup styles
+import "../styles/signUp.css";
+import { supabase } from "../supabaseClient";
 
 export default function RegisterSacco() {
-  // Admin Details
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [memberId, setMemberId] = useState("");
-  
-  const [saccoName, setSaccoName] = useState("");
-  const [saccoUniqueNumber, setSaccoUniqueNumber] = useState("");
+  const [fullName, setFullName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [memberId, setMemberId] = useState<string>("");
 
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [saccoName, setSaccoName] = useState<string>("");
+  const [saccoUniqueNumber, setSaccoUniqueNumber] = useState<string>("");
+
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const router = useRouter();
 
-  function togglePassword(element, fieldId) {
-    const inputField = document.getElementById(fieldId);
+  function togglePassword(element: HTMLElement, fieldId: string) {
+    const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
+    if (!inputField) return;
     const isPassword = inputField.type === "password";
     inputField.type = isPassword ? "text" : "password";
     element.classList.toggle("fa-eye");
     element.classList.toggle("fa-eye-slash");
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!fullName || !phone || !email || !password || !memberId || !saccoName || !saccoUniqueNumber) return;
     if (!termsAccepted) {
@@ -40,14 +41,11 @@ export default function RegisterSacco() {
     setIsLoading(true);
     setErrorMsg("");
 
-    const { supabase } = await import("../supabaseClient.js");
-
-    // Generate acronym and group code using user entered unique number
     const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
     const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
     const adminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
 
-    // 1. Sign up the admin user
+    // 1. Sign up the admin user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password: password,
@@ -64,18 +62,46 @@ export default function RegisterSacco() {
     });
 
     if (authError) {
-      setErrorMsg(authError.message);
+      let friendlyMsg = authError.message;
+      if (authError.message.toLowerCase().includes("already registered")) {
+        friendlyMsg = "This email is already registered. Please log in or use a different email.";
+      } else if (authError.message.toLowerCase().includes("password")) {
+        friendlyMsg = "Password must be at least 8 characters long.";
+      } else if (authError.message.toLowerCase().includes("invalid email")) {
+        friendlyMsg = "Please enter a valid email address.";
+      }
+      setErrorMsg(friendlyMsg);
       setIsLoading(false);
       return;
     }
 
     if (!authData?.user) {
-      setErrorMsg("Signup completed but failed to retrieve user session details.");
+      setErrorMsg("Signup completed but failed to retrieve user session details. Please try again.");
       setIsLoading(false);
       return;
     }
 
-    // 2. Call the RPC to create the SACCO and link the admin
+    // 2. Ensure admin profile exists in public.profiles
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      await supabase.from("profiles").upsert({
+        id: authData.user.id,
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        member_number: adminMemberNumber,
+        group_id: generatedGroupCode,
+        role: "admin",
+        status: "active"
+      }, { onConflict: "id" });
+    }
+
+    // 3. Call the RPC to create the SACCO and link the admin atomically
     const { error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
@@ -86,16 +112,27 @@ export default function RegisterSacco() {
     setIsLoading(false);
 
     if (rpcError) {
-      setErrorMsg("SACCO Registration Failed: " + rpcError.message);
+      let friendlyMsg = rpcError.message;
+      if (rpcError.message.includes("already exists")) {
+        friendlyMsg = "A SACCO with this unique number already exists. Please choose a different unique code.";
+      } else if (rpcError.message.includes("violates foreign key constraint")) {
+        friendlyMsg = "Admin profile creation is still processing in the database. Please click 'Register SACCO' again.";
+      } else if (rpcError.message.includes("profile not found")) {
+        friendlyMsg = "Your account was created but SACCO setup took too long. Please log in and try registering your SACCO again.";
+      }
+      setErrorMsg("SACCO Registration Failed: " + friendlyMsg);
       return;
     }
 
     if (typeof window !== "undefined") {
       localStorage.setItem("rememberedEmail", email.trim());
-      localStorage.setItem("rememberedPassword", password);
     }
 
-    // 3. Navigate to admin dashboard
+    if (!authData.session) {
+      router.push(`/login?registered=1&email=${encodeURIComponent(email.trim())}`);
+      return;
+    }
+
     router.push("/admin");
   }
 
@@ -142,7 +179,6 @@ export default function RegisterSacco() {
             />
           </div>
         </div>
-
 
         <h3 style={{ margin: "2rem 0 1rem", color: "var(--text-dark)" }}>Admin Profile Details</h3>
 
@@ -218,11 +254,11 @@ export default function RegisterSacco() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength="8"
+              minLength={8}
             />
             <i
               className="fa-regular fa-eye pwd-toggle"
-              onClick={(e) => togglePassword(e.currentTarget, "password")}
+              onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
             ></i>
           </div>
         </div>

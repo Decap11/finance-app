@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import ProtectedRoute from "../../Components/ProtectedRoute";
-import AdminDashboardPage from "../../views/adminDashboardPage";
+import GroupMembers from "../../views/GroupMembers";
 
 export default function Page() {
   return (
     <ProtectedRoute>
-      <AdminDashboardPage />
+      <GroupMembers />
     </ProtectedRoute>
   );
 }

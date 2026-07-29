@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../supabaseClient.js";
-import Loader from "./loader.jsx";
+import { supabase } from "../supabaseClient";
+import Loader from "./loader";
+import { Session } from "@supabase/supabase-js";
 
-export default function ProtectedRoute({ children }) {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+interface ProtectedRouteProps {
+  children: ReactNode;
+}
+
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,13 +40,9 @@ export default function ProtectedRoute({ children }) {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  if (loading) {
+  if (loading || !session) {
     return <Loader />;
   }
 
-  if (!session) {
-    return <Loader />;
-  }
-
-  return children;
+  return <>{children}</>;
 }
