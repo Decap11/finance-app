@@ -107,10 +107,53 @@ export default function RegisterSacco() {
     const fullGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
     const fullAdminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
 
+    // 1. Primary Strategy: Server API call with admin privileges to guarantee DB writes
+    try {
+      const apiRes = await fetch("/api/register-sacco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          memberId: memberId.trim(),
+          saccoName: saccoName.trim(),
+          saccoUniqueNumber: saccoUniqueNumber.trim()
+        })
+      });
+
+      const apiData = await apiRes.json();
+
+      if (apiRes.ok && apiData.success) {
+        // Authenticate client session
+        const { error: loginErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password
+        });
+
+        setIsLoading(false);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("rememberedEmail", email.trim());
+        }
+
+        if (loginErr) {
+          router.push(`/login?registered=1&onboarding=1&email=${encodeURIComponent(email.trim())}`);
+          return;
+        }
+
+        router.push("/settings?onboarding=1");
+        return;
+      }
+    } catch (apiErr) {
+      console.warn("Server API SACCO registration fallback notice:", apiErr);
+    }
+
+    // 2. Secondary Strategy: Client-side Supabase Auth + RPC Fallback
     let adminUserId: string | null = null;
     let hasSession = false;
 
-    // 1. Sign up the admin user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password: password,
@@ -130,7 +173,6 @@ export default function RegisterSacco() {
       const rawMsg = formatError(authError);
       let friendlyMsg = rawMsg;
       if (rawMsg.toLowerCase().includes("already registered")) {
-        // Self-Healing Recovery: If user exists, attempt login to execute SACCO creation
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password,
@@ -166,7 +208,7 @@ export default function RegisterSacco() {
       return;
     }
 
-    // 2. Client-side explicit upsert to public.profiles table
+    // Direct upsert to profiles
     try {
       await supabase.from("profiles").upsert({
         id: adminUserId,
@@ -182,7 +224,7 @@ export default function RegisterSacco() {
       console.warn("Profile pre-upsert notice:", pErr);
     }
 
-    // 3. Call the RPC to create the SACCO and link admin membership atomically in PostgreSQL
+    // Call RPC
     const { data: rpcData, error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
@@ -190,7 +232,7 @@ export default function RegisterSacco() {
       p_admin_profile_id: adminUserId
     });
 
-    // 4. Post-RPC Safety Check: Guarantee row in public.sacco_memberships table
+    // Guarantee membership row
     try {
       const saccoId = rpcData?.sacco_id;
       if (saccoId) {
@@ -200,22 +242,6 @@ export default function RegisterSacco() {
           role: "admin",
           status: "active"
         }, { onConflict: "sacco_id, profile_id" });
-      } else {
-        // Fallback: Query sacco_id by group_code
-        const { data: saccoRow } = await supabase
-          .from("saccos")
-          .select("id")
-          .eq("group_code", fullGroupCode)
-          .maybeSingle();
-
-        if (saccoRow?.id) {
-          await supabase.from("sacco_memberships").upsert({
-            sacco_id: saccoRow.id,
-            profile_id: adminUserId,
-            role: "admin",
-            status: "active"
-          }, { onConflict: "sacco_id, profile_id" });
-        }
       }
     } catch (mErr) {
       console.warn("Sacco membership upsert notice:", mErr);
@@ -228,8 +254,6 @@ export default function RegisterSacco() {
       let friendlyMsg = rawMsg;
       if (rawMsg.includes("already exists")) {
         friendlyMsg = "A SACCO with this unique number already exists. Please choose a different unique code.";
-      } else if (rawMsg.includes("profile not found")) {
-        friendlyMsg = "Your account was created but SACCO setup took too long. Please log in and try registering your SACCO again.";
       }
       setErrorMsg("SACCO Registration Failed: " + friendlyMsg);
       return;
