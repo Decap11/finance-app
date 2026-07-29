@@ -1,0 +1,509 @@
+/* Polished SACCO Registration Stylesheet - 100% Uniform with login.css & signUp.css */
+
+:root {
+  --primary-color: #253b8e;
+  --primary-light: #ebf0fe;
+  --primary-hover: #1e317a;
+  --secondary-color: #f7f9fc;
+  --bg-color: #f8fbff;
+  --white: #ffffff;
+  --text-dark: #1e293b;
+  --text-light: #64748b;
+  --text-muted: #94a3b8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --input-border: #e2e8f0;
+  --card-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
+  --border-radius: 2rem;
+  --input-radius: 1.2rem;
+}
+
+.auth-container {
+  width: min(100%, 52rem);
+  margin: 2rem auto;
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  padding: 4rem 3.5rem;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2.8rem;
+}
+
+.auth-logo {
+  width: 6rem;
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+.auth-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.8rem;
+  letter-spacing: -0.05rem;
+}
+
+.auth-subtitle {
+  font-size: 1.5rem;
+  color: var(--text-light);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Stepper Navigation */
+.sacco-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+  position: relative;
+  padding: 0 1rem;
+}
+
+.sacco-stepper::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3rem;
+  right: 3rem;
+  height: 0.2rem;
+  background-color: var(--input-border);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.sacco-stepper-progress {
+  position: absolute;
+  top: 50%;
+  left: 3rem;
+  height: 0.2rem;
+  background-color: var(--primary-color);
+  transform: translateY(-50%);
+  z-index: 1;
+  transition: width 0.4s ease;
+}
+
+.sacco-step-item {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.sacco-step-num {
+  width: 3.8rem;
+  height: 3.8rem;
+  border-radius: 50%;
+  background-color: var(--white);
+  border: 0.2rem solid var(--input-border);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.sacco-step-item.active .sacco-step-num {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--white);
+  box-shadow: 0 0.4rem 1.2rem rgba(37, 59, 142, 0.25);
+}
+
+.sacco-step-item.completed .sacco-step-num {
+  background-color: var(--success);
+  border-color: var(--success);
+  color: var(--white);
+}
+
+.sacco-step-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-light);
+  transition: color 0.3s ease;
+}
+
+.sacco-step-item.active .sacco-step-label {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+/* Clean Dynamic Preview Card */
+.sacco-preview-card {
+  background-color: var(--primary-light);
+  border: 0.15rem solid rgba(37, 59, 142, 0.15);
+  border-radius: var(--input-radius);
+  padding: 1.8rem;
+  margin-bottom: 2.5rem;
+}
+
+.sacco-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sacco-preview-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sacco-preview-acronym {
+  background-color: var(--primary-color);
+  color: var(--white);
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.sacco-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.sacco-preview-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.sacco-preview-label {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  margin-bottom: 0.2rem;
+}
+
+.sacco-preview-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-family: inherit;
+  word-break: break-word;
+}
+
+/* Section Headings */
+.sacco-section-heading {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.sacco-section-heading i {
+  color: var(--primary-color);
+}
+
+/* Form Controls */
+.form-group {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.form-label {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.8rem;
+}
+
+.form-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-icon {
+  position: absolute;
+  left: 1.5rem;
+  color: var(--text-light);
+  font-size: 1.4rem;
+  pointer-events: none;
+}
+
+.form-input {
+  width: 100%;
+  padding: 1.4rem 1.5rem 1.4rem 4.5rem;
+  border: 0.15rem solid var(--input-border);
+  border-radius: var(--input-radius);
+  font-family: inherit;
+  font-size: 1.4rem;
+  color: var(--text-dark);
+  background-color: var(--white);
+  transition: all 0.2s ease;
+}
+
+.form-input::placeholder {
+  color: #94a3b8;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.1);
+}
+
+.form-input-container:focus-within .form-icon {
+  color: var(--primary-color);
+}
+
+.pwd-toggle {
+  position: absolute;
+  right: 1.5rem;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 1.4rem;
+  transition: color 0.2s ease;
+}
+
+.pwd-toggle:hover {
+  color: var(--text-dark);
+}
+
+.terms-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 2rem 0;
+  font-size: 1.3rem;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+.terms-checkbox input[type="checkbox"] {
+  margin-top: 0.3rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Button Group */
+.sacco-button-group {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 2.5rem;
+}
+
+.btn-secondary {
+  flex: 1;
+  background-color: var(--secondary-color);
+  color: var(--text-dark);
+  border: 0.15rem solid var(--input-border);
+  padding: 1.5rem;
+  border-radius: var(--input-radius);
+  font-size: 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.btn-secondary:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-submit {
+  flex: 2;
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  padding: 1.6rem;
+  border-radius: var(--input-radius);
+  font-size: 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0.8rem 2rem rgba(37, 59, 142, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-0.2rem);
+  box-shadow: 0 1rem 2.5rem rgba(37, 59, 142, 0.3);
+  background-color: var(--primary-hover);
+}
+
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-footer {
+  margin-top: 3.5rem;
+  text-align: center;
+  font-size: 1.4rem;
+  color: var(--text-light);
+}
+
+.auth-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.auth-link:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+.error-message {
+  color: var(--danger);
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+/* ========================================================
+   RESPONSIVE MEDIA QUERIES (100% UNIFORM WITH OTHER PAGES)
+   ======================================================== */
+
+@media (max-width: 48rem) {
+  .auth-container {
+    max-width: 95vw;
+    padding: 3rem 2rem;
+  }
+  .auth-title {
+    font-size: 2.4rem;
+  }
+}
+
+@media (max-width: 440px) {
+  /* Compensate for html { font-size: 48% } at <= 440px */
+  .auth-container {
+    max-width: 96vw;
+    padding: 3.2rem 2.2rem !important;
+    border-radius: 1.6rem;
+  }
+
+  .auth-title {
+    font-size: 3.4rem !important;
+  }
+
+  .auth-subtitle {
+    font-size: 2.2rem !important;
+  }
+
+  .sacco-stepper {
+    margin-bottom: 2.4rem;
+  }
+
+  .sacco-step-num {
+    width: 4.8rem;
+    height: 4.8rem;
+    font-size: 2.2rem;
+  }
+
+  .sacco-step-label {
+    font-size: 1.8rem;
+  }
+
+  .sacco-preview-card {
+    padding: 2.2rem;
+    border-radius: 1.4rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .sacco-preview-title {
+    font-size: 1.8rem;
+  }
+
+  .sacco-preview-acronym {
+    font-size: 1.7rem;
+    padding: 0.4rem 1.2rem;
+  }
+
+  .sacco-preview-label {
+    font-size: 1.6rem;
+  }
+
+  .sacco-preview-value {
+    font-size: 2rem;
+  }
+
+  .form-group {
+    margin-bottom: 2.2rem;
+  }
+
+  .form-label {
+    font-size: 2.1rem !important;
+  }
+
+  .form-input {
+    padding: 2.2rem 2rem 2.2rem 6.5rem !important;
+    font-size: 2.4rem !important;
+    border-radius: 1.4rem;
+  }
+
+  .form-icon {
+    font-size: 2.4rem !important;
+    left: 2rem !important;
+  }
+
+  .pwd-toggle {
+    font-size: 2.4rem !important;
+    right: 2rem !important;
+  }
+
+  .sacco-button-group {
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+
+  .btn-secondary,
+  .btn-submit {
+    width: 100%;
+    padding: 2.2rem !important;
+    font-size: 2.5rem !important;
+    border-radius: 1.4rem;
+  }
+
+  .auth-footer {
+    font-size: 2.2rem !important;
+  }
+}

@@ -3,23 +3,36 @@
 import React, { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import "../styles/signUp.css";
+import "../styles/registerSacco.css";
 import { supabase } from "../supabaseClient";
 
 export default function RegisterSacco() {
-  const [fullName, setFullName] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [memberId, setMemberId] = useState<string>("");
+  const [currentStep, setCurrentStep] = useState<number>(1);
 
+  // Form fields
   const [saccoName, setSaccoName] = useState<string>("");
   const [saccoUniqueNumber, setSaccoUniqueNumber] = useState<string>("");
-
+  const [memberId, setMemberId] = useState<string>("");
+  const [fullName, setFullName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const router = useRouter();
+
+  // Dynamic preview values
+  const generatedAcronym = saccoName.trim()
+    ? saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8)
+    : "SACCO";
+  const generatedGroupCode = saccoUniqueNumber.trim()
+    ? `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`
+    : `${generatedAcronym}-XXXX`;
+  const adminMemberNumber = memberId.trim()
+    ? `MEM-${memberId.trim().toUpperCase()}`
+    : "MEM-XXX";
 
   function togglePassword(element: HTMLElement, fieldId: string) {
     const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
@@ -50,9 +63,39 @@ export default function RegisterSacco() {
     return "Unable to connect to Supabase backend. Please check your internet connection or Vercel Environment Variables.";
   }
 
+  function handleNextStep(e?: React.MouseEvent) {
+    if (e) e.preventDefault();
+    if (!saccoName.trim() || !saccoUniqueNumber.trim()) {
+      setErrorMsg("Please enter both the SACCO Name and Unique Code before proceeding.");
+      return;
+    }
+    setErrorMsg("");
+    setCurrentStep(2);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function handlePrevStep(e: React.MouseEvent) {
+    e.preventDefault();
+    setErrorMsg("");
+    setCurrentStep(1);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!fullName || !phone || !email || !password || !memberId || !saccoName || !saccoUniqueNumber) return;
+    if (currentStep === 1) {
+      handleNextStep();
+      return;
+    }
+
+    if (!fullName || !phone || !email || !password || !memberId || !saccoName || !saccoUniqueNumber) {
+      setErrorMsg("Please fill out all required fields.");
+      return;
+    }
     if (!termsAccepted) {
       setErrorMsg("You must accept the terms and conditions.");
       return;
@@ -61,9 +104,8 @@ export default function RegisterSacco() {
     setIsLoading(true);
     setErrorMsg("");
 
-    const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
-    const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
-    const adminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
+    const fullGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
+    const fullAdminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
 
     // 1. Sign up the admin user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -73,8 +115,8 @@ export default function RegisterSacco() {
         data: {
           full_name: fullName.trim(),
           phone: phone.trim(),
-          member_number: adminMemberNumber,
-          group_id: generatedGroupCode,
+          member_number: fullAdminMemberNumber,
+          group_id: fullGroupCode,
           role: 'admin',
           status: 'active',
         }
@@ -103,11 +145,10 @@ export default function RegisterSacco() {
     }
 
     // 2. Call the RPC to create the SACCO and link the admin atomically
-    // (Self-healing RPC handles profile creation & linking inside PostgreSQL)
     const { error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
-      p_group_code: generatedGroupCode,
+      p_group_code: fullGroupCode,
       p_admin_profile_id: authData.user.id
     });
 
@@ -146,144 +187,236 @@ export default function RegisterSacco() {
         </p>
       </div>
 
-      {errorMsg && <div className="error-message" style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{errorMsg}</div>}
+      {/* Stepper Navigation */}
+      <div className="sacco-stepper">
+        <div 
+          className="sacco-stepper-progress" 
+          style={{ width: currentStep === 1 ? "0%" : "100%" }}
+        ></div>
+
+        <button 
+          type="button" 
+          className={`sacco-step-item ${currentStep === 1 ? "active" : "completed"}`}
+          onClick={() => setCurrentStep(1)}
+        >
+          <div className="sacco-step-num">
+            {currentStep > 1 ? <i className="fa-solid fa-check"></i> : "1"}
+          </div>
+          <span className="sacco-step-label">SACCO Details</span>
+        </button>
+
+        <button 
+          type="button" 
+          className={`sacco-step-item ${currentStep === 2 ? "active" : ""}`}
+          onClick={() => {
+            if (saccoName.trim() && saccoUniqueNumber.trim()) {
+              setCurrentStep(2);
+              setErrorMsg("");
+            } else {
+              setErrorMsg("Please complete SACCO Details first.");
+            }
+          }}
+        >
+          <div className="sacco-step-num">2</div>
+          <span className="sacco-step-label">Admin Profile</span>
+        </button>
+      </div>
+
+      {/* Clean SACCO Identity Preview Box */}
+      <div className="sacco-preview-card">
+        <div className="sacco-preview-header">
+          <span className="sacco-preview-title">
+            <i className="fa-solid fa-id-badge"></i> SACCO Identity Preview
+          </span>
+          <span className="sacco-preview-acronym">{generatedAcronym}</span>
+        </div>
+        <div className="sacco-preview-grid">
+          <div className="sacco-preview-item">
+            <span className="sacco-preview-label">Group Code</span>
+            <span className="sacco-preview-value">{generatedGroupCode}</span>
+          </div>
+          <div className="sacco-preview-item">
+            <span className="sacco-preview-label">Admin Member ID</span>
+            <span className="sacco-preview-value">{adminMemberNumber}</span>
+          </div>
+        </div>
+      </div>
+
+      {errorMsg && <div className="error-message">{errorMsg}</div>}
 
       <form id="registerSaccoForm" onSubmit={handleSubmit}>
-        <h3 style={{ marginBottom: "1rem", color: "var(--text-dark)" }}>SACCO Details</h3>
-        
-        <div className="form-group">
-          <label className="form-label">SACCO Name</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-building-columns form-icon"></i>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Hope Development SACCO"
-              value={saccoName}
-              onChange={(e) => setSaccoName(e.target.value)}
-              required
-            />
+        {currentStep === 1 ? (
+          <div className="sacco-form-section">
+            <h3 className="sacco-section-heading">
+              <i className="fa-solid fa-building-columns"></i> SACCO Details
+            </h3>
+
+            <div className="form-group">
+              <label className="form-label">SACCO Name</label>
+              <div className="form-input-container">
+                <i className="fa-solid fa-building-columns form-icon"></i>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Hope Development SACCO"
+                  value={saccoName}
+                  onChange={(e) => setSaccoName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">SACCO Unique Number / Code</label>
+              <div className="form-input-container">
+                <i className="fa-solid fa-hashtag form-icon"></i>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 8134"
+                  value={saccoUniqueNumber}
+                  onChange={(e) => setSaccoUniqueNumber(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="sacco-button-group">
+              <button 
+                type="button" 
+                className="btn-submit" 
+                onClick={handleNextStep}
+              >
+                <span>Continue to Admin Details</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="sacco-form-section">
+            <h3 className="sacco-section-heading">
+              <i className="fa-solid fa-user-gear"></i> Admin Profile Details
+            </h3>
 
-        <div className="form-group">
-          <label className="form-label">SACCO Unique Number / Code</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-hashtag form-icon"></i>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. 8134"
-              value={saccoUniqueNumber}
-              onChange={(e) => setSaccoUniqueNumber(e.target.value)}
-              required
-            />
+            <div className="form-group">
+              <label className="form-label">Member ID Number</label>
+              <div className="form-input-container">
+                <i className="fa-solid fa-id-badge form-icon"></i>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 006"
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <div className="form-input-container">
+                <i className="fa-regular fa-user form-icon"></i>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Joseph Ssembatya"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <div className="form-input-container">
+                <i className="fa-regular fa-envelope form-icon"></i>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="admin@sacco.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Phone Number</label>
+              <div className="form-input-container">
+                <i className="fa-solid fa-phone form-icon"></i>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="+256 700 000000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <div className="form-input-container">
+                <i className="fa-solid fa-lock form-icon"></i>
+                <input
+                  type="password"
+                  id="password"
+                  className="form-input"
+                  placeholder="Create a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+                <i
+                  className="fa-regular fa-eye pwd-toggle"
+                  onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
+                ></i>
+              </div>
+            </div>
+
+            <div className="terms-checkbox">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                required
+              />
+              <label htmlFor="terms">
+                I agree to the{" "}
+                <a href="#" className="auth-link">Terms of Service</a>{" "}
+                and{" "}
+                <a href="#" className="auth-link">Privacy Policy</a>.
+              </label>
+            </div>
+
+            <div className="sacco-button-group">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={handlePrevStep}
+              >
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Back</span>
+              </button>
+              
+              <button 
+                type="submit" 
+                className="btn-submit" 
+                disabled={isLoading}
+              >
+                <span>{isLoading ? "Registering..." : "Register SACCO"}</span>
+                {!isLoading && <i className="fa-solid fa-arrow-right"></i>}
+              </button>
+            </div>
           </div>
-        </div>
-
-        <h3 style={{ margin: "2rem 0 1rem", color: "var(--text-dark)" }}>Admin Profile Details</h3>
-
-        <div className="form-group">
-          <label className="form-label">Member ID Number</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-id-badge form-icon"></i>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. 006"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Full Name</label>
-          <div className="form-input-container">
-            <i className="fa-regular fa-user form-icon"></i>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Joseph Ssembatya"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Email Address</label>
-          <div className="form-input-container">
-            <i className="fa-regular fa-envelope form-icon"></i>
-            <input
-              type="email"
-              className="form-input"
-              placeholder="admin@sacco.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Phone Number</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-phone form-icon"></i>
-            <input
-              type="tel"
-              className="form-input"
-              placeholder="+256 700 000000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Password</label>
-          <div className="form-input-container">
-            <i className="fa-solid fa-lock form-icon"></i>
-            <input
-              type="password"
-              id="password"
-              className="form-input"
-              placeholder="Create a strong password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-            <i
-              className="fa-regular fa-eye pwd-toggle"
-              onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
-            ></i>
-          </div>
-        </div>
-
-        <div className="terms-checkbox">
-          <input
-            type="checkbox"
-            id="terms"
-            checked={termsAccepted}
-            onChange={(e) => setTermsAccepted(e.target.checked)}
-            required
-          />
-          <label htmlFor="terms">
-            I agree to the{" "}
-            <a href="#" className="auth-link">Terms of Service</a>{" "}
-            and{" "}
-            <a href="#" className="auth-link">Privacy Policy</a>.
-          </label>
-        </div>
-
-        <button type="submit" className="btn-submit" id="submitBtn" disabled={isLoading}>
-          {isLoading ? "Registering..." : "Register SACCO"}{" "}
-          {!isLoading && <i className="fa-solid fa-arrow-right" style={{ marginLeft: "0.8rem" }}></i>}
-        </button>
+        )}
       </form>
 
       <div className="auth-footer">
