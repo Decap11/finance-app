@@ -52,9 +52,11 @@ export async function POST(request) {
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile || profile.role !== 'admin') {
+    const userRole = profile?.role || user.user_metadata?.role;
+
+    if (userRole !== 'admin') {
       return Response.json({ error: 'Unauthorized. Only admins can modify group settings.' }, { status: 403 });
     }
 

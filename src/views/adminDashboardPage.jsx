@@ -37,17 +37,18 @@ export default function AdminDashboardPage() {
         .from("profiles")
         .select("group_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profileData) return;
+      const groupId = profileData?.group_id || user.user_metadata?.group_id;
+      if (!groupId) return;
 
       // 2. Fetch matching Sacco ID
       const { data: saccoData } = await supabase
         .from("saccos")
         .select("id")
-        .eq("group_code", profileData.group_id)
+        .eq("group_code", groupId)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!saccoData) return;
       saccoId = saccoData.id;

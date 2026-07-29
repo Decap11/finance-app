@@ -84,25 +84,27 @@ export async function POST(request) {
     const { shares, devtFund, socialFund } = body;
 
     // 1. Fetch profile group_id
-    const { data: userProfile, error: profileErr } = await supabase
+    const { data: userProfile } = await supabase
       .from('profiles')
       .select('group_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileErr || !userProfile || !userProfile.group_id) {
+    const groupId = userProfile?.group_id || user.user_metadata?.group_id;
+
+    if (!groupId) {
       return Response.json({ error: 'Sacco group membership not found on your profile.' }, { status: 400 });
     }
 
     // 2. Fetch Sacco ID
-    const { data: saccoData, error: saccoErr } = await supabase
+    const { data: saccoData } = await supabase
       .from('saccos')
       .select('id')
-      .eq('group_code', userProfile.group_id)
+      .eq('group_code', groupId)
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (saccoErr || !saccoData) {
+    if (!saccoData) {
       return Response.json({ error: 'Sacco group metadata not found in database.' }, { status: 400 });
     }
 

@@ -62,15 +62,16 @@ export default function SaccoSettings() {
         .from("profiles")
         .select("group_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profileData) return;
+      const groupId = profileData?.group_id || user.user_metadata?.group_id;
+      if (!groupId) return;
 
       const { data: sacco } = await supabase
         .from("saccos")
         .select("*")
-        .eq("group_code", profileData.group_id)
-        .single();
+        .eq("group_code", groupId)
+        .maybeSingle();
 
       if (!sacco) return;
       setSaccoInfo(sacco);

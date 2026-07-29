@@ -25,17 +25,24 @@ export async function GET(request) {
       return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
     }
 
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileErr) {
-      return Response.json({ error: profileErr.message }, { status: 500 });
-    }
+    const finalProfile = profile || {
+      id: user.id,
+      full_name: user.user_metadata?.full_name || 'SACCO User',
+      email: user.email,
+      phone: user.user_metadata?.phone || '',
+      member_number: user.user_metadata?.member_number || `MEM-${user.id.substring(0, 4).toUpperCase()}`,
+      group_id: user.user_metadata?.group_id || '',
+      role: user.user_metadata?.role || 'member',
+      status: 'active'
+    };
 
-    return Response.json({ user, profile });
+    return Response.json({ user, profile: finalProfile });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

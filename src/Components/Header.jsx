@@ -89,7 +89,7 @@ export default function Header() {
         .from('saccos')
         .select('id')
         .eq('group_code', userProfile.group_id)
-        .single();
+        .maybeSingle();
 
       if (!sacco) return;
 
