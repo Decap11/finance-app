@@ -107,6 +107,9 @@ export default function RegisterSacco() {
     const fullGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
     const fullAdminMemberNumber = `MEM-${memberId.trim().toUpperCase()}`;
 
+    let adminUserId: string | null = null;
+    let hasSession = false;
+
     // 1. Sign up the admin user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -127,29 +130,48 @@ export default function RegisterSacco() {
       const rawMsg = formatError(authError);
       let friendlyMsg = rawMsg;
       if (rawMsg.toLowerCase().includes("already registered")) {
-        friendlyMsg = "This email is already registered. Please log in or use a different email.";
-      } else if (rawMsg.toLowerCase().includes("password")) {
-        friendlyMsg = "Password must be at least 8 characters long.";
-      } else if (rawMsg.toLowerCase().includes("invalid email")) {
-        friendlyMsg = "Please enter a valid email address.";
+        // Self-Healing Recovery: If user exists, attempt login to execute SACCO creation
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        });
+
+        if (!signInError && signInData?.user) {
+          adminUserId = signInData.user.id;
+          hasSession = true;
+        } else {
+          friendlyMsg = "This email is already registered. Please log in or use a different email.";
+          setErrorMsg(friendlyMsg);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        if (rawMsg.toLowerCase().includes("password")) {
+          friendlyMsg = "Password must be at least 8 characters long.";
+        } else if (rawMsg.toLowerCase().includes("invalid email")) {
+          friendlyMsg = "Please enter a valid email address.";
+        }
+        setErrorMsg(friendlyMsg);
+        setIsLoading(false);
+        return;
       }
-      setErrorMsg(friendlyMsg);
-      setIsLoading(false);
-      return;
+    } else {
+      adminUserId = authData?.user?.id || null;
+      hasSession = Boolean(authData?.session);
     }
 
-    if (!authData?.user) {
+    if (!adminUserId) {
       setErrorMsg("Signup completed but failed to retrieve user session details. Please try again.");
       setIsLoading(false);
       return;
     }
 
-    // 2. Call the RPC to create the SACCO and link the admin atomically
+    // 2. Call the RPC to create the SACCO and link the admin atomically in PostgreSQL
     const { error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
       p_group_code: fullGroupCode,
-      p_admin_profile_id: authData.user.id
+      p_admin_profile_id: adminUserId
     });
 
     setIsLoading(false);
@@ -170,7 +192,7 @@ export default function RegisterSacco() {
       localStorage.setItem("rememberedEmail", email.trim());
     }
 
-    if (!authData.session) {
+    if (!hasSession) {
       router.push(`/login?registered=1&onboarding=1&email=${encodeURIComponent(email.trim())}`);
       return;
     }

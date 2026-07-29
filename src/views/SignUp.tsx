@@ -74,26 +74,54 @@ export default function SignupForm() {
     setErrorMsg("");
 
     const formattedMemberId = `MEM-${memberId.trim().toUpperCase()}`;
+    const cleanName = saccoName.trim();
+    const cleanUniqueNumber = saccoUniqueNumber.trim().toUpperCase();
 
-    // Generate acronym and group code using entered sacco name and unique number
-    const generatedAcronym = saccoName.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
-    const generatedGroupCode = `${generatedAcronym}-${saccoUniqueNumber.trim().toUpperCase()}`;
+    // Derive acronym and fallback group code
+    const generatedAcronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
+    const generatedGroupCode = cleanUniqueNumber.includes('-')
+      ? cleanUniqueNumber
+      : `${generatedAcronym}-${cleanUniqueNumber}`;
 
-    // Verify that the SACCO group code exists in the database
-    const { data: saccoData, error: saccoError } = await supabase
+    let targetGroupCode = generatedGroupCode;
+    let foundSaccoId: string | null = null;
+
+    // Smart Multi-Strategy SACCO Resolution:
+    // Strategy 1: Match exact generated group code or unique number ending (e.g. %-8134 or 8134)
+    const { data: saccoMatches, error: saccoError } = await supabase
       .from('saccos')
-      .select('id')
-      .eq('group_code', generatedGroupCode)
-      .limit(1)
-      .maybeSingle();
+      .select('id, group_code, name')
+      .or(`group_code.ilike.${generatedGroupCode},group_code.ilike.%-${cleanUniqueNumber},group_code.ilike.${cleanUniqueNumber}`)
+      .limit(5);
 
     if (saccoError) {
-      setErrorMsg("Error validating Group ID: " + saccoError.message);
+      setErrorMsg("Error validating SACCO group: " + saccoError.message);
       setIsLoading(false);
       return;
     }
 
-    if (!saccoData) {
+    if (saccoMatches && saccoMatches.length > 0) {
+      // Find match by name or pick first matched group
+      const exactNameMatch = saccoMatches.find(s => s.name.toLowerCase().includes(cleanName.toLowerCase()));
+      const matchedSacco = exactNameMatch || saccoMatches[0];
+      foundSaccoId = matchedSacco.id;
+      targetGroupCode = matchedSacco.group_code;
+    } else if (cleanName) {
+      // Strategy 2: Search by SACCO Name substring
+      const { data: nameMatch } = await supabase
+        .from('saccos')
+        .select('id, group_code, name')
+        .ilike('name', `%${cleanName}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (nameMatch) {
+        foundSaccoId = nameMatch.id;
+        targetGroupCode = nameMatch.group_code;
+      }
+    }
+
+    if (!targetGroupCode || !foundSaccoId) {
       setErrorMsg("Registration Failed: The SACCO group does not exist. Please check the SACCO Name and Unique Number.");
       setIsLoading(false);
       return;
@@ -107,7 +135,7 @@ export default function SignupForm() {
           full_name: fullName.trim(),
           phone: phone.trim(),
           member_number: formattedMemberId,
-          group_id: generatedGroupCode,
+          group_id: targetGroupCode,
         }
       }
     });
@@ -218,7 +246,7 @@ export default function SignupForm() {
                   type="text"
                   id="saccoUniqueNumber"
                   className="form-input"
-                  placeholder="e.g. 2200"
+                  placeholder="e.g. 2200 or NS-2200"
                   value={saccoUniqueNumber}
                   onChange={(e) => setSaccoUniqueNumber(e.target.value)}
                   required
