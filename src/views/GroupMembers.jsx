@@ -122,7 +122,7 @@ export default function GroupMembers() {
   }, []);
 
   const filteredMembers = membersList.filter(
-    (member) => member.groupId === selectedGroup
+    (member) => String(member.groupId || "").toLowerCase() === String(selectedGroup || "").toLowerCase()
   );
 
   return (
