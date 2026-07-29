@@ -234,7 +234,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           <select
             value={currentWeek}
             onChange={(e) => setCurrentWeek(Number(e.target.value))}
-            style={{ padding: "0.6rem 1rem", borderRadius: "0.6rem", border: "1px solid #cbd5e1", background: "white", fontSize: "1.35rem", fontWeight: 700, color: "var(--primary-color)", cursor: "pointer" }}
+            className="attendance-week-select"
           >
             {Array.from({ length: 52 }, (_, i) => i + 1).map(w => (
               <option key={w} value={w}>Week {w}</option>
