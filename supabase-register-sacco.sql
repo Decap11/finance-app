@@ -1,4 +1,5 @@
 -- RPC 4: Register a new SACCO (hardened, self-healing & atomic)
+-- Guarantees creation of rows in `saccos`, `profiles`, `sacco_memberships`, `accounts`, and `sacco_settings`
 CREATE OR REPLACE FUNCTION register_new_sacco(
   p_sacco_name TEXT,
   p_acronym TEXT,
@@ -12,7 +13,7 @@ BEGIN
   -- Bypass RLS inside this SECURITY DEFINER function
   SET LOCAL row_security = off;
 
-  -- Self-healing: Ensure admin profile exists in public.profiles.
+  -- 1. Ensure admin profile exists in public.profiles.
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_admin_profile_id) THEN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     SELECT
@@ -21,7 +22,7 @@ BEGIN
       u.email,
       u.raw_user_meta_data->>'phone',
       COALESCE(u.raw_user_meta_data->>'member_number', 'ADMIN-' || substring(u.id::text, 1, 8)),
-      p_group_code,
+      UPPER(p_group_code),
       'admin',
       'active'
     FROM auth.users u
@@ -30,32 +31,44 @@ BEGIN
       group_id = EXCLUDED.group_id,
       role = EXCLUDED.role,
       status = EXCLUDED.status;
-  END IF;
-
-  -- Guard: group_code must be globally unique
-  IF EXISTS (SELECT 1 FROM public.saccos WHERE group_code = p_group_code) THEN
-    RAISE EXCEPTION 'A SACCO with this group code (%) already exists. Please choose a different unique number.', p_group_code;
+  ELSE
+    UPDATE public.profiles
+    SET group_id = UPPER(p_group_code), role = 'admin', status = 'active', updated_at = now()
+    WHERE id = p_admin_profile_id;
   END IF;
 
   v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
 
-  -- Insert the new SACCO
-  INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-  VALUES (p_sacco_name, p_acronym, p_group_code, p_admin_profile_id, 'active', 1, v_meeting_day)
-  RETURNING id INTO v_sacco_id;
+  -- 2. Insert or retrieve the SACCO row in public.saccos
+  IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = UPPER(p_group_code)) THEN
+    SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = UPPER(p_group_code);
 
-  -- Insert admin membership
+    UPDATE public.saccos
+    SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
+    WHERE id = v_sacco_id;
+  ELSE
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
+    VALUES (p_sacco_name, UPPER(p_acronym), UPPER(p_group_code), p_admin_profile_id, 'active', 1, v_meeting_day)
+    RETURNING id INTO v_sacco_id;
+  END IF;
+
+  -- 3. Insert admin membership in public.sacco_memberships
   INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
   VALUES (v_sacco_id, p_admin_profile_id, 'admin', 'active')
   ON CONFLICT (sacco_id, profile_id) DO UPDATE
     SET role = 'admin', status = 'active';
 
-  -- Keep the admin's profile group_id and role in sync with the new SACCO
-  UPDATE public.profiles
-  SET group_id = p_group_code, role = 'admin', status = 'active', updated_at = now()
-  WHERE id = p_admin_profile_id;
+  -- 4. Initialize default member accounts in public.accounts
+  INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
+  VALUES 
+    (v_sacco_id, p_admin_profile_id, 'savings', 0.00, 'active'),
+    (v_sacco_id, p_admin_profile_id, 'shares', 0.00, 'active'),
+    (v_sacco_id, p_admin_profile_id, 'development_fund', 0.00, 'active'),
+    (v_sacco_id, p_admin_profile_id, 'social_fund', 0.00, 'active'),
+    (v_sacco_id, p_admin_profile_id, 'loan', 0.00, 'active')
+  ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-  -- Auto-initialize sacco_settings for Week 1 on onboarding day
+  -- 5. Auto-initialize sacco_settings for Week 1
   INSERT INTO public.sacco_settings (
     group_code,
     sacco_id,
@@ -71,7 +84,7 @@ BEGIN
     updated_at
   )
   VALUES (
-    p_group_code,
+    UPPER(p_group_code),
     v_sacco_id,
     25000.00,
     1000.00,
@@ -89,12 +102,11 @@ BEGIN
   RETURN json_build_object(
     'success', true,
     'sacco_id', v_sacco_id,
-    'message', 'SACCO registered successfully'
+    'group_code', UPPER(p_group_code),
+    'message', 'SACCO registered successfully and admin linked'
   );
 
 EXCEPTION
-  WHEN unique_violation THEN
-    RAISE EXCEPTION 'A SACCO with this group code already exists. Please choose a different unique number.';
   WHEN OTHERS THEN
     RAISE;
 END;

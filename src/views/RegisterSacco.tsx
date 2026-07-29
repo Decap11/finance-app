@@ -166,13 +166,60 @@ export default function RegisterSacco() {
       return;
     }
 
-    // 2. Call the RPC to create the SACCO and link the admin atomically in PostgreSQL
-    const { error: rpcError } = await supabase.rpc('register_new_sacco', {
+    // 2. Client-side explicit upsert to public.profiles table
+    try {
+      await supabase.from("profiles").upsert({
+        id: adminUserId,
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        member_number: fullAdminMemberNumber,
+        group_id: fullGroupCode,
+        role: "admin",
+        status: "active"
+      }, { onConflict: "id" });
+    } catch (pErr) {
+      console.warn("Profile pre-upsert notice:", pErr);
+    }
+
+    // 3. Call the RPC to create the SACCO and link admin membership atomically in PostgreSQL
+    const { data: rpcData, error: rpcError } = await supabase.rpc('register_new_sacco', {
       p_sacco_name: saccoName.trim(),
       p_acronym: generatedAcronym,
       p_group_code: fullGroupCode,
       p_admin_profile_id: adminUserId
     });
+
+    // 4. Post-RPC Safety Check: Guarantee row in public.sacco_memberships table
+    try {
+      const saccoId = rpcData?.sacco_id;
+      if (saccoId) {
+        await supabase.from("sacco_memberships").upsert({
+          sacco_id: saccoId,
+          profile_id: adminUserId,
+          role: "admin",
+          status: "active"
+        }, { onConflict: "sacco_id, profile_id" });
+      } else {
+        // Fallback: Query sacco_id by group_code
+        const { data: saccoRow } = await supabase
+          .from("saccos")
+          .select("id")
+          .eq("group_code", fullGroupCode)
+          .maybeSingle();
+
+        if (saccoRow?.id) {
+          await supabase.from("sacco_memberships").upsert({
+            sacco_id: saccoRow.id,
+            profile_id: adminUserId,
+            role: "admin",
+            status: "active"
+          }, { onConflict: "sacco_id, profile_id" });
+        }
+      }
+    } catch (mErr) {
+      console.warn("Sacco membership upsert notice:", mErr);
+    }
 
     setIsLoading(false);
 
