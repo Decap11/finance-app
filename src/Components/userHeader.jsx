@@ -216,6 +216,7 @@ export default function UserHeader() {
 
   const displayName = profile?.full_name || sessionUser?.user_metadata?.full_name || "Member";
   const memberId = profile?.member_number || sessionUser?.user_metadata?.member_number || (profile?.id ? `MEM-${profile.id.substring(0, 4).toUpperCase()}` : "MEM-001");
+  const isAdmin = profile?.role === "admin" || sessionUser?.user_metadata?.role === "admin";
 
   return (
     <>
@@ -314,7 +315,7 @@ export default function UserHeader() {
               className={`profile-dropdown${showDropdown ? " show" : ""}`}
               id="profileDropdown"
             >
-              {profile?.role === "admin" && (
+              {isAdmin && (
                 <>
                   <Link href="/admin" className="dropdown-item" style={{ fontWeight: 600, color: "var(--primary-color)" }}>
                     <i className="fa-solid fa-user-shield" /> Switch to Admin Mode

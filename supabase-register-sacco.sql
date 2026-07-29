@@ -48,9 +48,9 @@ BEGIN
   ON CONFLICT (sacco_id, profile_id) DO UPDATE
     SET role = 'admin', status = 'active';
 
-  -- Keep the admin's profile group_id in sync with the new SACCO group_code
+  -- Keep the admin's profile group_id and role in sync with the new SACCO
   UPDATE public.profiles
-  SET group_id = p_group_code, updated_at = now()
+  SET group_id = p_group_code, role = 'admin', status = 'active', updated_at = now()
   WHERE id = p_admin_profile_id;
 
   RETURN json_build_object(

@@ -31,16 +31,39 @@ export async function GET(request) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const finalProfile = profile || {
-      id: user.id,
-      full_name: user.user_metadata?.full_name || 'SACCO User',
-      email: user.email,
-      phone: user.user_metadata?.phone || '',
-      member_number: user.user_metadata?.member_number || `MEM-${user.id.substring(0, 4).toUpperCase()}`,
-      group_id: user.user_metadata?.group_id || '',
-      role: user.user_metadata?.role || 'member',
-      status: 'active'
-    };
+    // Check if user is an admin via metadata or SACCO ownership
+    let isUserAdmin = user.user_metadata?.role === 'admin' || profile?.role === 'admin';
+    if (!isUserAdmin) {
+      const { data: saccoAdmin } = await supabase
+        .from('saccos')
+        .select('id')
+        .eq('admin_profile_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      if (saccoAdmin) {
+        isUserAdmin = true;
+      }
+    }
+
+    const resolvedRole = isUserAdmin ? 'admin' : (profile?.role || user.user_metadata?.role || 'member');
+
+    const finalProfile = profile
+      ? { ...profile, role: resolvedRole }
+      : {
+          id: user.id,
+          full_name: user.user_metadata?.full_name || 'SACCO User',
+          email: user.email,
+          phone: user.user_metadata?.phone || '',
+          member_number: user.user_metadata?.member_number || `MEM-${user.id.substring(0, 4).toUpperCase()}`,
+          group_id: user.user_metadata?.group_id || '',
+          role: resolvedRole,
+          status: 'active'
+        };
+
+    // Auto-heal public.profiles row in database if role was stuck as member
+    if (profile && isUserAdmin && profile.role !== 'admin') {
+      supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id).then();
+    }
 
     return Response.json({ user, profile: finalProfile });
   } catch (err) {
