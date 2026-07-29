@@ -15,6 +15,8 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
   const FINE_PER_ABSENCE = 1000; // Shs 1,000 absenteeism cover fee
 
+  const [internalMembers, setInternalMembers] = useState([]);
+
   useEffect(() => {
     async function loadSaccoContext() {
       try {
@@ -25,40 +27,61 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           .from("profiles")
           .select("group_id")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
-        if (!profile?.group_id) return;
-        setGroupCode(profile.group_id);
+        const activeGroupCode = profile?.group_id || user.user_metadata?.group_id;
+        if (activeGroupCode) {
+          setGroupCode(activeGroupCode);
 
-        const { data: sacco } = await supabase
-          .from("saccos")
-          .select("id, current_week")
-          .eq("group_code", profile.group_id)
-          .limit(1)
-          .single();
+          const { data: sacco } = await supabase
+            .from("saccos")
+            .select("id, current_week")
+            .ilike("group_code", activeGroupCode.trim())
+            .limit(1)
+            .maybeSingle();
 
-        if (sacco) {
-          setSaccoId(sacco.id);
-          setCurrentWeek(sacco.current_week || 1);
-        }
-
-        // Fetch settings if available
-        const { data: settings } = await supabase
-          .from("sacco_settings")
-          .select("current_week")
-          .ilike("group_code", profile.group_id)
-          .limit(1);
-
-        if (settings && settings.length > 0 && settings[0].current_week) {
-          setCurrentWeek(settings[0].current_week);
+          if (sacco) {
+            setSaccoId(sacco.id);
+            setCurrentWeek(sacco.current_week || 1);
+          }
         }
       } catch (err) {
         console.warn("Error loading SACCO context for attendance:", err);
       }
     }
 
+    async function loadMembersFromAPI() {
+      if (allMembers && allMembers.length > 0) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch("/api/group-members", {
+          headers: { "Authorization": `Bearer ${session.access_token}` }
+        });
+        const data = await res.json();
+        if (res.ok && data.profiles) {
+          const formatted = data.profiles.map(p => ({
+            id: p.id,
+            name: p.full_name || p.email || "Member",
+            memberId: p.member_number || `MEM-${String(p.id).substring(0, 4).toUpperCase()}`,
+            phone: p.phone || "N/A",
+            email: p.email || "N/A",
+            role: p.role || "member",
+            status: p.status || "active"
+          }));
+          setInternalMembers(formatted);
+        }
+      } catch (err) {
+        console.warn("WeeklyAttendanceManager API member fetch failed:", err);
+      }
+    }
+
     loadSaccoContext();
-  }, []);
+    loadMembersFromAPI();
+  }, [allMembers]);
+
+  const activeMemberList = (allMembers && allMembers.length > 0) ? allMembers : internalMembers;
 
   // Initialize or fetch saved attendance for selected week
   useEffect(() => {
@@ -83,7 +106,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         } else {
           // Default all members to "present"
           const defaultMap = {};
-          (allMembers || []).forEach(m => {
+          (activeMemberList || []).forEach(m => {
             defaultMap[m.id] = "present";
           });
           setAttendance(defaultMap);
@@ -96,7 +119,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     }
 
     loadSavedAttendance();
-  }, [groupCode, currentWeek, allMembers]);
+  }, [groupCode, currentWeek, activeMemberList]);
 
   const toggleMemberStatus = (memberId, status) => {
     setAttendance(prev => ({
@@ -107,15 +130,15 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
   const markAllStatus = (status) => {
     const updated = {};
-    (allMembers || []).forEach(m => {
+    (activeMemberList || []).forEach(m => {
       updated[m.id] = status;
     });
     setAttendance(updated);
   };
 
   // Calculations for Attendance & Fine Engine
-  const totalMembers = allMembers.length;
-  const filteredMembers = allMembers.filter(m => 
+  const totalMembers = activeMemberList.length;
+  const filteredMembers = activeMemberList.filter(m => 
     (m.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     (m.memberId || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -134,7 +157,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     try {
       // 1. Log attendance event in audit_events
       const absentMemberIds = Object.keys(attendance).filter(id => attendance[id] === "absent");
-      const absentMembers = allMembers.filter(m => absentMemberIds.includes(m.id));
+      const absentMembers = activeMemberList.filter(m => absentMemberIds.includes(m.id));
 
       await supabase.from("audit_events").insert({
         entity_type: "sacco_attendance",
