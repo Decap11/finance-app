@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
+import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
 import "../styles/contributionApprovals.css";
 
 export interface TransactionApprovalItem {
@@ -30,6 +31,7 @@ interface ContributionApprovalsProps {
 
 export default function ContributionApprovals({ limit, showViewAll }: ContributionApprovalsProps) {
   const [requests, setRequests] = useState<TransactionApprovalItem[]>([]);
+  const [saccoMeetingDay, setSaccoMeetingDay] = useState<string>("Wednesday");
   const [loading, setLoading] = useState<boolean>(true);
   const [message, setMessage] = useState<string>("");
 
@@ -49,19 +51,32 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
         return;
       }
 
-      const { data: saccoData } = await supabase
-        .from('saccos')
-        .select('id')
-        .eq('group_code', profileData.group_id)
-        .limit(1)
-        .single();
+      const activeGroupCode = profileData.group_id.trim();
+      const [saccoRes, settingsRes] = await Promise.all([
+        supabase
+          .from('saccos')
+          .select('id')
+          .ilike('group_code', activeGroupCode)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('sacco_settings')
+          .select('meeting_day')
+          .ilike('group_code', activeGroupCode)
+          .limit(1)
+          .maybeSingle()
+      ]);
 
-      if (!saccoData) {
+      if (settingsRes.data?.meeting_day) {
+        setSaccoMeetingDay(settingsRes.data.meeting_day);
+      }
+
+      if (!saccoRes.data) {
         setLoading(false);
         return;
       }
 
-      const saccoId = saccoData.id;
+      const saccoId = saccoRes.data.id;
 
       let query = supabase
         .from('transactions')
@@ -209,33 +224,7 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
             <li className="list-empty">No pending requests.</li>
           ) : (
             requests.map((request) => {
-              const dateObj = new Date(request.created_at);
-              const day = dateObj.getDate();
-              const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
-
-              let weekNum: number | null = null;
-              const match = request.description?.match(/\|\s*Week\s*(\d+)/i);
-              if (match) {
-                weekNum = parseInt(match[1], 10);
-              }
-              if (!weekNum) {
-                const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                const diffInMs = dateObj.getTime() - startOfYear.getTime();
-                const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-                weekNum = Math.floor(diffInDays / 7) + 1;
-              }
-
-              const getOrdinal = (d: number) => {
-                if (d > 3 && d < 21) return 'th';
-                switch (d % 10) {
-                  case 1: return "st";
-                  case 2: return "nd";
-                  case 3: return "rd";
-                  default: return "th";
-                }
-              };
-              const datePrefix = `${day}${getOrdinal(day)} ${month}, `;
-              const dateSuffix = `week ${weekNum}`;
+              const formattedMeetingDate = formatTransactionMeetingDate(request, saccoMeetingDay);
 
               let displayType = request.category;
               if (displayType === "social_fund") displayType = "Social Fund";
@@ -270,8 +259,7 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
                   </div>
                   <div className="col-date">
                     <span className="date-text">
-                      <span className="date-day-month">{datePrefix}</span>
-                      <span className="date-week-label">{dateSuffix}</span>
+                      <span className="date-day-month">{formattedMeetingDate}</span>
                     </span>
                   </div>
                   <div className="col-action">

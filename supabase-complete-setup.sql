@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Drop restrictive global unique constraint on member_number so different SACCOs can reuse member numbers (e.g. MEM-001)
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_member_number_key;
 
--- 2. SACCOs Table
+-- 2. SACCOs Table (meeting_day stored exclusively in sacco_settings)
 CREATE TABLE IF NOT EXISTS public.saccos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS public.saccos (
   member_limit INTEGER,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'closed')),
   current_week INTEGER DEFAULT 1,
-  meeting_day TEXT DEFAULT 'Wednesday',
   share_price NUMERIC(15, 2) DEFAULT 25000.00,
   devt_fund NUMERIC(15, 2) DEFAULT 1000.00,
   social_fund NUMERIC(15, 2) DEFAULT 2000.00,
@@ -44,7 +43,8 @@ CREATE TABLE IF NOT EXISTS public.saccos (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Ensure historical mode, locked, and absenteeism_fine_amount columns exist on saccos
+-- Ensure obsolete meeting_day column is dropped from saccos table
+ALTER TABLE public.saccos DROP COLUMN IF EXISTS meeting_day;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00;
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS public.accounts (
   UNIQUE (sacco_id, profile_id, account_type)
 );
 
--- 5. SACCO Settings Table
+-- 5. SACCO Settings Table (stores meeting_day exclusively)
 CREATE TABLE IF NOT EXISTS public.sacco_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_code TEXT UNIQUE NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
   social_fund NUMERIC(15, 2) DEFAULT 2000.00,
   absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00,
   current_week INTEGER DEFAULT 1,
-  meeting_day TEXT DEFAULT 'Wednesday',
+  meeting_day TEXT NOT NULL DEFAULT 'Wednesday',
   is_locked BOOLEAN DEFAULT false,
   is_historical_mode BOOLEAN DEFAULT false,
   onboarding_date TIMESTAMPTZ DEFAULT now(),
@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
 );
 
 -- Ensure all optional columns exist in sacco_settings for backwards compatibility
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS meeting_day TEXT NOT NULL DEFAULT 'Wednesday';
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00;
@@ -151,8 +152,8 @@ BEGIN
       v_acronym := COALESCE(split_part(v_group_id, '-', 1), 'SACCO');
       v_sacco_name := v_full_name || ' Group (' || v_group_id || ')';
 
-      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked, absenteeism_fine_amount)
-      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day, false, false, 1000.00)
+      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)
+      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, false, false, 1000.00)
       ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
       RETURNING id INTO v_sacco_id;
 
@@ -264,8 +265,8 @@ BEGIN
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked, absenteeism_fine_amount)
-    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false, 1000.00)
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, false, false, 1000.00)
     RETURNING id INTO v_sacco_id;
   END IF;
 

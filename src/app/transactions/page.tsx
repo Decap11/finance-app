@@ -7,27 +7,41 @@ import MemberLayout from "../../layout/MemberLayout";
 import UserHeader from "../../Components/userHeader";
 import Link from "next/link";
 import "../../styles/UserRecentTransactionsTable.css";
-import { Transaction } from "../../types/sacco";
+import { formatTransactionMeetingDate } from "@/utils/meetingDateUtils";
+
+interface Transaction {
+  id: string;
+  amount: number;
+  category: string;
+  status: string;
+  created_at: string;
+  completed_at?: string;
+  approved_at?: string;
+  profile_id: string;
+  requested_by?: string;
+  description?: string;
+  week_number?: number;
+}
 
 function TransactionTypeBadge({ type }: { type: string }) {
-  const typeStyles: Record<string, { color: string; backgroundColor: string }> = {
-    "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
-    Development: { color: "#10b981", backgroundColor: "#10b9811a" },
-    "Loan Request": { color: "#d97706", backgroundColor: "#fef3c7" },
-    Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
-  };
-  const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
-  const currentStyle = typeStyles[type] || defaultStyle;
+  let badgeClass = "badge-savings";
+  let iconClass = "fa-vault";
+
+  if (type === "Shares") {
+    badgeClass = "badge-shares";
+    iconClass = "fa-chart-pie";
+  } else if (type === "Development") {
+    badgeClass = "badge-dev";
+    iconClass = "fa-building-shield";
+  } else if (type === "Social Fund") {
+    badgeClass = "badge-social";
+    iconClass = "fa-hand-holding-heart";
+  }
 
   return (
-    <td>
-      <span
-        className="transaction-badge transfer"
-        style={{
-          color: currentStyle.color,
-          backgroundColor: currentStyle.backgroundColor,
-        }}
-      >
+    <td className="type-cell">
+      <span className={`transaction-badge ${badgeClass}`}>
+        <i className={`fa-solid ${iconClass}`}></i>
         {type}
       </span>
     </td>
@@ -36,12 +50,32 @@ function TransactionTypeBadge({ type }: { type: string }) {
 
 function TransactionsList() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [saccoMeetingDay, setSaccoMeetingDay] = useState<string>("Wednesday");
   const [loading, setLoading] = useState<boolean>(true);
 
   async function fetchTransactions() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('group_id')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.group_id) {
+        const { data: settings } = await supabase
+          .from('sacco_settings')
+          .select('meeting_day')
+          .ilike('group_code', profile.group_id.trim())
+          .limit(1)
+          .maybeSingle();
+
+        if (settings?.meeting_day) {
+          setSaccoMeetingDay(settings.meeting_day);
+        }
+      }
 
       const res = await fetch("/api/user-transactions", {
         headers: {
@@ -130,39 +164,14 @@ function TransactionsList() {
                   </tr>
                 ) : (
                   transactions.map((transaction) => {
-                    const dateObj = new Date(transaction.created_at || Date.now());
-                    const day = dateObj.getDate();
-                    const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
-                    
-                    let weekNum: number | null = null;
-                    const match = transaction.description?.match(/\|\s*Week\s*(\d+)/i);
-                    if (match) {
-                      weekNum = parseInt(match[1], 10);
-                    }
-                    if (!weekNum) {
-                      const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
-                      const diffInMs = dateObj.getTime() - startOfYear.getTime();
-                      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-                      weekNum = Math.floor(diffInDays / 7) + 1;
-                    }
-
-                    const getOrdinal = (d: number) => {
-                      if (d > 3 && d < 21) return 'th';
-                      switch (d % 10) {
-                        case 1: return "st";
-                        case 2: return "nd";
-                        case 3: return "rd";
-                        default: return "th";
-                      }
-                    };
-
-                    const formattedDate = `${day}${getOrdinal(day)} ${month}, week ${weekNum}`;
+                    const formattedDate = formatTransactionMeetingDate(transaction, saccoMeetingDay);
                     
                     let displayType: string = transaction.category;
                     if (displayType === "social_fund") displayType = "Social Fund";
                     if (displayType === "development_fund") displayType = "Development";
                     if (displayType === "shares") displayType = "Shares";
                     if (displayType === "savings") displayType = "Savings";
+                    if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Absenteeism Fine";
 
                     return (
                       <tr key={transaction.id}>
