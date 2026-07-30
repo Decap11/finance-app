@@ -150,11 +150,11 @@ BEGIN
   IF v_role = 'admin' AND v_group_id <> '' THEN
     BEGIN
       v_acronym := COALESCE(split_part(v_group_id, '-', 1), 'SACCO');
-      v_sacco_name := v_full_name || ' Group (' || v_group_id || ')';
+      v_sacco_name := COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'sacco_name'), ''), v_full_name || ' Group');
 
       INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)
       VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, false, false, 1000.00)
-      ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
+      ON CONFLICT (group_code) DO UPDATE SET name = EXCLUDED.name, admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
       RETURNING id INTO v_sacco_id;
 
       IF v_sacco_id IS NULL THEN
@@ -262,7 +262,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
     UPDATE public.saccos
-    SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
+    SET name = p_sacco_name, admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)

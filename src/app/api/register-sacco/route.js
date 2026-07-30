@@ -48,6 +48,7 @@ export async function POST(request) {
           email_confirm: true,
           user_metadata: {
             full_name: fullName.trim(),
+            sacco_name: cleanName,
             phone: (phone || '').trim(),
             member_number: formattedMemberNumber,
             group_id: groupCode,
@@ -137,6 +138,7 @@ export async function POST(request) {
       options: {
         data: {
           full_name: fullName.trim(),
+          sacco_name: cleanName,
           phone: (phone || '').trim(),
           member_number: formattedMemberNumber,
           group_id: groupCode,

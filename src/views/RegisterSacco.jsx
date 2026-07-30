@@ -159,6 +159,7 @@ export default function RegisterSacco() {
       options: {
         data: {
           full_name: fullName.trim(),
+          sacco_name: saccoName.trim(),
           phone: phone.trim(),
           member_number: fullAdminMemberNumber,
           group_id: fullGroupCode,

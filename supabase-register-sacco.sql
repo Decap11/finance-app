@@ -67,11 +67,11 @@ BEGIN
     WHERE id = p_admin_profile_id;
   END IF;
 
-  -- 2. Insert or fetch SACCO (without meeting_day column)
+  -- 2. Insert or fetch SACCO with exact form SACCO Name
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
     UPDATE public.saccos
-    SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
+    SET name = p_sacco_name, admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked)
