@@ -27,7 +27,7 @@ export default function SignupForm() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("orphan") === "1") {
-        setErrorMsg("Access Denied: You do not belong to an active SACCO group. Please join an existing SACCO or register a new SACCO.");
+        setErrorMsg("Notice: Please enter your SACCO Name and Unique Code to join or automatically create your group.");
       }
     }
   }, []);
@@ -86,8 +86,7 @@ export default function SignupForm() {
     const cleanName = saccoName.trim();
     const cleanUniqueNumber = saccoUniqueNumber.trim().toUpperCase();
 
-    // Derive acronym and fallback group code
-    const generatedAcronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8);
+    const generatedAcronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8) || "SACCO";
     const generatedGroupCode = cleanUniqueNumber.includes('-')
       ? cleanUniqueNumber
       : `${generatedAcronym}-${cleanUniqueNumber}`;
@@ -95,47 +94,75 @@ export default function SignupForm() {
     let targetGroupCode = generatedGroupCode;
     let foundSaccoId = null;
 
-    // Smart Multi-Strategy SACCO Resolution:
-    // 1. Check exact generated group code or unique number ending (e.g. %-8134 or 8134)
-    const { data: saccoMatches, error: saccoError } = await supabase
-      .from('saccos')
-      .select('id, group_code, name')
-      .or(`group_code.ilike.${generatedGroupCode},group_code.ilike.%-${cleanUniqueNumber},group_code.ilike.${cleanUniqueNumber}`)
-      .limit(5);
-
-    if (saccoError) {
-      setErrorMsg("Error validating SACCO group: " + saccoError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    if (saccoMatches && saccoMatches.length > 0) {
-      const exactNameMatch = saccoMatches.find(s => s.name.toLowerCase().includes(cleanName.toLowerCase()));
-      const matchedSacco = exactNameMatch || saccoMatches[0];
-      foundSaccoId = matchedSacco.id;
-      targetGroupCode = matchedSacco.group_code;
-    } else if (cleanName) {
-      // 2. Search by SACCO Name substring
-      const { data: nameMatch } = await supabase
+    // 1. Check if SACCO group already exists in public.saccos
+    try {
+      const { data: saccoMatches } = await supabase
         .from('saccos')
         .select('id, group_code, name')
-        .ilike('name', `%${cleanName}%`)
-        .limit(1)
-        .maybeSingle();
+        .or(`group_code.ilike.${generatedGroupCode},group_code.ilike.%-${cleanUniqueNumber},group_code.ilike.${cleanUniqueNumber}`)
+        .limit(5);
 
-      if (nameMatch) {
-        foundSaccoId = nameMatch.id;
-        targetGroupCode = nameMatch.group_code;
+      if (saccoMatches && saccoMatches.length > 0) {
+        const exactNameMatch = saccoMatches.find(s => s.name.toLowerCase().includes(cleanName.toLowerCase()));
+        const matchedSacco = exactNameMatch || saccoMatches[0];
+        foundSaccoId = matchedSacco.id;
+        targetGroupCode = matchedSacco.group_code;
+      } else if (cleanName) {
+        const { data: nameMatch } = await supabase
+          .from('saccos')
+          .select('id, group_code, name')
+          .ilike('name', `%${cleanName}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (nameMatch) {
+          foundSaccoId = nameMatch.id;
+          targetGroupCode = nameMatch.group_code;
+        }
+      }
+    } catch (sErr) {
+      console.warn("SACCO lookup notice:", sErr);
+    }
+
+    // 2. Auto-Creation Strategy: If SACCO group does NOT exist yet, AUTO-CREATE IT seamlessly!
+    if (!foundSaccoId) {
+      try {
+        const res = await fetch("/api/register-sacco", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password,
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            memberId: memberId.trim(),
+            saccoName: cleanName,
+            saccoUniqueNumber: cleanUniqueNumber
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password
+          });
+
+          setIsLoading(false);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("rememberedEmail", email.trim());
+          }
+          router.push("/settings?onboarding=1");
+          return;
+        }
+      } catch (autoErr) {
+        console.warn("Auto-creation API fallback notice:", autoErr);
       }
     }
 
-    if (!targetGroupCode || !foundSaccoId) {
-      setErrorMsg("Registration Failed: The SACCO group does not exist. Please check the SACCO Name and Unique Number.");
-      setIsLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.signUp({
+    // 3. Joining an Existing SACCO as a Regular Member
+    const { data: authData, error } = await supabase.auth.signUp({
       email: email.trim(),
       password: password,
       options: {
@@ -144,16 +171,65 @@ export default function SignupForm() {
           phone: phone.trim(),
           member_number: formattedMemberId,
           group_id: targetGroupCode,
+          role: 'member',
+          status: 'active'
         }
       }
     });
 
-    setIsLoading(false);
-
     if (error) {
-      setErrorMsg(error.message);
+      if (error.message?.toLowerCase().includes("already registered")) {
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password
+        });
+
+        if (!signInErr && signInData?.user) {
+          setIsLoading(false);
+          router.push("/dashboard");
+          return;
+        }
+        setErrorMsg("This email is already registered. Please log in or use a different password.");
+      } else {
+        setErrorMsg(error.message);
+      }
+      setIsLoading(false);
       return;
     }
+
+    if (authData?.user?.id && foundSaccoId) {
+      try {
+        await supabase.from('profiles').upsert({
+          id: authData.user.id,
+          full_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          member_number: formattedMemberId,
+          group_id: targetGroupCode,
+          role: 'member',
+          status: 'active'
+        }, { onConflict: 'id' });
+
+        await supabase.from('sacco_memberships').upsert({
+          sacco_id: foundSaccoId,
+          profile_id: authData.user.id,
+          role: 'member',
+          status: 'active'
+        }, { onConflict: 'sacco_id, profile_id' });
+
+        await supabase.from('accounts').upsert([
+          { sacco_id: foundSaccoId, profile_id: authData.user.id, account_type: 'savings', balance: 0.00, status: 'active' },
+          { sacco_id: foundSaccoId, profile_id: authData.user.id, account_type: 'shares', balance: 0.00, status: 'active' },
+          { sacco_id: foundSaccoId, profile_id: authData.user.id, account_type: 'development_fund', balance: 0.00, status: 'active' },
+          { sacco_id: foundSaccoId, profile_id: authData.user.id, account_type: 'social_fund', balance: 0.00, status: 'active' },
+          { sacco_id: foundSaccoId, profile_id: authData.user.id, account_type: 'loan', balance: 0.00, status: 'active' }
+        ], { onConflict: 'sacco_id, profile_id, account_type' });
+      } catch (mErr) {
+        console.warn("Member account auto-provisioning notice:", mErr);
+      }
+    }
+
+    setIsLoading(false);
 
     if (typeof window !== "undefined") {
       localStorage.setItem("rememberedEmail", email.trim());
@@ -183,13 +259,12 @@ export default function SignupForm() {
             />
           </div>
         </Link>
-        <h1 className="auth-title">Create Member Account</h1>
+        <h1 className="auth-title">Create Account / Join SACCO</h1>
         <p className="auth-subtitle">
-          Join your SACCO group and take control of your financial future.
+          Join an existing SACCO group or instantly set up your new cooperative workspace.
         </p>
       </div>
 
-      {/* Step Progress Bar & Indicators */}
       <div className="step-progress-wrapper">
         <div className="step-progress-bar">
           <div
@@ -237,7 +312,7 @@ export default function SignupForm() {
                   type="text"
                   id="saccoName"
                   className="form-input"
-                  placeholder="e.g. Kisenyi Youth Sacco"
+                  placeholder="e.g. Hope Development SACCO"
                   value={saccoName}
                   onChange={(e) => setSaccoName(e.target.value)}
                   required
@@ -254,7 +329,7 @@ export default function SignupForm() {
                   type="text"
                   id="saccoUniqueNumber"
                   className="form-input"
-                  placeholder="e.g. 2200 or NS-2200"
+                  placeholder="e.g. 8134"
                   value={saccoUniqueNumber}
                   onChange={(e) => setSaccoUniqueNumber(e.target.value)}
                   required
@@ -394,7 +469,7 @@ export default function SignupForm() {
                 id="submitBtn"
                 disabled={isLoading}
               >
-                {isLoading ? "Creating..." : "Create Account"}
+                {isLoading ? "Creating Account..." : "Create Account"}
                 {!isLoading && (
                   <i
                     className="fa-solid fa-arrow-right"
