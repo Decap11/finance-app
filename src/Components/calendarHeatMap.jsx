@@ -147,8 +147,10 @@ export default function CalendarHeatMap() {
           sharesCount: 0,
           devtAmount: 0,
           socialAmount: 0,
+          finesAmount: 0,
           txDates: [],
-          totalAmount: 0
+          totalAmount: 0,
+          txList: []
         };
       }
 
@@ -196,6 +198,7 @@ export default function CalendarHeatMap() {
           let catNorm = tx.category;
           if (catNorm === 'devt') catNorm = 'development_fund';
           if (catNorm === 'social') catNorm = 'social_fund';
+          if (catNorm === 'fine' || catNorm === 'penalty' || catNorm === 'absenteeism') catNorm = 'fines';
 
           tempContributions[meetingIndex].add(catNorm);
           const amt = Number(tx.amount) || 0;
@@ -219,7 +222,17 @@ export default function CalendarHeatMap() {
             mData.devtAmount += amt;
           } else if (catNorm === 'social_fund') {
             mData.socialAmount += amt;
+          } else if (catNorm === 'fines') {
+            mData.finesAmount += amt;
           }
+
+          mData.txList.push({
+            id: tx.id,
+            category: catNorm,
+            amount: amt,
+            date: tx.created_at ? new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A",
+            status: tx.status || "completed"
+          });
         }
       });
 
@@ -250,6 +263,22 @@ export default function CalendarHeatMap() {
   useEffect(() => {
     loadContributionHabits();
 
+    // Subscribe to real-time transactions updates for instant green heatmap tier updates
+    const channel = supabase
+      .channel('realtime-habits-tracker')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions'
+        },
+        () => {
+          loadContributionHabits();
+        }
+      )
+      .subscribe();
+
     function handleSettingsUpdate(e) {
       if (e.detail && e.detail.meetingDay) {
         setMeetingDay(e.detail.meetingDay);
@@ -266,7 +295,9 @@ export default function CalendarHeatMap() {
       window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
       window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
     }
+
     return () => {
+      supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
@@ -277,12 +308,12 @@ export default function CalendarHeatMap() {
 
   const triggerTooltip = (e, meetingItem) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const finData = meetingFinancialData[meetingItem.globalMeetingIndex] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, totalAmount: 0, txDates: [] };
+    const finData = meetingFinancialData[meetingItem.globalMeetingIndex] || { sharesAmount: 0, devtAmount: 0, socialAmount: 0, finesAmount: 0, totalAmount: 0, txDates: [], txList: [] };
 
     const dateLabel = `${meetingItem.fullDateString} (Meeting ${meetingItem.monthMeetingIndex} of ${meetingItem.monthName})`;
 
     const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 360;
-    const estimatedWidth = Math.min(280, viewportWidth - 24);
+    const estimatedWidth = Math.min(320, viewportWidth - 24);
 
     let clampedX = rect.left + rect.width / 2;
     if (clampedX - estimatedWidth / 2 < 12) {
@@ -393,13 +424,13 @@ export default function CalendarHeatMap() {
                       if (!hasContribution) {
                         levelClass = "level-0";
                       } else if (sharesCount <= 2) {
-                        levelClass = "level-1";
-                      } else if (sharesCount <= 4) {
-                        levelClass = "level-2";
-                      } else if (sharesCount <= 7) {
-                        levelClass = "level-3";
+                        levelClass = "level-1"; // 1-2 shares
+                      } else if (sharesCount <= 5) {
+                        levelClass = "level-2"; // 3-5 shares
+                      } else if (sharesCount <= 8) {
+                        levelClass = "level-3"; // 6-8 shares
                       } else {
-                        levelClass = "level-4";
+                        levelClass = "level-4"; // 9-10+ shares
                       }
                     }
 
@@ -426,12 +457,14 @@ export default function CalendarHeatMap() {
             <div className="heatmap-key">
               <span className="heatmap-key-dot level-0" title="Missed (0 shares)"></span>
               <span className="heatmap-key-label">Missed</span>
-              <span className="heatmap-key-label">Less</span>
               <span className="heatmap-key-dot level-1" title="1-2 shares"></span>
-              <span className="heatmap-key-dot level-2" title="3-4 shares"></span>
-              <span className="heatmap-key-dot level-3" title="5-7 shares"></span>
-              <span className="heatmap-key-dot level-4" title="8-10 shares"></span>
-              <span className="heatmap-key-label">More</span>
+              <span className="heatmap-key-label" style={{ fontSize: "1.1rem", color: "#64748b" }}>1-2</span>
+              <span className="heatmap-key-dot level-2" title="3-5 shares"></span>
+              <span className="heatmap-key-label" style={{ fontSize: "1.1rem", color: "#64748b" }}>3-5</span>
+              <span className="heatmap-key-dot level-3" title="6-8 shares"></span>
+              <span className="heatmap-key-label" style={{ fontSize: "1.1rem", color: "#64748b" }}>6-8</span>
+              <span className="heatmap-key-dot level-4" title="9-10+ shares"></span>
+              <span className="heatmap-key-label" style={{ fontSize: "1.1rem", color: "#64748b" }}>9-10+</span>
             </div>
           </div>
         </div>
@@ -469,24 +502,35 @@ export default function CalendarHeatMap() {
               </div>
             ) : (
               <div className="tooltip-financial-list">
+                <div style={{ fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "0.05rem", color: "#94a3b8", fontWeight: 700, marginBottom: "0.4rem" }}>
+                  Weekly Transactions Summary
+                </div>
+
                 {activeTooltip.finData.sharesAmount > 0 && (
                   <div className="tooltip-fin-row">
-                    <span className="tooltip-fin-label">Shares Contribution:</span>
+                    <span className="tooltip-fin-label"><i className="fa-solid fa-chart-pie" style={{ color: "#38bdf8", marginRight: "0.4rem" }}></i> Shares Contribution:</span>
                     <span className="tooltip-fin-value">Shs {activeTooltip.finData.sharesAmount.toLocaleString()} ({activeTooltip.finData.sharesCount} shares)</span>
                   </div>
                 )}
                 {activeTooltip.finData.devtAmount > 0 && (
                   <div className="tooltip-fin-row">
-                    <span className="tooltip-fin-label">Development Fund:</span>
+                    <span className="tooltip-fin-label"><i className="fa-solid fa-building" style={{ color: "#4ade80", marginRight: "0.4rem" }}></i> Development Fund:</span>
                     <span className="tooltip-fin-value">Shs {activeTooltip.finData.devtAmount.toLocaleString()}</span>
                   </div>
                 )}
                 {activeTooltip.finData.socialAmount > 0 && (
                   <div className="tooltip-fin-row">
-                    <span className="tooltip-fin-label">Social Fund:</span>
+                    <span className="tooltip-fin-label"><i className="fa-solid fa-hand-holding-heart" style={{ color: "#f87171", marginRight: "0.4rem" }}></i> Social Fund:</span>
                     <span className="tooltip-fin-value">Shs {activeTooltip.finData.socialAmount.toLocaleString()}</span>
                   </div>
                 )}
+                {activeTooltip.finData.finesAmount > 0 && (
+                  <div className="tooltip-fin-row">
+                    <span className="tooltip-fin-label"><i className="fa-solid fa-user-xmark" style={{ color: "#fbbf24", marginRight: "0.4rem" }}></i> Absenteeism Fines:</span>
+                    <span className="tooltip-fin-value" style={{ color: "#fbbf24" }}>Shs {activeTooltip.finData.finesAmount.toLocaleString()}</span>
+                  </div>
+                )}
+
                 <div className="tooltip-fin-total">
                   <span>Total Contributed:</span>
                   <span>Shs {activeTooltip.finData.totalAmount.toLocaleString()}</span>
