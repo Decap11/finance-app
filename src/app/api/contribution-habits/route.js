@@ -65,8 +65,10 @@ export async function GET(request) {
         .ilike('group_code', groupCode.trim())
         .maybeSingle();
 
-      if (saccoRow) {
+      if (saccoRow && saccoRow.created_at) {
         saccoCreatedAt = saccoRow.created_at;
+      } else if (settings && (settings.onboardingDate || settings.onboarding_date)) {
+        saccoCreatedAt = settings.onboardingDate || settings.onboarding_date;
       }
     }
 

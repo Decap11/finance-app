@@ -115,24 +115,42 @@ export default function CalendarHeatMap({ memberId }) {
       const allMeetings = [];
       monthlyData.forEach(m => allMeetings.push(...m.meetings));
 
-      // Determine SACCO Onboarding Start Meeting Index from saccoCreatedAt
+      // Dynamic Onboarding Start Meeting Index Calculation (Works for March, August, September, or any month)
+      const isHistorical = Boolean(settings.isHistoricalMode);
       let onboardMeetingIdx = 1;
       let onboardDateObj = null;
 
-      if (data.saccoCreatedAt) {
-        onboardDateObj = new Date(data.saccoCreatedAt);
+      const rawOnboardDate = data.saccoCreatedAt || settings.onboardingDate || settings.onboarding_date;
+
+      if (!isHistorical && rawOnboardDate) {
+        onboardDateObj = new Date(rawOnboardDate);
         setSaccoCreatedAtDate(onboardDateObj);
 
-        for (const month of monthlyData) {
-          for (const m of month.meetings) {
-            if (m.date >= onboardDateObj || (m.date.getFullYear() === onboardDateObj.getFullYear() && m.date.getMonth() === onboardDateObj.getMonth() && m.date.getDate() >= onboardDateObj.getDate())) {
-              onboardMeetingIdx = m.globalMeetingIndex;
-              break;
-            }
+        // Find the exact meeting date corresponding to the SACCO onboarding week
+        let minDiff = Infinity;
+        let bestIdx = 1;
+
+        allMeetings.forEach(m => {
+          const diffMs = m.date - onboardDateObj;
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          let score = Math.abs(diffDays);
+          
+          // Give heavy priority to a meeting in the same week (-3 to +3 days)
+          if (diffDays >= -3 && diffDays <= 4) {
+            score -= 2;
           }
-          if (onboardMeetingIdx > 1) break;
-        }
+
+          if (score < minDiff) {
+            minDiff = score;
+            bestIdx = m.globalMeetingIndex;
+          }
+        });
+
+        onboardMeetingIdx = bestIdx;
+      } else if (isHistorical) {
+        onboardMeetingIdx = 1;
       }
+
       setStartMeetingIndex(onboardMeetingIdx);
 
       // Group financial activity by globalMeetingIndex (1 to 52)
@@ -155,7 +173,7 @@ export default function CalendarHeatMap({ memberId }) {
         };
       }
 
-      // Map transactions by created_at date first, or relative SACCO week number
+      // Map transactions by created_at timestamp first, or relative SACCO week offset
       transactions.forEach((tx) => {
         let explicitWeek = Number(tx.week_number) || Number(tx.week);
         
@@ -179,7 +197,6 @@ export default function CalendarHeatMap({ memberId }) {
             const diffDays = diffMs / (1000 * 60 * 60 * 24);
             let score = Math.abs(diffDays);
             
-            // Prefer near next meeting day (0 <= diffDays <= 6)
             if (diffDays >= 0 && diffDays <= 6) {
               score -= 0.6;
             }
@@ -424,7 +441,7 @@ export default function CalendarHeatMap({ memberId }) {
                     const isUpcoming = isFutureDate || idx > activeEndIndex;
                     const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
 
-                    // IF transactions exist for this meeting date (e.g. Mon Aug 3), ALWAYS render its green shade tier!
+                    // IF transactions exist for this meeting date (e.g. March, Aug, Sept), ALWAYS render its green shade tier!
                     if (hasContribution) {
                       if (sharesCount <= 2) {
                         levelClass = "level-1"; // 1-2 shares
