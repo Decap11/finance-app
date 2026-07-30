@@ -28,7 +28,8 @@ export async function POST(request) {
     const cleanCode = saccoUniqueNumber.trim().toUpperCase();
     const acronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8) || 'SACCO';
     const groupCode = `${acronym}-${cleanCode}`;
-    const formattedMemberNumber = `MEM-${(memberId || '001').trim().toUpperCase()}`;
+    const rawMemberId = (memberId || '001').trim().toUpperCase();
+    const formattedMemberNumber = `MEM-${rawMemberId}-${cleanCode}`;
 
     let userId = null;
     let authAccessToken = null;
@@ -57,7 +58,6 @@ export async function POST(request) {
         if (!createErr && newUser?.user) {
           userId = newUser.user.id;
           
-          // Execute all admin table insertions concurrently in PARALLEL
           const [profileRes, saccoRes] = await Promise.all([
             supabaseAdmin.from('profiles').upsert({
               id: userId,
@@ -152,7 +152,6 @@ export async function POST(request) {
       authErrorMsg = signUpErr.message;
     }
 
-    // Sign in to get active session token if needed
     if (userId && !authAccessToken) {
       const { data: signInData } = await supabaseAnon.auth.signInWithPassword({
         email: cleanEmail,
@@ -180,13 +179,11 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create session-authenticated client
     const clientOptions = authAccessToken
       ? { global: { headers: { Authorization: `Bearer ${authAccessToken}` } }, auth: { persistSession: false } }
       : { auth: { persistSession: false } };
     const authenticatedClient = createClient(supabaseUrl, supabaseAnonKey, clientOptions);
 
-    // Parallel Execution of SACCO creation steps
     const [profileRes, rpcRes] = await Promise.all([
       authenticatedClient.from('profiles').upsert({
         id: userId,
@@ -223,7 +220,6 @@ export async function POST(request) {
     }
 
     if (saccoId) {
-      // Execute remaining table writes concurrently in PARALLEL
       await Promise.all([
         authenticatedClient.from('sacco_memberships').upsert({
           sacco_id: saccoId,

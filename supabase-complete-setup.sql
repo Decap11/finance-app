@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT NOT NULL,
   phone TEXT,
   email TEXT,
-  member_number TEXT UNIQUE NOT NULL,
+  member_number TEXT NOT NULL,
   group_id TEXT,
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'loan_officer', 'admin')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending', 'active', 'suspended', 'closed')),
@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   devt_target NUMERIC(15, 2) DEFAULT 10000.00,
   social_target NUMERIC(15, 2) DEFAULT 10000.00
 );
+
+-- Drop restrictive global unique constraint on member_number if it exists
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_member_number_key;
 
 -- 2. SACCOs Table
 CREATE TABLE IF NOT EXISTS public.saccos (
@@ -113,6 +116,11 @@ BEGIN
   v_phone         := NEW.raw_user_meta_data->>'phone';
   v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
   v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
+
+  -- Prevent unique member number conflict across different SACCO groups
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE member_number = v_member_number AND id <> NEW.id) THEN
+    v_member_number := v_member_number || '-' || substring(NEW.id::text, 1, 4);
+  END IF;
 
   -- Step A: Insert Profile
   BEGIN
@@ -209,11 +217,13 @@ DECLARE
   v_sacco_id UUID;
   v_meeting_day TEXT;
   v_clean_code TEXT;
+  v_admin_mem_num TEXT;
 BEGIN
   SET LOCAL row_security = off;
 
   v_clean_code := UPPER(TRIM(p_group_code));
   v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
+  v_admin_mem_num := 'ADMIN-' || substring(p_admin_profile_id::text, 1, 8);
 
   -- Ensure profile exists
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_admin_profile_id) THEN
@@ -223,7 +233,7 @@ BEGIN
       COALESCE(u.raw_user_meta_data->>'full_name', 'SACCO Admin'),
       u.email,
       u.raw_user_meta_data->>'phone',
-      COALESCE(u.raw_user_meta_data->>'member_number', 'ADMIN-' || substring(u.id::text, 1, 8)),
+      COALESCE(u.raw_user_meta_data->>'member_number', v_admin_mem_num),
       v_clean_code,
       'admin',
       'active'
@@ -286,59 +296,3 @@ END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.register_new_sacco(TEXT, TEXT, TEXT, UUID) TO anon, authenticated, service_role;
-
--- 10. Self-heal any existing orphaned admin profiles missing from public.saccos
-DO $$
-DECLARE
-  r RECORD;
-  v_sacco_id UUID;
-  v_acronym TEXT;
-  v_sacco_name TEXT;
-  v_meeting_day TEXT;
-BEGIN
-  v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
-
-  FOR r IN 
-    SELECT p.id, p.full_name, p.email, p.group_id, p.phone, p.member_number
-    FROM public.profiles p
-    WHERE (p.role = 'admin' OR p.role = 'member')
-      AND p.group_id IS NOT NULL 
-      AND p.group_id <> ''
-      AND NOT EXISTS (
-        SELECT 1 FROM public.saccos s WHERE UPPER(s.group_code) = UPPER(p.group_id)
-      )
-  LOOP
-    v_acronym := COALESCE(split_part(r.group_id, '-', 1), 'SACCO');
-    v_sacco_name := COALESCE(NULLIF(TRIM(r.full_name), ''), 'SACCO User') || ' Group (' || r.group_id || ')';
-
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-    VALUES (v_sacco_name, v_acronym, UPPER(r.group_id), r.id, 'active', 1, v_meeting_day)
-    ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
-    RETURNING id INTO v_sacco_id;
-
-    IF v_sacco_id IS NULL THEN
-      SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = UPPER(r.group_id);
-    END IF;
-
-    IF v_sacco_id IS NOT NULL THEN
-      INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
-      VALUES (v_sacco_id, r.id, r.role, 'active')
-      ON CONFLICT (sacco_id, profile_id) DO UPDATE SET status = 'active';
-
-      INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
-      VALUES 
-        (v_sacco_id, r.id, 'savings', 0.00, 'active'),
-        (v_sacco_id, r.id, 'shares', 0.00, 'active'),
-        (v_sacco_id, r.id, 'development_fund', 0.00, 'active'),
-        (v_sacco_id, r.id, 'social_fund', 0.00, 'active'),
-        (v_sacco_id, r.id, 'loan', 0.00, 'active')
-      ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
-
-      INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day)
-      VALUES (UPPER(r.group_id), v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day)
-      ON CONFLICT (group_code) DO NOTHING;
-    END IF;
-
-    RAISE NOTICE 'Self-healed SACCO group: % for User: %', r.group_id, r.email;
-  END LOOP;
-END $$;
