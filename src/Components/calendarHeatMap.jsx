@@ -51,7 +51,7 @@ function getMonthlyMeetingDates(year, meetingDayName) {
   return { monthlyData, totalMeetings: globalMeetingCounter };
 }
 
-export default function CalendarHeatMap() {
+export default function CalendarHeatMap({ memberId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sharesConsistency, setSharesConsistency] = useState(100);
@@ -89,7 +89,8 @@ export default function CalendarHeatMap() {
         return;
       }
 
-      const res = await fetch("/api/contribution-habits", {
+      const queryUrl = memberId ? `/api/contribution-habits?memberId=${encodeURIComponent(memberId)}` : "/api/contribution-habits";
+      const res = await fetch(queryUrl, {
         headers: {
           "Authorization": `Bearer ${session.access_token}`
         },
@@ -154,7 +155,7 @@ export default function CalendarHeatMap() {
         };
       }
 
-      // Map transactions to near next meeting day on the configured meeting day
+      // Map transactions to exact meeting day or near next meeting day
       transactions.forEach((tx) => {
         let meetingIndex = Number(tx.week_number) || Number(tx.week);
         
@@ -165,29 +166,40 @@ export default function CalendarHeatMap() {
           }
         }
 
-        // If no explicit week_number, dynamically align transaction to the near next meeting day
+        // If no explicit week_number, match by exact date first, then closest/next meeting day
         if (!meetingIndex && tx.created_at) {
           const txDate = new Date(tx.created_at);
-          let bestMeetingIdx = 1;
-          let minDiff = Infinity;
 
-          allMeetings.forEach(m => {
-            const diffMs = m.date - txDate;
-            const diffDays = diffMs / (1000 * 60 * 60 * 24);
-            let score = Math.abs(diffDays);
-            
-            // Prefer near next meeting day (0 <= diffDays <= 6)
-            if (diffDays >= 0 && diffDays <= 6) {
-              score -= 0.6;
-            }
+          // Exact day match check
+          const exactMatch = allMeetings.find(m => 
+            m.date.getFullYear() === txDate.getFullYear() &&
+            m.date.getMonth() === txDate.getMonth() &&
+            m.date.getDate() === txDate.getDate()
+          );
 
-            if (score < minDiff) {
-              minDiff = score;
-              bestMeetingIdx = m.globalMeetingIndex;
-            }
-          });
+          if (exactMatch) {
+            meetingIndex = exactMatch.globalMeetingIndex;
+          } else {
+            let bestMeetingIdx = 1;
+            let minDiff = Infinity;
 
-          meetingIndex = bestMeetingIdx;
+            allMeetings.forEach(m => {
+              const diffMs = m.date - txDate;
+              const diffDays = diffMs / (1000 * 60 * 60 * 24);
+              let score = Math.abs(diffDays);
+              
+              if (diffDays >= 0 && diffDays <= 6) {
+                score -= 0.6;
+              }
+
+              if (score < minDiff) {
+                minDiff = score;
+                bestMeetingIdx = m.globalMeetingIndex;
+              }
+            });
+
+            meetingIndex = bestMeetingIdx;
+          }
         }
 
         if (!meetingIndex) {
@@ -304,7 +316,7 @@ export default function CalendarHeatMap() {
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
       }
     };
-  }, []);
+  }, [memberId]);
 
   const triggerTooltip = (e, meetingItem) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -414,16 +426,11 @@ export default function CalendarHeatMap() {
                     const activeEndIndex = startMeetingIndex + currentWeek - 1;
                     const isFutureDate = mItem.date > today;
                     const isUpcoming = isFutureDate || idx > activeEndIndex;
+                    const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
 
-                    if (idx < startMeetingIndex) {
-                      inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
-                    } else if (isUpcoming) {
-                      inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
-                    } else {
-                      const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
-                      if (!hasContribution) {
-                        levelClass = "level-0";
-                      } else if (sharesCount <= 2) {
+                    // IF transactions exist for this meeting date (e.g. Mon Aug 3), ALWAYS render its green shade tier!
+                    if (hasContribution) {
+                      if (sharesCount <= 2) {
                         levelClass = "level-1"; // 1-2 shares
                       } else if (sharesCount <= 5) {
                         levelClass = "level-2"; // 3-5 shares
@@ -432,6 +439,12 @@ export default function CalendarHeatMap() {
                       } else {
                         levelClass = "level-4"; // 9-10+ shares
                       }
+                    } else if (idx < startMeetingIndex) {
+                      inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
+                    } else if (isUpcoming) {
+                      inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
+                    } else {
+                      levelClass = "level-0";
                     }
 
                     return (
@@ -488,11 +501,11 @@ export default function CalendarHeatMap() {
           </div>
 
           <div className="tooltip-body">
-            {activeTooltip.isPreOnboarding ? (
+            {activeTooltip.isPreOnboarding && activeTooltip.finData.totalAmount === 0 ? (
               <div className="tooltip-status-badge upcoming" style={{ background: "#f1f5f9", color: "#64748b" }}>
                 <i className="fa-solid fa-flag"></i> Pre-Onboarding Period (SACCO registered on {activeTooltip.onboardDateFormatted || "Registration Date"})
               </div>
-            ) : activeTooltip.isUpcoming ? (
+            ) : activeTooltip.isUpcoming && activeTooltip.finData.totalAmount === 0 ? (
               <div className="tooltip-status-badge upcoming">
                 <i className="fa-solid fa-clock"></i> Scheduled Meeting Date
               </div>

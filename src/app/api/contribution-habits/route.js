@@ -26,11 +26,14 @@ export async function GET(request) {
       return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
     }
 
+    const url = new URL(request.url);
+    const targetMemberId = url.searchParams.get('memberId') || user.id;
+
     // 1. Fetch user profile group_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('group_id')
-      .eq('id', user.id)
+      .eq('id', targetMemberId)
       .maybeSingle();
 
     const groupCode = profile?.group_id || user.user_metadata?.group_id || null;
@@ -67,17 +70,15 @@ export async function GET(request) {
       }
     }
 
-    // 4. Query transactions for current year
+    // 4. Query all contribution and fine transactions for current year
     const currentYear = new Date().getFullYear();
     const startOfYear = `${currentYear}-01-01`;
 
-    const { data: transactions, error: txErr } = await supabase
+    const { data: rawTransactions, error: txErr } = await supabase
       .from('transactions')
       .select('*')
-      .eq('profile_id', user.id)
-      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social'])
-      .in('direction', ['credit', 'deposit', 'inbound'])
-      .in('status', ['completed', 'approved'])
+      .eq('profile_id', targetMemberId)
+      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social', 'fine', 'fines', 'penalty', 'absenteeism'])
       .gte('created_at', startOfYear)
       .order('created_at', { ascending: true });
 
@@ -85,8 +86,16 @@ export async function GET(request) {
       return Response.json({ error: txErr.message }, { status: 500 });
     }
 
+    // Filter to completed/approved or valid non-debit transactions
+    const transactions = (rawTransactions || []).filter(tx => {
+      const dir = (tx.direction || '').toLowerCase();
+      if (dir === 'debit' || dir === 'outbound') return false;
+      const status = (tx.status || 'completed').toLowerCase();
+      return status === 'completed' || status === 'approved';
+    });
+
     return Response.json({
-      transactions: transactions || [],
+      transactions,
       settings,
       saccoCreatedAt
     });
