@@ -605,7 +605,7 @@ export default function SaccoSettings() {
             <button onClick={handlePrintReport} className="btn-print-report">
               <i className="fa-solid fa-print"></i> Print Report
             </button>
-            <button onClick={handleExportPDF} className="btn-print-report" style={{ backgroundColor: "#dc2626", marginLeft: "1rem" }}>
+            <button onClick={handleExportPDF} className="btn-print-report" style={{ backgroundColor: "#059669", marginLeft: "1rem" }}>
               <i className="fa-solid fa-file-pdf"></i> Export PDF
             </button>
           </div>
