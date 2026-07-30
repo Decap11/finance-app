@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { getForthcomingMeetingDate } from "../utils/meetingDateUtils";
 import "../styles/calendarHeatMap.css";
 import "../styles/UserProgressTracker.css";
 
@@ -115,7 +116,7 @@ export default function CalendarHeatMap({ memberId }) {
       const allMeetings = [];
       monthlyData.forEach(m => allMeetings.push(...m.meetings));
 
-      // Dynamic Onboarding Start Meeting Index Calculation (Works for March, August, September, or any month)
+      // Synchronized Onboarding Start Meeting Index Calculation using getForthcomingMeetingDate
       const isHistorical = Boolean(settings.isHistoricalMode);
       let onboardMeetingIdx = 1;
       let onboardDateObj = null;
@@ -126,22 +127,16 @@ export default function CalendarHeatMap({ memberId }) {
         onboardDateObj = new Date(rawOnboardDate);
         setSaccoCreatedAtDate(onboardDateObj);
 
-        // Find the exact meeting date corresponding to the SACCO onboarding week
-        let minDiff = Infinity;
+        // Find the exact meeting date corresponding to the SACCO onboarding week using unified getForthcomingMeetingDate
+        const targetOnboardMeetingDate = getForthcomingMeetingDate(onboardDateObj, configuredDay);
+
         let bestIdx = 1;
+        let minDiff = Infinity;
 
         allMeetings.forEach(m => {
-          const diffMs = m.date - onboardDateObj;
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          let score = Math.abs(diffDays);
-          
-          // Give heavy priority to a meeting in the same week (-3 to +3 days)
-          if (diffDays >= -3 && diffDays <= 4) {
-            score -= 2;
-          }
-
-          if (score < minDiff) {
-            minDiff = score;
+          const diffMs = Math.abs(m.date.getTime() - targetOnboardMeetingDate.getTime());
+          if (diffMs < minDiff) {
+            minDiff = diffMs;
             bestIdx = m.globalMeetingIndex;
           }
         });
@@ -173,7 +168,7 @@ export default function CalendarHeatMap({ memberId }) {
         };
       }
 
-      // Map transactions by created_at timestamp first, or relative SACCO week offset
+      // Map transactions by created_at timestamp using unified getForthcomingMeetingDate
       transactions.forEach((tx) => {
         let explicitWeek = Number(tx.week_number) || Number(tx.week);
         
@@ -186,23 +181,18 @@ export default function CalendarHeatMap({ memberId }) {
 
         let meetingIndex = null;
 
-        // 1. Priority: If created_at date exists, match to closest meeting date in the year
+        // 1. Priority: Match using unified getForthcomingMeetingDate algorithm
         if (tx.created_at) {
           const txDate = new Date(tx.created_at);
+          const targetMeetingDate = getForthcomingMeetingDate(txDate, configuredDay);
+
           let bestMeetingIdx = null;
           let minDiff = Infinity;
 
           allMeetings.forEach(m => {
-            const diffMs = m.date - txDate;
-            const diffDays = diffMs / (1000 * 60 * 60 * 24);
-            let score = Math.abs(diffDays);
-            
-            if (diffDays >= 0 && diffDays <= 6) {
-              score -= 0.6;
-            }
-
-            if (score < minDiff) {
-              minDiff = score;
+            const diffMs = Math.abs(m.date.getTime() - targetMeetingDate.getTime());
+            if (diffMs < minDiff) {
+              minDiff = diffMs;
               bestMeetingIdx = m.globalMeetingIndex;
             }
           });
@@ -210,7 +200,7 @@ export default function CalendarHeatMap({ memberId }) {
           meetingIndex = bestMeetingIdx;
         }
 
-        // 2. Fallback: If no created_at date, map relative SACCO week number starting from onboardMeetingIdx
+        // 2. Fallback: Map relative SACCO week number starting from onboardMeetingIdx
         if (!meetingIndex && explicitWeek) {
           meetingIndex = onboardMeetingIdx + explicitWeek - 1;
         }
@@ -441,7 +431,7 @@ export default function CalendarHeatMap({ memberId }) {
                     const isUpcoming = isFutureDate || idx > activeEndIndex;
                     const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
 
-                    // IF transactions exist for this meeting date (e.g. March, Aug, Sept), ALWAYS render its green shade tier!
+                    // IF transactions exist for this meeting date, ALWAYS render its green shade tier!
                     if (hasContribution) {
                       if (sharesCount <= 2) {
                         levelClass = "level-1"; // 1-2 shares
