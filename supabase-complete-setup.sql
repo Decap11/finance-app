@@ -1,7 +1,6 @@
 -- =============================================================================
--- ALL-IN-ONE SUPABASE DATABASE SETUP & FIX SCRIPT
+-- ALL-IN-ONE SUPABASE DATABASE SETUP & AUTOMATED SACCO PROVISIONING TRIGGER
 -- Copy and paste this ENTIRE script into your Supabase SQL Editor and click "RUN".
--- Creates all tables, functions, triggers, and grants full permissions.
 -- =============================================================================
 
 -- 1. Profiles Table
@@ -94,29 +93,31 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, servi
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
 
--- 8. Fail-safe User Trigger Function
+-- 8. AUTOMATED DATABASE TRIGGER: INSTANTLY CREATES PROFILES, SACCOS, MEMBERSHIPS, ACCOUNTS, & SETTINGS
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
   v_sacco_id UUID;
   v_group_id TEXT;
   v_role TEXT;
+  v_full_name TEXT;
+  v_phone TEXT;
+  v_member_number TEXT;
+  v_sacco_name TEXT;
+  v_acronym TEXT;
+  v_meeting_day TEXT;
 BEGIN
-  v_group_id := UPPER(TRIM(COALESCE(NEW.raw_user_meta_data->>'group_id', '')));
-  v_role     := COALESCE(NEW.raw_user_meta_data->>'role', 'member');
+  v_group_id      := UPPER(TRIM(COALESCE(NEW.raw_user_meta_data->>'group_id', '')));
+  v_role          := COALESCE(NEW.raw_user_meta_data->>'role', 'member');
+  v_full_name     := COALESCE(NEW.raw_user_meta_data->>'full_name', 'SACCO User');
+  v_phone         := NEW.raw_user_meta_data->>'phone';
+  v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
+  v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
 
+  -- Step A: Insert Profile
   BEGIN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
-    VALUES (
-      NEW.id,
-      COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-      NEW.email,
-      NEW.raw_user_meta_data->>'phone',
-      COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEMBER-' || substring(NEW.id::text, 1, 8)),
-      v_group_id,
-      v_role,
-      'active'
-    )
+    VALUES (NEW.id, v_full_name, NEW.email, v_phone, v_member_number, v_group_id, v_role, 'active')
     ON CONFLICT (id) DO UPDATE SET
       full_name = EXCLUDED.full_name,
       email = EXCLUDED.email,
@@ -125,19 +126,66 @@ BEGIN
       role = EXCLUDED.role,
       status = EXCLUDED.status;
   EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'handle_new_user warning: %', SQLERRM;
+    RAISE WARNING 'handle_new_user profiles warning: %', SQLERRM;
   END;
 
-  IF v_role != 'admin' AND v_group_id <> '' THEN
+  -- Step B: If Admin registering a SACCO, auto-create the SACCO group, link membership, accounts, and settings
+  IF v_role = 'admin' AND v_group_id <> '' THEN
+    BEGIN
+      v_acronym := COALESCE(split_part(v_group_id, '-', 1), 'SACCO');
+      v_sacco_name := v_full_name || ' Group (' || v_group_id || ')';
+
+      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
+      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day)
+      ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
+      RETURNING id INTO v_sacco_id;
+
+      IF v_sacco_id IS NULL THEN
+        SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_group_id;
+      END IF;
+
+      IF v_sacco_id IS NOT NULL THEN
+        INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
+        VALUES (v_sacco_id, NEW.id, 'admin', 'active')
+        ON CONFLICT (sacco_id, profile_id) DO UPDATE SET role = 'admin', status = 'active';
+
+        INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
+        VALUES 
+          (v_sacco_id, NEW.id, 'savings', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'shares', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'development_fund', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'social_fund', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'loan', 0.00, 'active')
+        ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
+
+        INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day)
+        VALUES (v_group_id, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day)
+        ON CONFLICT (group_code) DO NOTHING;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'handle_new_user admin sacco creation warning: %', SQLERRM;
+    END;
+
+  -- Step C: If regular Member joining existing SACCO
+  ELSIF v_role != 'admin' AND v_group_id <> '' THEN
     BEGIN
       SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_group_id;
       IF v_sacco_id IS NOT NULL THEN
         INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
         VALUES (v_sacco_id, NEW.id, 'member', 'active')
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (sacco_id, profile_id) DO NOTHING;
+
+        INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
+        VALUES 
+          (v_sacco_id, NEW.id, 'savings', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'shares', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'development_fund', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'social_fund', 0.00, 'active'),
+          (v_sacco_id, NEW.id, 'loan', 0.00, 'active')
+        ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
       END IF;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'handle_new_user membership warning: %', SQLERRM;
+      RAISE WARNING 'handle_new_user member sacco link warning: %', SQLERRM;
     END;
   END IF;
 
@@ -253,7 +301,7 @@ BEGIN
   FOR r IN 
     SELECT p.id, p.full_name, p.email, p.group_id, p.phone, p.member_number
     FROM public.profiles p
-    WHERE p.role = 'admin' 
+    WHERE (p.role = 'admin' OR p.role = 'member')
       AND p.group_id IS NOT NULL 
       AND p.group_id <> ''
       AND NOT EXISTS (
@@ -261,7 +309,7 @@ BEGIN
       )
   LOOP
     v_acronym := COALESCE(split_part(r.group_id, '-', 1), 'SACCO');
-    v_sacco_name := COALESCE(NULLIF(TRIM(r.full_name), ''), 'SACCO Admin') || ' Group (' || r.group_id || ')';
+    v_sacco_name := COALESCE(NULLIF(TRIM(r.full_name), ''), 'SACCO User') || ' Group (' || r.group_id || ')';
 
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
     VALUES (v_sacco_name, v_acronym, UPPER(r.group_id), r.id, 'active', 1, v_meeting_day)
@@ -274,10 +322,23 @@ BEGIN
 
     IF v_sacco_id IS NOT NULL THEN
       INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
-      VALUES (v_sacco_id, r.id, 'admin', 'active')
-      ON CONFLICT (sacco_id, profile_id) DO UPDATE SET role = 'admin', status = 'active';
+      VALUES (v_sacco_id, r.id, r.role, 'active')
+      ON CONFLICT (sacco_id, profile_id) DO UPDATE SET status = 'active';
+
+      INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
+      VALUES 
+        (v_sacco_id, r.id, 'savings', 0.00, 'active'),
+        (v_sacco_id, r.id, 'shares', 0.00, 'active'),
+        (v_sacco_id, r.id, 'development_fund', 0.00, 'active'),
+        (v_sacco_id, r.id, 'social_fund', 0.00, 'active'),
+        (v_sacco_id, r.id, 'loan', 0.00, 'active')
+      ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
+
+      INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day)
+      VALUES (UPPER(r.group_id), v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day)
+      ON CONFLICT (group_code) DO NOTHING;
     END IF;
 
-    RAISE NOTICE 'Self-healed SACCO group: % for Admin: %', r.group_id, r.email;
+    RAISE NOTICE 'Self-healed SACCO group: % for User: %', r.group_id, r.email;
   END LOOP;
 END $$;
