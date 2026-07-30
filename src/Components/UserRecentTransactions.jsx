@@ -130,12 +130,7 @@ export default function UserRecentTransactions() {
   return (
     <div className="recent-transactions-card card">
       <div className="card-header">
-        <div>
-          <h3 className="card-title">Recent Transactions</h3>
-          <p className="card-subtitle">
-            Showing meeting transactions for <strong>{saccoMeetingDay}s</strong>
-          </p>
-        </div>
+        <h3 className="card-title">Recent Transactions</h3>
         <Link href="/transactions" className="view-all-link">
           View All Transactions
         </Link>
@@ -198,10 +193,10 @@ export default function UserRecentTransactions() {
                         <span
                           className={`status-badge ${isApproved ? "success" : isPending ? "pending" : "danger"}`}
                         >
-                          {isApproved ? "Approved" : isPending ? "Pending" : "Rejected"}
+                          {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : "Completed"}
                         </span>
-                        {isPending && (
-                          <div style={{ display: "flex", gap: "0.4rem" }}>
+                        {isPending && transaction.requested_by && transaction.requested_by !== transaction.profile_id && (
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
                             <button
                               onClick={() => handleApprove(transaction.id)}
                               style={{
@@ -248,30 +243,28 @@ export default function UserRecentTransactions() {
 }
 
 function TransactionTypeBadge({ type }) {
-  let badgeClass = "badge-savings";
-  let iconClass = "fa-vault";
+  const typeStyles = {
+    "Social Fund": { color: "#ef4444", backgroundColor: "#ef44441a" },
+    Development: { color: "#10b981", backgroundColor: "#10b9811a" },
+    Loan: { color: "#d97706", backgroundColor: "#fef3c7" },
+    "Loan Repayment": { color: "#059669", backgroundColor: "#d1fae5" },
+    Savings: { color: "#2563eb", backgroundColor: "rgba(59, 130, 246, 0.1)" },
+    Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
+    "Absenteeism Fine": { color: "#dc2626", backgroundColor: "#fee2e2" }
+  };
 
-  if (type === "Shares") {
-    badgeClass = "badge-shares";
-    iconClass = "fa-chart-pie";
-  } else if (type === "Development") {
-    badgeClass = "badge-dev";
-    iconClass = "fa-building-shield";
-  } else if (type === "Social Fund") {
-    badgeClass = "badge-social";
-    iconClass = "fa-hand-holding-heart";
-  } else if (type === "Loan" || type === "Loan Repayment") {
-    badgeClass = "badge-loan";
-    iconClass = "fa-hand-holding-dollar";
-  } else if (type === "Absenteeism Fine") {
-    badgeClass = "badge-fine";
-    iconClass = "fa-user-xmark";
-  }
+  const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };
+  const currentStyle = typeStyles[type] || defaultStyle;
 
   return (
-    <td className="type-cell">
-      <span className={`transaction-badge ${badgeClass}`}>
-        <i className={`fa-solid ${iconClass}`}></i>
+    <td>
+      <span
+        className="transaction-badge transfer"
+        style={{
+          color: currentStyle.color,
+          backgroundColor: currentStyle.backgroundColor,
+        }}
+      >
         {type}
       </span>
     </td>
