@@ -1,14 +1,24 @@
 /* Recent Transactions Table */
-.recent-transactions-table {
+.recent-transactions-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
   background-color: var(--white);
-  border-radius: 1.2rem;
-  overflow: hidden;
-  border: 0.1rem solid #f1f5f9;
+  border-radius: 1.6rem;
+}
+
+.table-responsive {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .transactions-table {
-  width: 100%;
+  width: 100% !important;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .transactions-table thead {
@@ -24,6 +34,7 @@
   color: var(--text-light);
   text-transform: uppercase;
   letter-spacing: 0.05rem;
+  white-space: nowrap;
 }
 
 .transactions-table tbody tr {
@@ -49,6 +60,7 @@
 .amount-cell {
   font-weight: 700;
   color: var(--primary-color);
+  white-space: nowrap;
 }
 
 .transaction-badge {
@@ -57,6 +69,7 @@
   border-radius: 0.8rem;
   font-size: 1.2rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .transaction-badge.deposit {
@@ -85,12 +98,15 @@
   border-radius: 0.8rem;
   font-size: 1.2rem;
   font-weight: 600;
+  white-space: nowrap;
 }
+
 .period {
   font-size: 1.2rem;
   font-weight: 100;
   margin: 1.6rem;
 }
+
 .status-badge.success {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--success);
@@ -105,40 +121,59 @@
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
-@media (max-width: 44rem) {
-  .recent-transactions-section .quick-actions {
+
+/* Big Screen Sizes (1000px and above): Occupy 100% full width */
+@media (min-width: 1000px) {
+  .recent-transactions-card,
+  .table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .transactions-table {
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: auto;
+  }
+
+  .transactions-table th,
+  .transactions-table td {
+    padding: 1.6rem 2.4rem;
+  }
+}
+
+/* Small Screen Sizes (540px and below): Introduce smooth horizontal scroll */
+@media (max-width: 540px) {
+  .recent-transactions-card {
     padding: 1.6rem !important;
     border-radius: 1.6rem !important;
   }
-  
-  .recent-transactions-table {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: 1rem;
+
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    width: 100% !important;
   }
-  
+
   .transactions-table {
-    min-width: 50rem;
+    min-width: 540px !important; /* Minimum width to trigger smooth horizontal scroll */
   }
-  
+
   .transactions-table th {
     padding: 1.2rem 1rem !important;
     font-size: 1.2rem !important;
   }
-  
+
   .transactions-table td {
     padding: 1.2rem 1rem !important;
     font-size: 1.3rem !important;
   }
-  
+
   .transaction-badge, 
   .status-badge {
     padding: 0.4rem 0.8rem !important;
     font-size: 1.1rem !important;
     border-radius: 0.6rem !important;
-  }
-  
-  .section-header h3 {
-    font-size: 1.5rem !important;
   }
 }
