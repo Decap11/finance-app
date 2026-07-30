@@ -155,55 +155,51 @@ export default function CalendarHeatMap({ memberId }) {
         };
       }
 
-      // Map transactions to exact meeting day or near next meeting day
+      // Map transactions by created_at date first, or relative SACCO week number
       transactions.forEach((tx) => {
-        let meetingIndex = Number(tx.week_number) || Number(tx.week);
+        let explicitWeek = Number(tx.week_number) || Number(tx.week);
         
-        if (!meetingIndex && tx.description) {
+        if (!explicitWeek && tx.description) {
           const match = tx.description.match(/week\s*(\d+)/i);
           if (match) {
-            meetingIndex = parseInt(match[1], 10);
+            explicitWeek = parseInt(match[1], 10);
           }
         }
 
-        // If no explicit week_number, match by exact date first, then closest/next meeting day
-        if (!meetingIndex && tx.created_at) {
+        let meetingIndex = null;
+
+        // 1. Priority: If created_at date exists, match to closest meeting date in the year
+        if (tx.created_at) {
           const txDate = new Date(tx.created_at);
+          let bestMeetingIdx = null;
+          let minDiff = Infinity;
 
-          // Exact day match check
-          const exactMatch = allMeetings.find(m => 
-            m.date.getFullYear() === txDate.getFullYear() &&
-            m.date.getMonth() === txDate.getMonth() &&
-            m.date.getDate() === txDate.getDate()
-          );
+          allMeetings.forEach(m => {
+            const diffMs = m.date - txDate;
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            let score = Math.abs(diffDays);
+            
+            // Prefer near next meeting day (0 <= diffDays <= 6)
+            if (diffDays >= 0 && diffDays <= 6) {
+              score -= 0.6;
+            }
 
-          if (exactMatch) {
-            meetingIndex = exactMatch.globalMeetingIndex;
-          } else {
-            let bestMeetingIdx = 1;
-            let minDiff = Infinity;
+            if (score < minDiff) {
+              minDiff = score;
+              bestMeetingIdx = m.globalMeetingIndex;
+            }
+          });
 
-            allMeetings.forEach(m => {
-              const diffMs = m.date - txDate;
-              const diffDays = diffMs / (1000 * 60 * 60 * 24);
-              let score = Math.abs(diffDays);
-              
-              if (diffDays >= 0 && diffDays <= 6) {
-                score -= 0.6;
-              }
+          meetingIndex = bestMeetingIdx;
+        }
 
-              if (score < minDiff) {
-                minDiff = score;
-                bestMeetingIdx = m.globalMeetingIndex;
-              }
-            });
-
-            meetingIndex = bestMeetingIdx;
-          }
+        // 2. Fallback: If no created_at date, map relative SACCO week number starting from onboardMeetingIdx
+        if (!meetingIndex && explicitWeek) {
+          meetingIndex = onboardMeetingIdx + explicitWeek - 1;
         }
 
         if (!meetingIndex) {
-          meetingIndex = weeksElapsed || 1;
+          meetingIndex = onboardMeetingIdx + (weeksElapsed || 1) - 1;
         }
 
         if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
