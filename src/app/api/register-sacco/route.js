@@ -77,7 +77,6 @@ export async function POST(request) {
               admin_profile_id: userId,
               status: 'active',
               current_week: 1,
-              meeting_day: 'Wednesday',
               is_historical_mode: false,
               is_locked: false
             }, { onConflict: 'group_code' }).select('id').maybeSingle()
@@ -215,7 +214,6 @@ export async function POST(request) {
         admin_profile_id: userId,
         status: 'active',
         current_week: 1,
-        meeting_day: 'Wednesday',
         is_historical_mode: false,
         is_locked: false
       }, { onConflict: 'group_code' }).select('id').maybeSingle();

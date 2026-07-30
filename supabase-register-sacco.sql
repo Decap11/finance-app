@@ -11,6 +11,9 @@ ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMES
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
 
+-- Drop obsolete meeting_day column from saccos table
+ALTER TABLE public.saccos DROP COLUMN IF EXISTS meeting_day;
+
 -- Disable RLS to ensure unhindered backend execution
 ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saccos DISABLE ROW LEVEL SECURITY;
@@ -64,15 +67,15 @@ BEGIN
     WHERE id = p_admin_profile_id;
   END IF;
 
-  -- 2. Insert or fetch SACCO
+  -- 2. Insert or fetch SACCO (without meeting_day column)
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
     UPDATE public.saccos
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
-    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false)
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, false, false)
     RETURNING id INTO v_sacco_id;
   END IF;
 
@@ -93,7 +96,7 @@ BEGIN
       (v_sacco_id, p_admin_profile_id, 'loan', 0.00, 'active')
     ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-    -- 5. Initialize SACCO Settings (core standard columns)
+    -- 5. Initialize SACCO Settings (meeting_day stored exclusively in sacco_settings)
     INSERT INTO public.sacco_settings (
       group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day
     ) VALUES (

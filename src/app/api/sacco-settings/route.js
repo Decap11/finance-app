@@ -56,7 +56,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
 
       if (saccoRow && !saccoErr) {
         const onboardingDayName = saccoRow.created_at ? DAYS[new Date(saccoRow.created_at).getDay()] : 'Wednesday';
-        const defaultMeetingDay = saccoRow.meeting_day || onboardingDayName;
+        const defaultMeetingDay = onboardingDayName;
         const initialWeek = saccoRow.current_week || 1;
 
         // Auto-seed sacco_settings entry for this sacco
@@ -260,7 +260,6 @@ export async function POST(request) {
       devt_fund: newSettings.devtFund,
       social_fund: newSettings.socialFund,
       current_week: newSettings.currentWeek,
-      meeting_day: newSettings.meetingDay,
       is_locked: newSettings.isLocked,
       is_historical_mode: newSettings.isHistoricalMode,
       updated_at: new Date().toISOString()

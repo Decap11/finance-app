@@ -340,7 +340,8 @@ export default function SaccoSettings() {
 
       if (saccoInfo?.id) {
         try {
-          await supabase.from('saccos').update(updatePayload).eq('id', saccoInfo.id);
+          const { meeting_day, ...saccoUpdatePayload } = updatePayload;
+          await supabase.from('saccos').update(saccoUpdatePayload).eq('id', saccoInfo.id);
         } catch (e) {
           console.warn("saccos update warning:", e);
         }
