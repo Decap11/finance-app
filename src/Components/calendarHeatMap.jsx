@@ -33,6 +33,7 @@ function getMonthlyMeetingDates(year, meetingDayName) {
           globalMeetingIndex: globalMeetingCounter,
           monthMeetingIndex: meetingsInMonth.length + 1,
           date: dateObj,
+          dayNumber: d,
           monthName: name,
           fullDateString: dateObj.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
           shortDateString: dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -78,165 +79,182 @@ export default function CalendarHeatMap() {
     };
   }, []);
 
-  useEffect(() => {
-    async function loadContributionHabits() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch("/api/contribution-habits", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          },
-          cache: "no-store"
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to fetch contribution habits");
-
-        const transactions = data.transactions || [];
-        const settings = data.settings || {};
-        const configuredDay = settings.meetingDay || "Wednesday";
-        setMeetingDay(configuredDay);
-
-        const currentYear = new Date().getFullYear();
-        const { monthlyData, totalMeetings } = getMonthlyMeetingDates(currentYear, configuredDay);
-        setMonthlyMeetingsStructure(monthlyData);
-
-        const weeksElapsed = settings.currentWeek || 1;
-        setCurrentWeek(weeksElapsed);
-
-        // Determine SACCO Onboarding Start Meeting Index from saccoCreatedAt
-        let onboardMeetingIdx = 1;
-        let onboardDateObj = null;
-
-        if (data.saccoCreatedAt) {
-          onboardDateObj = new Date(data.saccoCreatedAt);
-          setSaccoCreatedAtDate(onboardDateObj);
-
-          for (const month of monthlyData) {
-            for (const m of month.meetings) {
-              if (m.date >= onboardDateObj || (m.date.getFullYear() === onboardDateObj.getFullYear() && m.date.getMonth() === onboardDateObj.getMonth() && m.date.getDate() >= onboardDateObj.getDate())) {
-                onboardMeetingIdx = m.globalMeetingIndex;
-                break;
-              }
-            }
-            if (onboardMeetingIdx > 1) break;
-          }
-        }
-        setStartMeetingIndex(onboardMeetingIdx);
-
-        // Group financial activity by globalMeetingIndex (1 to 52)
-        const tempFinancialData = {};
-        const tempContributions = {};
-        const tempShares = {};
-
-        for (let mIdx = 1; mIdx <= totalMeetings; mIdx++) {
-          tempContributions[mIdx] = new Set();
-          tempShares[mIdx] = 0;
-          tempFinancialData[mIdx] = {
-            sharesAmount: 0,
-            sharesCount: 0,
-            devtAmount: 0,
-            socialAmount: 0,
-            txDates: [],
-            totalAmount: 0
-          };
-        }
-
-        // Map transactions to exact week number or closest meeting date window
-        transactions.forEach((tx) => {
-          let meetingIndex = Number(tx.week_number) || Number(tx.week);
-          
-          if (!meetingIndex && tx.description) {
-            const match = tx.description.match(/week\s*(\d+)/i);
-            if (match) {
-              meetingIndex = parseInt(match[1], 10);
-            }
-          }
-
-          if (!meetingIndex && tx.created_at) {
-            const txDate = new Date(tx.created_at);
-            let minDiff = Infinity;
-            monthlyData.forEach(month => {
-              month.meetings.forEach(m => {
-                const diffDays = Math.abs((txDate - m.date) / (1000 * 60 * 60 * 24));
-                if (diffDays < minDiff) {
-                  minDiff = diffDays;
-                  meetingIndex = m.globalMeetingIndex;
-                }
-              });
-            });
-          }
-
-          if (!meetingIndex) {
-            meetingIndex = weeksElapsed || 1;
-          }
-
-          if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
-            let catNorm = tx.category;
-            if (catNorm === 'devt') catNorm = 'development_fund';
-            if (catNorm === 'social') catNorm = 'social_fund';
-
-            tempContributions[meetingIndex].add(catNorm);
-            const amt = Number(tx.amount) || 0;
-            const mData = tempFinancialData[meetingIndex];
-            mData.totalAmount += amt;
-
-            if (tx.created_at) {
-              const d = new Date(tx.created_at);
-              const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              if (!mData.txDates.includes(dateStr)) {
-                mData.txDates.push(dateStr);
-              }
-            }
-
-            if (catNorm === 'shares') {
-              const numShares = Math.floor(amt / (settings.sharePrice || 25000));
-              tempShares[meetingIndex] += numShares;
-              mData.sharesAmount += amt;
-              mData.sharesCount += numShares;
-            } else if (catNorm === 'development_fund') {
-              mData.devtAmount += amt;
-            } else if (catNorm === 'social_fund') {
-              mData.socialAmount += amt;
-            }
-          }
-        });
-
-        setMeetingContributions(tempContributions);
-        setMeetingShares(tempShares);
-        setMeetingFinancialData(tempFinancialData);
-
-        const calcConsistency = (contributedCount) => {
-          const ratio = contributedCount / (weeksElapsed || 1);
-          return Math.min(100, Math.round(ratio * 100));
-        };
-
-        const shareCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('shares')).length;
-        const devCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('development_fund')).length;
-        const socialCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('social_fund')).length;
-
-        setSharesConsistency(calcConsistency(shareCount));
-        setDevFundConsistency(calcConsistency(devCount));
-        setSocialFundConsistency(calcConsistency(socialCount));
-      } catch (err) {
-        console.error("Error loading contribution habits:", err);
-        setError(err.message);
-      } finally {
+  async function loadContributionHabits() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         setLoading(false);
+        return;
       }
-    }
 
+      const res = await fetch("/api/contribution-habits", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        cache: "no-store"
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch contribution habits");
+
+      const transactions = data.transactions || [];
+      const settings = data.settings || {};
+      const configuredDay = settings.meetingDay || "Wednesday";
+      setMeetingDay(configuredDay);
+
+      const currentYear = new Date().getFullYear();
+      const { monthlyData, totalMeetings } = getMonthlyMeetingDates(currentYear, configuredDay);
+      setMonthlyMeetingsStructure(monthlyData);
+
+      const weeksElapsed = settings.currentWeek || 1;
+      setCurrentWeek(weeksElapsed);
+
+      // Flatten meetings for quick lookup
+      const allMeetings = [];
+      monthlyData.forEach(m => allMeetings.push(...m.meetings));
+
+      // Determine SACCO Onboarding Start Meeting Index from saccoCreatedAt
+      let onboardMeetingIdx = 1;
+      let onboardDateObj = null;
+
+      if (data.saccoCreatedAt) {
+        onboardDateObj = new Date(data.saccoCreatedAt);
+        setSaccoCreatedAtDate(onboardDateObj);
+
+        for (const month of monthlyData) {
+          for (const m of month.meetings) {
+            if (m.date >= onboardDateObj || (m.date.getFullYear() === onboardDateObj.getFullYear() && m.date.getMonth() === onboardDateObj.getMonth() && m.date.getDate() >= onboardDateObj.getDate())) {
+              onboardMeetingIdx = m.globalMeetingIndex;
+              break;
+            }
+          }
+          if (onboardMeetingIdx > 1) break;
+        }
+      }
+      setStartMeetingIndex(onboardMeetingIdx);
+
+      // Group financial activity by globalMeetingIndex (1 to 52)
+      const tempFinancialData = {};
+      const tempContributions = {};
+      const tempShares = {};
+
+      for (let mIdx = 1; mIdx <= totalMeetings; mIdx++) {
+        tempContributions[mIdx] = new Set();
+        tempShares[mIdx] = 0;
+        tempFinancialData[mIdx] = {
+          sharesAmount: 0,
+          sharesCount: 0,
+          devtAmount: 0,
+          socialAmount: 0,
+          txDates: [],
+          totalAmount: 0
+        };
+      }
+
+      // Map transactions to near next meeting day on the configured meeting day
+      transactions.forEach((tx) => {
+        let meetingIndex = Number(tx.week_number) || Number(tx.week);
+        
+        if (!meetingIndex && tx.description) {
+          const match = tx.description.match(/week\s*(\d+)/i);
+          if (match) {
+            meetingIndex = parseInt(match[1], 10);
+          }
+        }
+
+        // If no explicit week_number, dynamically align transaction to the near next meeting day
+        if (!meetingIndex && tx.created_at) {
+          const txDate = new Date(tx.created_at);
+          let bestMeetingIdx = 1;
+          let minDiff = Infinity;
+
+          allMeetings.forEach(m => {
+            const diffMs = m.date - txDate;
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            let score = Math.abs(diffDays);
+            
+            // Prefer near next meeting day (0 <= diffDays <= 6)
+            if (diffDays >= 0 && diffDays <= 6) {
+              score -= 0.6;
+            }
+
+            if (score < minDiff) {
+              minDiff = score;
+              bestMeetingIdx = m.globalMeetingIndex;
+            }
+          });
+
+          meetingIndex = bestMeetingIdx;
+        }
+
+        if (!meetingIndex) {
+          meetingIndex = weeksElapsed || 1;
+        }
+
+        if (meetingIndex >= 1 && meetingIndex <= totalMeetings) {
+          let catNorm = tx.category;
+          if (catNorm === 'devt') catNorm = 'development_fund';
+          if (catNorm === 'social') catNorm = 'social_fund';
+
+          tempContributions[meetingIndex].add(catNorm);
+          const amt = Number(tx.amount) || 0;
+          const mData = tempFinancialData[meetingIndex];
+          mData.totalAmount += amt;
+
+          if (tx.created_at) {
+            const d = new Date(tx.created_at);
+            const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            if (!mData.txDates.includes(dateStr)) {
+              mData.txDates.push(dateStr);
+            }
+          }
+
+          if (catNorm === 'shares') {
+            const numShares = Math.floor(amt / (settings.sharePrice || 25000));
+            tempShares[meetingIndex] += numShares;
+            mData.sharesAmount += amt;
+            mData.sharesCount += numShares;
+          } else if (catNorm === 'development_fund') {
+            mData.devtAmount += amt;
+          } else if (catNorm === 'social_fund') {
+            mData.socialAmount += amt;
+          }
+        }
+      });
+
+      setMeetingContributions(tempContributions);
+      setMeetingShares(tempShares);
+      setMeetingFinancialData(tempFinancialData);
+
+      const calcConsistency = (contributedCount) => {
+        const ratio = contributedCount / (weeksElapsed || 1);
+        return Math.min(100, Math.round(ratio * 100));
+      };
+
+      const shareCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('shares')).length;
+      const devCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('development_fund')).length;
+      const socialCount = Object.keys(tempContributions).filter(w => tempContributions[w].has('social_fund')).length;
+
+      setSharesConsistency(calcConsistency(shareCount));
+      setDevFundConsistency(calcConsistency(devCount));
+      setSocialFundConsistency(calcConsistency(socialCount));
+    } catch (err) {
+      console.error("Error loading contribution habits:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
     loadContributionHabits();
 
     function handleSettingsUpdate(e) {
       if (e.detail && e.detail.meetingDay) {
         setMeetingDay(e.detail.meetingDay);
-        loadContributionHabits();
       }
+      loadContributionHabits();
     }
 
     function handleTransactionUpdate() {
@@ -339,7 +357,9 @@ export default function CalendarHeatMap() {
           <div className="heatmap-header">
             <div>
               <h4>Contribution Habit Tracker</h4>
-              <p>Visualizing meeting obligations for every <strong>{meetingDay}</strong> starting from SACCO onboarding ({saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Registration Date"}).</p>
+              <p>
+                Visualizing meeting obligations for every <strong>{meetingDay}</strong> starting from SACCO onboarding ({saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Registration Date"}).
+              </p>
             </div>
             <span>Green = contributed, Red = missed, Gray = scheduled</span>
           </div>
@@ -394,7 +414,9 @@ export default function CalendarHeatMap() {
                           e.stopPropagation();
                           triggerTooltip(e, mItem);
                         }}
-                      />
+                      >
+                        <span className="heatmap-day-num">{mItem.dayNumber}</span>
+                      </div>
                     );
                   })}
                 </div>
