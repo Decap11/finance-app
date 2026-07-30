@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
+import { exportWeeklyReportPDF } from "../utils/pdfExportUtils";
 import "../styles/saccoSettings.css";
 
 export default function SaccoSettings() {
@@ -390,45 +391,15 @@ export default function SaccoSettings() {
     window.print();
   };
 
-  const handleExportCSV = () => {
+  const handleExportPDF = () => {
     if (reportRows.length === 0) return;
-    
-    // Construct CSV header & rows
-    const headers = ["Member ID", "Member Name", "Shares Quantity", "Shares Amount (Shs)", "Development Fund (Shs)", "Social Fund (Shs)", "Absenteeism Fines (Shs)", "Row Total (Shs)"];
-    
-    const csvRows = [
-      headers.join(","),
-      ...reportRows.map(row => [
-        `"${row.memberId}"`,
-        `"${row.name.replace(/"/g, '""')}"`,
-        row.sharesQty,
-        row.sharesAmt,
-        row.devtAmt,
-        row.socialAmt,
-        row.finesAmt,
-        row.rowTotal
-      ].join(",")),
-      // Add totals row
-      [
-        `"TOTALS"`,
-        `""`,
-        `""`,
-        reportTotals.shares,
-        reportTotals.devt,
-        reportTotals.social,
-        reportTotals.fines,
-        reportTotals.grandTotal
-      ].join(",")
-    ];
-    
-    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${saccoInfo?.acronym || "sacco"}_weekly_report_week_${filterWeek}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportWeeklyReportPDF({
+      saccoInfo,
+      filterWeek,
+      reportRows,
+      reportTotals,
+      meetingDay: settingsForm.meeting_day || "Wednesday"
+    });
   };
 
   const getMonthName = (mIndex) => {
@@ -634,8 +605,8 @@ export default function SaccoSettings() {
             <button onClick={handlePrintReport} className="btn-print-report">
               <i className="fa-solid fa-print"></i> Print Report
             </button>
-            <button onClick={handleExportCSV} className="btn-print-report" style={{ backgroundColor: "#059669", marginLeft: "1rem" }}>
-              <i className="fa-solid fa-file-csv"></i> Export CSV
+            <button onClick={handleExportPDF} className="btn-print-report" style={{ backgroundColor: "#dc2626", marginLeft: "1rem" }}>
+              <i className="fa-solid fa-file-pdf"></i> Export PDF
             </button>
           </div>
         </div>
