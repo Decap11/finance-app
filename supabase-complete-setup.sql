@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Ensure all optional columns exist in sacco_settings for backwards compatibility
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
+
 -- 6. Disable RLS or set open access policies to guarantee writes
 ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saccos DISABLE ROW LEVEL SECURITY;
@@ -91,7 +96,7 @@ ALTER TABLE public.sacco_memberships DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.accounts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sacco_settings DISABLE ROW LEVEL SECURITY;
 
--- 7. Grant full access permissions to anon, authenticated, and service_role
+-- 7. Grant full access permissions to anon, authenticated, and service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
@@ -117,7 +122,7 @@ BEGIN
   v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
   v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
 
-  -- Step A: Insert Profile (allows identical member numbers like MEM-001 in different SACCO groups)
+  -- Step A: Insert Profile
   BEGIN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     VALUES (NEW.id, v_full_name, NEW.email, v_phone, v_member_number, v_group_id, v_role, 'active')
@@ -275,9 +280,9 @@ BEGIN
 
     -- Settings
     INSERT INTO public.sacco_settings (
-      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_locked, is_historical_mode, onboarding_date, created_at, updated_at
+      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day
     ) VALUES (
-      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false, now(), now(), now()
+      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day
     ) ON CONFLICT (group_code) DO NOTHING;
   END IF;
 

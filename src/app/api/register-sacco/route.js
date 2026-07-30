@@ -29,7 +29,6 @@ export async function POST(request) {
     const acronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8) || 'SACCO';
     const groupCode = `${acronym}-${cleanCode}`;
 
-    // Clean member number (e.g. MEM-001) allowing identical member IDs across different SACCO groups
     const rawMemberId = (memberId || '001').trim().toUpperCase();
     const formattedMemberNumber = rawMemberId.startsWith('MEM-') ? rawMemberId : `MEM-${rawMemberId}`;
 
@@ -106,11 +105,8 @@ export async function POST(request) {
                 devt_fund: 1000.00,
                 social_fund: 2000.00,
                 current_week: 1,
-                meeting_day: 'Wednesday',
-                is_locked: false,
-                is_historical_mode: false,
-                onboarding_date: new Date().toISOString()
-              }, { onConflict: 'group_code' })
+                meeting_day: 'Wednesday'
+              }, { onConflict: 'group_code' }).catch(err => console.warn("sacco_settings upsert notice:", err))
             ]);
           }
 
@@ -243,11 +239,8 @@ export async function POST(request) {
           devt_fund: 1000.00,
           social_fund: 2000.00,
           current_week: 1,
-          meeting_day: 'Wednesday',
-          is_locked: false,
-          is_historical_mode: false,
-          onboarding_date: new Date().toISOString()
-        }, { onConflict: 'group_code' })
+          meeting_day: 'Wednesday'
+        }, { onConflict: 'group_code' }).catch(err => console.warn("sacco_settings upsert notice:", err))
       ]);
     }
 
