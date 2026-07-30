@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   social_target NUMERIC(15, 2) DEFAULT 10000.00
 );
 
--- Drop restrictive global unique constraint on member_number if it exists
+-- Drop restrictive global unique constraint on member_number so different SACCOs can reuse member numbers (e.g. MEM-001)
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_member_number_key;
 
 -- 2. SACCOs Table
@@ -117,12 +117,7 @@ BEGIN
   v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
   v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
 
-  -- Prevent unique member number conflict across different SACCO groups
-  IF EXISTS (SELECT 1 FROM public.profiles WHERE member_number = v_member_number AND id <> NEW.id) THEN
-    v_member_number := v_member_number || '-' || substring(NEW.id::text, 1, 4);
-  END IF;
-
-  -- Step A: Insert Profile
+  -- Step A: Insert Profile (allows identical member numbers like MEM-001 in different SACCO groups)
   BEGIN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     VALUES (NEW.id, v_full_name, NEW.email, v_phone, v_member_number, v_group_id, v_role, 'active')
@@ -223,7 +218,7 @@ BEGIN
 
   v_clean_code := UPPER(TRIM(p_group_code));
   v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
-  v_admin_mem_num := 'ADMIN-' || substring(p_admin_profile_id::text, 1, 8);
+  v_admin_mem_num := 'MEM-001';
 
   -- Ensure profile exists
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_admin_profile_id) THEN

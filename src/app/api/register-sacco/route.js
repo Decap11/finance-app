@@ -28,8 +28,10 @@ export async function POST(request) {
     const cleanCode = saccoUniqueNumber.trim().toUpperCase();
     const acronym = cleanName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 8) || 'SACCO';
     const groupCode = `${acronym}-${cleanCode}`;
+
+    // Clean member number (e.g. MEM-001) allowing identical member IDs across different SACCO groups
     const rawMemberId = (memberId || '001').trim().toUpperCase();
-    const formattedMemberNumber = `MEM-${rawMemberId}-${cleanCode}`;
+    const formattedMemberNumber = rawMemberId.startsWith('MEM-') ? rawMemberId : `MEM-${rawMemberId}`;
 
     let userId = null;
     let authAccessToken = null;
