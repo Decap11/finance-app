@@ -37,15 +37,17 @@ CREATE TABLE IF NOT EXISTS public.saccos (
   share_price NUMERIC(15, 2) DEFAULT 25000.00,
   devt_fund NUMERIC(15, 2) DEFAULT 1000.00,
   social_fund NUMERIC(15, 2) DEFAULT 2000.00,
+  absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00,
   is_locked BOOLEAN DEFAULT false,
   is_historical_mode BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Ensure historical mode & locked columns exist on saccos
+-- Ensure historical mode, locked, and absenteeism_fine_amount columns exist on saccos
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
 ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00;
 
 -- 3. SACCO Memberships Table
 CREATE TABLE IF NOT EXISTS public.sacco_memberships (
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
   share_price NUMERIC(15, 2) DEFAULT 25000.00,
   devt_fund NUMERIC(15, 2) DEFAULT 1000.00,
   social_fund NUMERIC(15, 2) DEFAULT 2000.00,
+  absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00,
   current_week INTEGER DEFAULT 1,
   meeting_day TEXT DEFAULT 'Wednesday',
   is_locked BOOLEAN DEFAULT false,
@@ -91,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.sacco_settings (
 -- Ensure all optional columns exist in sacco_settings for backwards compatibility
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00;
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
 
 -- 6. Disable RLS or set open access policies to guarantee writes
@@ -126,7 +130,7 @@ BEGIN
   v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
   v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
 
-  -- Step A: Insert Profile (allows identical member numbers like MEM-001 in different SACCO groups)
+  -- Step A: Insert Profile
   BEGIN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     VALUES (NEW.id, v_full_name, NEW.email, v_phone, v_member_number, v_group_id, v_role, 'active')
@@ -147,8 +151,8 @@ BEGIN
       v_acronym := COALESCE(split_part(v_group_id, '-', 1), 'SACCO');
       v_sacco_name := v_full_name || ' Group (' || v_group_id || ')';
 
-      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
-      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day, false, false)
+      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked, absenteeism_fine_amount)
+      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day, false, false, 1000.00)
       ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
       RETURNING id INTO v_sacco_id;
 
@@ -170,8 +174,8 @@ BEGIN
           (v_sacco_id, NEW.id, 'loan', 0.00, 'active')
         ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-        INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_historical_mode, is_locked)
-        VALUES (v_group_id, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false)
+        INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_historical_mode, is_locked, absenteeism_fine_amount)
+        VALUES (v_group_id, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false, 1000.00)
         ON CONFLICT (group_code) DO NOTHING;
       END IF;
     EXCEPTION WHEN OTHERS THEN
@@ -260,8 +264,8 @@ BEGIN
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
-    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false)
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked, absenteeism_fine_amount)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false, 1000.00)
     RETURNING id INTO v_sacco_id;
   END IF;
 
@@ -284,9 +288,9 @@ BEGIN
 
     -- Settings
     INSERT INTO public.sacco_settings (
-      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_historical_mode, is_locked
+      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, absenteeism_fine_amount
     ) VALUES (
-      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false
+      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, 1000.00
     ) ON CONFLICT (group_code) DO NOTHING;
   END IF;
 

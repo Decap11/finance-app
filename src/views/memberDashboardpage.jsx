@@ -1,4 +1,5 @@
 import UserHeader from "../Components/userHeader";
+import MemberFineAlertBanner from "../Components/MemberFineAlertBanner";
 import UserSummaryCards from "../Components/userSummaryCards";
 import WeeklyContributions from "../Components/userweeklycontributions";
 import UserRecentTransactions from "../Components/UserRecentTransactions";
@@ -12,6 +13,7 @@ export default function MemberDashboardPage() {
     <MemberLayout>
       <div className="dashboard-body">
         <UserHeader />
+        <MemberFineAlertBanner />
         <UserSummaryCards />
 
         <WeeklyContributions />

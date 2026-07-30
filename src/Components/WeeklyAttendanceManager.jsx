@@ -7,13 +7,14 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const [currentWeek, setCurrentWeek] = useState(1);
   const [saccoId, setSaccoId] = useState(null);
   const [groupCode, setGroupCode] = useState("");
+  const [fineRate, setFineRate] = useState(1000); // Default Shs 1,000 absenteeism fine
   const [attendance, setAttendance] = useState({});
+  const [fineTransactions, setFineTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clearingFineId, setClearingFineId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusMessage, setStatusMessage] = useState(null);
-
-  const FINE_PER_ABSENCE = 1000; // Shs 1,000 absenteeism cover fee
 
   const [internalMembers, setInternalMembers] = useState([]);
 
@@ -35,7 +36,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
           const { data: sacco } = await supabase
             .from("saccos")
-            .select("id, current_week")
+            .select("id, current_week, absenteeism_fine_amount")
             .ilike("group_code", activeGroupCode.trim())
             .limit(1)
             .maybeSingle();
@@ -43,6 +44,9 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           if (sacco) {
             setSaccoId(sacco.id);
             setCurrentWeek(sacco.current_week || 1);
+            if (sacco.absenteeism_fine_amount) {
+              setFineRate(Number(sacco.absenteeism_fine_amount));
+            }
           }
         }
       } catch (err) {
@@ -83,13 +87,14 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
   const activeMemberList = (allMembers && allMembers.length > 0) ? allMembers : internalMembers;
 
-  // Initialize or fetch saved attendance for selected week
+  // Load saved attendance snapshot & fine transactions for selected meeting week
   useEffect(() => {
     if (!groupCode || !currentWeek) return;
 
-    async function loadSavedAttendance() {
+    async function loadWeekData() {
       setLoading(true);
       try {
+        // 1. Fetch attendance audit snapshot
         const { data: records } = await supabase
           .from("audit_events")
           .select("*")
@@ -104,22 +109,33 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         if (weekRecord && weekRecord.metadata?.attendance_map) {
           setAttendance(weekRecord.metadata.attendance_map);
         } else {
-          // Default all members to "present"
           const defaultMap = {};
           (activeMemberList || []).forEach(m => {
             defaultMap[m.id] = "present";
           });
           setAttendance(defaultMap);
         }
+
+        // 2. Fetch fine transactions for this week
+        if (saccoId) {
+          const { data: txList } = await supabase
+            .from("transactions")
+            .select("*")
+            .eq("sacco_id", saccoId)
+            .eq("category", "fines")
+            .ilike("description", `%Week ${currentWeek}%`);
+
+          setFineTransactions(txList || []);
+        }
       } catch (err) {
-        console.warn("Failed to load attendance records:", err);
+        console.warn("Failed to load week attendance & fine data:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    loadSavedAttendance();
-  }, [groupCode, currentWeek, activeMemberList]);
+    loadWeekData();
+  }, [groupCode, saccoId, currentWeek, activeMemberList]);
 
   const toggleMemberStatus = (memberId, status) => {
     setAttendance(prev => ({
@@ -136,8 +152,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     setAttendance(updated);
   };
 
-  // Calculations for Attendance & Fine Engine
-  const totalMembers = activeMemberList.length;
+  // Real-time Financial Fine Engine Calculations
   const filteredMembers = activeMemberList.filter(m => 
     (m.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     (m.memberId || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -147,18 +162,28 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const absentCount = Object.values(attendance).filter(s => s === "absent").length;
   const excusedCount = Object.values(attendance).filter(s => s === "excused").length;
 
-  const totalFinePool = absentCount * FINE_PER_ABSENCE;
+  const totalFinesAssessed = absentCount * fineRate;
 
+  // Compute collected vs outstanding fines from transaction records
+  const collectedFines = fineTransactions
+    .filter(tx => tx.status === "completed" || tx.status === "approved")
+    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+  const outstandingFines = fineTransactions
+    .filter(tx => tx.status === "pending")
+    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+  // Save Attendance & Issue Fine Liabilities
   const handleSaveAttendance = async () => {
     if (!groupCode || !saccoId) return;
     setSaving(true);
     setStatusMessage(null);
 
     try {
-      // 1. Log attendance event in audit_events
       const absentMemberIds = Object.keys(attendance).filter(id => attendance[id] === "absent");
       const absentMembers = activeMemberList.filter(m => absentMemberIds.includes(m.id));
 
+      // 1. Record attendance snapshot
       await supabase.from("audit_events").insert({
         entity_type: "sacco_attendance",
         action: `register_attendance_week_${currentWeek}`,
@@ -170,19 +195,20 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           present_count: presentCount,
           absent_count: absentCount,
           excused_count: excusedCount,
-          total_fine_assessed: totalFinePool,
+          fine_rate: fineRate,
+          total_fine_assessed: totalFinesAssessed,
           registered_at: new Date().toISOString()
         }
       });
 
-      // 2. Automatically log obligated absenteeism fine transactions for absent members
+      // 2. Log pending absenteeism fines for absent members
       if (absentMembers.length > 0) {
-        const fineTransactions = absentMembers.map(m => ({
+        const fineTransactionsToInsert = absentMembers.map(m => ({
           sacco_id: saccoId,
           profile_id: m.id,
           type: "debit",
           category: "fines",
-          amount: FINE_PER_ABSENCE,
+          amount: fineRate,
           status: "pending",
           description: `Absenteeism Cover Fine - Week ${currentWeek}`,
           week_number: currentWeek,
@@ -190,15 +216,25 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         }));
 
         try {
-          await supabase.from("transactions").insert(fineTransactions);
+          await supabase.from("transactions").insert(fineTransactionsToInsert);
         } catch (tErr) {
-          console.warn("Failed to log fine transactions:", tErr);
+          console.warn("Fine transactions logging notice:", tErr);
         }
       }
 
+      // Re-fetch fine transactions
+      const { data: updatedTx } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("sacco_id", saccoId)
+        .eq("category", "fines")
+        .ilike("description", `%Week ${currentWeek}%`);
+
+      setFineTransactions(updatedTx || []);
+
       setStatusMessage({
         type: "success",
-        text: `Week ${currentWeek} Presence Registered! ${absentCount} absent member(s) assessed Shs ${totalFinePool.toLocaleString()} absenteeism cover.`
+        text: `Week ${currentWeek} Presence Saved! ${absentCount} absent member(s) assessed UGX ${totalFinesAssessed.toLocaleString()} in fines.`
       });
 
       if (typeof window !== "undefined") {
@@ -214,6 +250,59 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     }
   };
 
+  // Mark Fine as Paid / Cleared
+  const handleClearFine = async (memberId, existingTxId) => {
+    setClearingFineId(memberId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/admin/clear-fine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          transactionId: existingTxId,
+          memberId: memberId,
+          weekNum: currentWeek
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to clear fine");
+      }
+
+      // Refresh fine transactions
+      const { data: updatedTx } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("sacco_id", saccoId)
+        .eq("category", "fines")
+        .ilike("description", `%Week ${currentWeek}%`);
+
+      setFineTransactions(updatedTx || []);
+
+      setStatusMessage({
+        type: "success",
+        text: `Absenteeism Fine of UGX ${fineRate.toLocaleString()} marked as PAID for Member!`
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sacco_transaction_updated"));
+      }
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text: "Error clearing fine: " + err.message
+      });
+    } finally {
+      setClearingFineId(null);
+    }
+  };
+
   return (
     <div className="quick-actions attendance-engine-card" style={{ padding: "2.4rem", background: "var(--white)", borderRadius: "1.6rem", boxShadow: "var(--card-shadow)", border: "1px solid rgba(226, 232, 240, 0.8)", marginBottom: "2.4rem" }}>
       {/* Header */}
@@ -224,11 +313,11 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             Weekly Member Attendance Engine
           </h3>
           <p style={{ fontSize: "1.3rem", color: "var(--text-light)", marginTop: "0.3rem" }}>
-            Register weekly presence & compute automatic absenteeism fines
+            Register weekly presence & track UGX {fineRate.toLocaleString()} absenteeism cover fines
           </p>
         </div>
 
-        {/* Week Selector */}
+        {/* Meeting Week Selector */}
         <div className="attendance-week-selector" style={{ display: "flex", alignItems: "center", gap: "1rem", background: "#f8fafc", padding: "0.6rem 1.4rem", borderRadius: "1rem", border: "1px solid #e2e8f0" }}>
           <label style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)" }}>Meeting Week:</label>
           <select
@@ -243,7 +332,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         </div>
       </div>
 
-      {/* Status Alert Banner */}
+      {/* Alert Banner */}
       {statusMessage && (
         <div style={{
           padding: "1.2rem 1.6rem",
@@ -263,8 +352,8 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         </div>
       )}
 
-      {/* Real-time Fine Calculator Engine Dashboard */}
-      <div className="attendance-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1.2rem", marginBottom: "2rem" }}>
+      {/* Real-time Fine Calculation Engine Dashboard */}
+      <div className="attendance-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "1.2rem", marginBottom: "2rem" }}>
         <div className="attendance-metrics-card" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
           <span style={{ fontSize: "1.2rem", color: "#166534", fontWeight: 600, display: "block" }}>Present</span>
           <strong style={{ fontSize: "2rem", color: "#15803d" }}>{presentCount}</strong>
@@ -281,12 +370,17 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         </div>
 
         <div className="attendance-metrics-card" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center", color: "white" }}>
-          <span style={{ fontSize: "1.15rem", color: "#94a3b8", fontWeight: 600, display: "block" }}>Absenteeism Fine</span>
-          <strong style={{ fontSize: "1.8rem", color: "#ef4444" }}>Shs {totalFinePool.toLocaleString()}</strong>
+          <span style={{ fontSize: "1.15rem", color: "#94a3b8", fontWeight: 600, display: "block" }}>Fines Assessed</span>
+          <strong style={{ fontSize: "1.8rem", color: "#ef4444" }}>UGX {totalFinesAssessed.toLocaleString()}</strong>
+        </div>
+
+        <div className="attendance-metrics-card" style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
+          <span style={{ fontSize: "1.15rem", color: "#065f46", fontWeight: 600, display: "block" }}>Fines Paid</span>
+          <strong style={{ fontSize: "1.8rem", color: "#059669" }}>UGX {collectedFines.toLocaleString()}</strong>
         </div>
       </div>
 
-      {/* Batch Controls & Filter Search */}
+      {/* Batch Controls & Search */}
       <div className="attendance-batch-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.6rem", flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
           <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "1.2rem", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}></i>
@@ -317,7 +411,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         </div>
       </div>
 
-      {/* Member Attendance List */}
+      {/* Member Attendance & Fine Payment List */}
       <div style={{ maxHeight: "360px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "1.2rem", marginBottom: "2rem" }}>
         {filteredMembers.length === 0 ? (
           <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", fontSize: "1.3rem" }}>
@@ -326,6 +420,9 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         ) : (
           filteredMembers.map((member) => {
             const status = attendance[member.id] || "present";
+            const memberFineTx = fineTransactions.find(t => t.profile_id === member.id);
+            const isFinePaid = memberFineTx && (memberFineTx.status === "completed" || memberFineTx.status === "approved");
+
             return (
               <div
                 key={member.id}
@@ -364,9 +461,39 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
                   </div>
 
                   {status === "absent" && (
-                    <span style={{ fontSize: "1.15rem", fontWeight: 700, color: "#dc2626", padding: "0.4rem 0.8rem", borderRadius: "0.6rem", background: "#fee2e2" }}>
-                      +Shs 1,000 Fine
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <span style={{
+                        fontSize: "1.15rem",
+                        fontWeight: 700,
+                        color: isFinePaid ? "#065f46" : "#dc2626",
+                        padding: "0.4rem 0.8rem",
+                        borderRadius: "0.6rem",
+                        background: isFinePaid ? "#d1fae5" : "#fee2e2",
+                        border: `1px solid ${isFinePaid ? "#a7f3d0" : "#fca5a5"}`
+                      }}>
+                        {isFinePaid ? "✓ Fine Paid (UGX 1,000)" : "🔴 Unpaid Fine (UGX 1,000)"}
+                      </span>
+
+                      {!isFinePaid && (
+                        <button
+                          type="button"
+                          onClick={() => handleClearFine(member.id, memberFineTx?.id)}
+                          disabled={clearingFineId === member.id}
+                          style={{
+                            padding: "0.4rem 0.8rem",
+                            borderRadius: "0.6rem",
+                            border: "none",
+                            background: "#059669",
+                            color: "white",
+                            fontSize: "1.15rem",
+                            fontWeight: 700,
+                            cursor: "pointer"
+                          }}
+                        >
+                          {clearingFineId === member.id ? "Clearing..." : "Mark Fine Paid"}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
