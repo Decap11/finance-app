@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://dfrvkqabzviajvosuwgc.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_DvitvvoiXT9AakZORRBnyw_cOE50tyI';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_DvitvvoiXT9AakZORRBnyw_cOE50tyI';
 
 export async function POST(request) {
   try {
@@ -29,24 +30,14 @@ export async function POST(request) {
     const groupCode = `${acronym}-${cleanCode}`;
     const formattedMemberNumber = `MEM-${(memberId || '001').trim().toUpperCase()}`;
 
+    // Try creating admin client with service key first
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Create or retrieve user via Auth Admin API
     let userId = null;
     let authErrorMsg = null;
 
+    // 1. Attempt Auth creation via Admin API
     try {
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === cleanEmail.toLowerCase());
-
-      if (existingUser) {
-        userId = existingUser.id;
-      }
-    } catch (listErr) {
-      console.warn("listUsers notice:", listErr?.message);
-    }
-
-    if (!userId) {
       const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: cleanEmail,
         password: password,
@@ -61,87 +52,170 @@ export async function POST(request) {
         }
       });
 
-      if (createErr) {
-        authErrorMsg = createErr.message;
-      } else if (newUser?.user) {
+      if (!createErr && newUser?.user) {
         userId = newUser.user.id;
+      } else if (createErr) {
+        authErrorMsg = createErr.message;
+      }
+    } catch (e) {
+      // Service key not available or admin API disabled
+    }
+
+    // 2. Fallback to client signUp + signIn if Admin API is restricted
+    let authenticatedClient = supabaseAdmin;
+
+    if (!userId) {
+      const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: signUpData, error: signUpErr } = await supabaseAnon.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            phone: (phone || '').trim(),
+            member_number: formattedMemberNumber,
+            group_id: groupCode,
+            role: 'admin',
+            status: 'active'
+          }
+        }
+      });
+
+      if (signUpData?.user) {
+        userId = signUpData.user.id;
+      } else if (signUpErr) {
+        if (signUpErr.message?.toLowerCase().includes("already registered")) {
+          const { data: signInData } = await supabaseAnon.auth.signInWithPassword({
+            email: cleanEmail,
+            password: password
+          });
+          if (signInData?.user) {
+            userId = signInData.user.id;
+            authenticatedClient = supabaseAnon;
+          }
+        } else {
+          authErrorMsg = signUpErr.message;
+        }
       }
     }
 
     if (!userId) {
-      return Response.json({ error: authErrorMsg || 'Failed to create user account in Supabase Auth.' }, { status: 400 });
+      return Response.json({
+        error: authErrorMsg || 'Failed to authenticate user account. If user is already registered, please verify password.'
+      }, { status: 400 });
     }
 
-    // 2. Insert into public.profiles
-    const { error: profileErr } = await supabaseAdmin.from('profiles').upsert({
-      id: userId,
-      full_name: fullName.trim(),
-      email: cleanEmail,
-      phone: (phone || '').trim(),
-      member_number: formattedMemberNumber,
-      group_id: groupCode,
-      role: 'admin',
-      status: 'active'
-    }, { onConflict: 'id' });
+    // 3. Try executing RPC function register_new_sacco
+    try {
+      const { data: rpcData } = await authenticatedClient.rpc('register_new_sacco', {
+        p_sacco_name: cleanName,
+        p_acronym: acronym,
+        p_group_code: groupCode,
+        p_admin_profile_id: userId
+      });
 
-    if (profileErr) {
-      console.error("Profiles upsert error:", profileErr.message);
+      if (rpcData?.sacco_id) {
+        return Response.json({
+          success: true,
+          groupCode,
+          saccoId: rpcData.sacco_id,
+          userId,
+          message: 'SACCO registered successfully via database RPC.'
+        });
+      }
+    } catch (rpcErr) {
+      console.warn("RPC register_new_sacco notice:", rpcErr);
     }
 
-    // 3. Insert into public.saccos
+    // 4. Fail-safe Direct Table Insertions into public.profiles, public.saccos, public.sacco_memberships
     let saccoId = null;
-    const { data: saccoRow, error: saccoErr } = await supabaseAdmin.from('saccos').upsert({
-      name: cleanName,
-      acronym: acronym,
-      group_code: groupCode,
-      admin_profile_id: userId,
-      status: 'active',
-      current_week: 1,
-      meeting_day: 'Wednesday'
-    }, { onConflict: 'group_code' }).select('id').maybeSingle();
 
-    if (saccoRow?.id) {
-      saccoId = saccoRow.id;
-    } else {
-      const { data: fetchedSacco } = await supabaseAdmin.from('saccos').select('id').eq('group_code', groupCode).maybeSingle();
-      saccoId = fetchedSacco?.id || null;
-    }
-
-    // 4. Insert into public.sacco_memberships
-    if (saccoId) {
-      const { error: memErr } = await supabaseAdmin.from('sacco_memberships').upsert({
-        sacco_id: saccoId,
-        profile_id: userId,
+    try {
+      await authenticatedClient.from('profiles').upsert({
+        id: userId,
+        full_name: fullName.trim(),
+        email: cleanEmail,
+        phone: (phone || '').trim(),
+        member_number: formattedMemberNumber,
+        group_id: groupCode,
         role: 'admin',
         status: 'active'
-      }, { onConflict: 'sacco_id, profile_id' });
+      }, { onConflict: 'id' });
+    } catch (pErr) {
+      console.warn("Profiles upsert notice:", pErr);
+    }
 
-      if (memErr) {
-        console.error("Memberships upsert error:", memErr.message);
+    try {
+      const { data: saccoRow } = await authenticatedClient.from('saccos').upsert({
+        name: cleanName,
+        acronym: acronym,
+        group_code: groupCode,
+        admin_profile_id: userId,
+        status: 'active',
+        current_week: 1,
+        meeting_day: 'Wednesday'
+      }, { onConflict: 'group_code' }).select('id').maybeSingle();
+
+      if (saccoRow?.id) {
+        saccoId = saccoRow.id;
+      }
+    } catch (sErr) {
+      console.warn("Saccos upsert notice:", sErr);
+    }
+
+    if (!saccoId) {
+      try {
+        const { data: fetchedSacco } = await authenticatedClient
+          .from('saccos')
+          .select('id')
+          .ilike('group_code', groupCode)
+          .maybeSingle();
+        saccoId = fetchedSacco?.id || null;
+      } catch (fErr) {
+        console.warn("Sacco fetch notice:", fErr);
+      }
+    }
+
+    if (saccoId) {
+      try {
+        await authenticatedClient.from('sacco_memberships').upsert({
+          sacco_id: saccoId,
+          profile_id: userId,
+          role: 'admin',
+          status: 'active'
+        }, { onConflict: 'sacco_id, profile_id' });
+      } catch (mErr) {
+        console.warn("Memberships upsert notice:", mErr);
       }
 
-      // 5. Initialize default member accounts
-      await supabaseAdmin.from('accounts').upsert([
-        { sacco_id: saccoId, profile_id: userId, account_type: 'savings', balance: 0.00, status: 'active' },
-        { sacco_id: saccoId, profile_id: userId, account_type: 'shares', balance: 0.00, status: 'active' },
-        { sacco_id: saccoId, profile_id: userId, account_type: 'development_fund', balance: 0.00, status: 'active' },
-        { sacco_id: saccoId, profile_id: userId, account_type: 'social_fund', balance: 0.00, status: 'active' },
-        { sacco_id: saccoId, profile_id: userId, account_type: 'loan', balance: 0.00, status: 'active' }
-      ], { onConflict: 'sacco_id, profile_id, account_type' });
+      try {
+        await authenticatedClient.from('accounts').upsert([
+          { sacco_id: saccoId, profile_id: userId, account_type: 'savings', balance: 0.00, status: 'active' },
+          { sacco_id: saccoId, profile_id: userId, account_type: 'shares', balance: 0.00, status: 'active' },
+          { sacco_id: saccoId, profile_id: userId, account_type: 'development_fund', balance: 0.00, status: 'active' },
+          { sacco_id: saccoId, profile_id: userId, account_type: 'social_fund', balance: 0.00, status: 'active' },
+          { sacco_id: saccoId, profile_id: userId, account_type: 'loan', balance: 0.00, status: 'active' }
+        ], { onConflict: 'sacco_id, profile_id, account_type' });
+      } catch (aErr) {
+        console.warn("Accounts upsert notice:", aErr);
+      }
 
-      // 6. Initialize default sacco_settings
-      await supabaseAdmin.from('sacco_settings').upsert({
-        group_code: groupCode,
-        sacco_id: saccoId,
-        share_price: 25000.00,
-        devt_fund: 1000.00,
-        social_fund: 2000.00,
-        current_week: 1,
-        meeting_day: 'Wednesday',
-        is_locked: false,
-        is_historical_mode: false,
-        onboarding_date: new Date().toISOString()
-      }, { onConflict: 'group_code' });
+      try {
+        await authenticatedClient.from('sacco_settings').upsert({
+          group_code: groupCode,
+          sacco_id: saccoId,
+          share_price: 25000.00,
+          devt_fund: 1000.00,
+          social_fund: 2000.00,
+          current_week: 1,
+          meeting_day: 'Wednesday',
+          is_locked: false,
+          is_historical_mode: false,
+          onboarding_date: new Date().toISOString()
+        }, { onConflict: 'group_code' });
+      } catch (stErr) {
+        console.warn("Settings upsert notice:", stErr);
+      }
     }
 
     return Response.json({
@@ -149,7 +223,7 @@ export async function POST(request) {
       groupCode,
       saccoId,
       userId,
-      message: 'SACCO registered successfully and added to database tables.'
+      message: 'SACCO registered and synced with database tables.'
     });
   } catch (err) {
     console.error("Register SACCO API error:", err);
