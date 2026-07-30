@@ -71,7 +71,7 @@ export default function Login() {
 
     if (profile && profile.role === 'admin') {
       if (typeof window !== "undefined" && window.location.search.includes("onboarding=1")) {
-        router.push("/settings?onboarding=1");
+        router.push("/admin?tab=settings&onboarding=1");
       } else {
         router.push("/admin");
       }

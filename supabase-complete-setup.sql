@@ -98,12 +98,48 @@ ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEF
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS absenteeism_fine_amount NUMERIC(15, 2) DEFAULT 1000.00;
 ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
 
--- 6. Disable RLS or set open access policies to guarantee writes
-ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.saccos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sacco_memberships DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.accounts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sacco_settings DISABLE ROW LEVEL SECURITY;
+-- 6. ENABLE ROW LEVEL SECURITY AND APPLY MULTI-TENANT POLICIES
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saccos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sacco_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sacco_settings ENABLE ROW LEVEL SECURITY;
+
+-- Clean existing policies
+DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
+
+DROP POLICY IF EXISTS "saccos_select_policy" ON public.saccos;
+DROP POLICY IF EXISTS "saccos_insert_policy" ON public.saccos;
+DROP POLICY IF EXISTS "saccos_update_policy" ON public.saccos;
+
+DROP POLICY IF EXISTS "sacco_memberships_select_policy" ON public.sacco_memberships;
+DROP POLICY IF EXISTS "sacco_memberships_all_policy" ON public.sacco_memberships;
+
+DROP POLICY IF EXISTS "accounts_select_policy" ON public.accounts;
+DROP POLICY IF EXISTS "accounts_all_policy" ON public.accounts;
+
+DROP POLICY IF EXISTS "sacco_settings_select_policy" ON public.sacco_settings;
+DROP POLICY IF EXISTS "sacco_settings_all_policy" ON public.sacco_settings;
+
+-- Create Open & Multi-Tenant Access Policies
+CREATE POLICY "profiles_select_policy" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "profiles_insert_policy" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "profiles_update_policy" ON public.profiles FOR UPDATE USING (true);
+
+CREATE POLICY "saccos_select_policy" ON public.saccos FOR SELECT USING (true);
+CREATE POLICY "saccos_insert_policy" ON public.saccos FOR INSERT WITH CHECK (true);
+CREATE POLICY "saccos_update_policy" ON public.saccos FOR UPDATE USING (true);
+
+CREATE POLICY "sacco_memberships_select_policy" ON public.sacco_memberships FOR SELECT USING (true);
+CREATE POLICY "sacco_memberships_all_policy" ON public.sacco_memberships FOR ALL USING (true);
+
+CREATE POLICY "accounts_select_policy" ON public.accounts FOR SELECT USING (true);
+CREATE POLICY "accounts_all_policy" ON public.accounts FOR ALL USING (true);
+
+CREATE POLICY "sacco_settings_select_policy" ON public.sacco_settings FOR SELECT USING (true);
+CREATE POLICY "sacco_settings_all_policy" ON public.sacco_settings FOR ALL USING (true);
 
 -- 7. Grant full access permissions to anon, authenticated, and service_role
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;

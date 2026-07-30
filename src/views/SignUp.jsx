@@ -153,7 +153,7 @@ export default function SignupForm() {
           if (typeof window !== "undefined") {
             localStorage.setItem("rememberedEmail", email.trim());
           }
-          router.push("/settings?onboarding=1");
+          router.push("/admin?tab=settings&onboarding=1");
           return;
         }
       } catch (autoErr) {

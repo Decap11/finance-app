@@ -142,7 +142,7 @@ export default function RegisterSacco() {
           return;
         }
 
-        router.push("/settings?onboarding=1");
+        router.push("/admin?tab=settings&onboarding=1");
         return;
       }
     } catch (apiErr) {
@@ -265,7 +265,7 @@ export default function RegisterSacco() {
       return;
     }
 
-    router.push("/settings?onboarding=1");
+    router.push("/admin?tab=settings&onboarding=1");
   }
 
   return (
