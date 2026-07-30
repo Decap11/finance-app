@@ -87,9 +87,19 @@ export default function UserRecentTransactions() {
       fetchTransactions();
     }
 
+    function handleSettingsUpdate(e) {
+      if (e.detail?.meetingDay) {
+        setSaccoMeetingDay(e.detail.meetingDay);
+      } else if (e.detail?.meeting_day) {
+        setSaccoMeetingDay(e.detail.meeting_day);
+      }
+      fetchTransactions();
+    }
+
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_transaction_updated", handleTransactionUpdate);
       window.addEventListener("manual_contribution_logged", handleTransactionUpdate);
+      window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
     }
 
     return () => {
@@ -97,6 +107,7 @@ export default function UserRecentTransactions() {
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
+        window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
       }
     };
   }, []);

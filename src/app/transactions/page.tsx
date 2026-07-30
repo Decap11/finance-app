@@ -77,19 +77,17 @@ function TransactionsList() {
         }
       }
 
-      const res = await fetch("/api/user-transactions", {
+      const res = await fetch("/api/user-transactions?limit=50", {
         headers: {
           "Authorization": `Bearer ${session.access_token}`
         }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      if (data.transactions) {
+      if (res.ok && data.transactions) {
         setTransactions(data.transactions);
       }
     } catch (err) {
-      console.warn("Error loading user transactions:", err);
+      console.warn("Failed to fetch transactions:", err);
     } finally {
       setLoading(false);
     }
@@ -99,7 +97,7 @@ function TransactionsList() {
     fetchTransactions();
 
     const channel = supabase
-      .channel('member-all-transactions-realtime')
+      .channel('member-transactions-page-realtime')
       .on(
         'postgres_changes',
         {
@@ -113,104 +111,120 @@ function TransactionsList() {
       )
       .subscribe();
 
+    function handleSettingsUpdate(e: any) {
+      if (e.detail?.meetingDay) {
+        setSaccoMeetingDay(e.detail.meetingDay);
+      } else if (e.detail?.meeting_day) {
+        setSaccoMeetingDay(e.detail.meeting_day);
+      }
+      fetchTransactions();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_settings_updated", handleSettingsUpdate);
+      window.addEventListener("sacco_transaction_updated", fetchTransactions);
+      window.addEventListener("manual_contribution_logged", fetchTransactions);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
+        window.removeEventListener("sacco_transaction_updated", fetchTransactions);
+        window.removeEventListener("manual_contribution_logged", fetchTransactions);
+      }
     };
   }, []);
 
   return (
-    <div className="dashboard-body">
-      <UserHeader />
-      
-      <section className="recent-transactions-section" style={{ marginTop: "2.5rem" }}>
-        <div className="quick-actions">
-          <div className="section-header" style={{ marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 className="section-title">All Transactions History</h3>
-            <Link href="/dashboard" style={{
-              color: "var(--primary-color)",
-              textDecoration: "none",
-              fontSize: "1.8rem",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem"
-            }}>
-              <i className="fa-solid fa-arrow-left"></i> Back to Dashboard
-            </Link>
-          </div>
-          <div className="recent-transactions-table">
-            <table className="transactions-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Requested By</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
-                      Loading transactions...
-                    </td>
-                  </tr>
-                ) : transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
-                      No transactions found.
-                    </td>
-                  </tr>
-                ) : (
-                  transactions.map((transaction) => {
-                    const formattedDate = formatTransactionMeetingDate(transaction, saccoMeetingDay);
-                    
-                    let displayType: string = transaction.category;
-                    if (displayType === "social_fund") displayType = "Social Fund";
-                    if (displayType === "development_fund") displayType = "Development";
-                    if (displayType === "shares") displayType = "Shares";
-                    if (displayType === "savings") displayType = "Savings";
-                    if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Absenteeism Fine";
-
-                    return (
-                      <tr key={transaction.id}>
-                        <td style={{ whiteSpace: "nowrap" }}>{formattedDate}</td>
-                        <TransactionTypeBadge type={displayType} />
-                        <td className="amount-cell">{Number(transaction.amount).toLocaleString()}</td>
-                        <td>
-                          <span style={{ fontWeight: 600, color: "var(--text-dark)" }}>
-                            {transaction.requested_by === transaction.profile_id ? "Self" : "Admin"}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`status-badge ${
-                              transaction.status === "completed" || transaction.status === "approved"
-                                ? "success"
-                                : transaction.status === "pending" ? "pending" : "danger"
-                            }`}
-                          >
-                            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+    <div className="recent-transactions-card card" style={{ marginTop: "2rem" }}>
+      <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h3 className="card-title">All Account Transactions</h3>
+          <p style={{ margin: "0.2rem 0 0", fontSize: "1.2rem", color: "#64748b" }}>
+            Complete audit trail of all contribution requests and payments.
+          </p>
         </div>
-      </section>
+        <Link href="/dashboard" className="view-all-link">
+          Back to Dashboard
+        </Link>
+      </div>
+
+      <div className="table-responsive" style={{ marginTop: "1rem" }}>
+        <table className="transactions-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Amount </th>
+              <th>Requested By</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
+                  Loading transactions...
+                </td>
+              </tr>
+            ) : transactions.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
+                  No transactions found.
+                </td>
+              </tr>
+            ) : (
+              transactions.map((transaction) => {
+                const formattedDate = formatTransactionMeetingDate(transaction, saccoMeetingDay);
+                
+                let displayType = transaction.category;
+                if (displayType === "social_fund") displayType = "Social Fund";
+                if (displayType === "development_fund") displayType = "Development";
+                if (displayType === "shares") displayType = "Shares";
+                if (displayType === "savings") displayType = "Savings";
+                if (displayType === "loan_disbursement") displayType = "Loan";
+                if (displayType === "loan_repayment") displayType = "Loan Repayment";
+                if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Absenteeism Fine";
+
+                const isApproved = transaction.status === "completed" || transaction.status === "approved";
+                const isPending = transaction.status === "pending";
+
+                return (
+                  <tr key={transaction.id}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {formattedDate}
+                    </td>
+                    <TransactionTypeBadge type={displayType} />
+                    <td className="amount-cell">{Number(transaction.amount).toLocaleString()}</td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: "var(--text-dark)" }}>
+                        {transaction.requested_by === transaction.profile_id ? "Self" : "Admin"}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge ${isApproved ? "success" : isPending ? "pending" : "danger"}`}
+                      >
+                        {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : "Completed"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-export default function Page() {
+export default function TransactionsPage() {
   return (
     <ProtectedRoute>
       <MemberLayout>
+        <UserHeader />
         <TransactionsList />
       </MemberLayout>
     </ProtectedRoute>

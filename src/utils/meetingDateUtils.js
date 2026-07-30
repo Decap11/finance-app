@@ -1,7 +1,8 @@
 /**
  * Forthcoming Meeting Day Date Alignment Utility
  * Ensures transaction dates approved or recorded prior to a SACCO's configured meeting day
- * are systematically rendered under the forthcoming meeting day date of that week.
+ * are systematically rendered under the forthcoming meeting day date of that week,
+ * 100% in sync with the Contribution Habit Tracker.
  */
 
 const DAY_MAP = {
@@ -29,8 +30,7 @@ export function getOrdinal(d) {
 
 /**
  * Given a raw date and configured meeting day (e.g. 'Wednesday'),
- * calculates the date of the meeting day for that week.
- * If rawDate is before the meeting day in the same week, it shifts forward to the meeting day.
+ * calculates the exact date of the meeting day for that week.
  */
 export function getForthcomingMeetingDate(rawDateInput, meetingDayName = 'Wednesday') {
   if (!rawDateInput) return new Date();
@@ -51,7 +51,8 @@ export function getForthcomingMeetingDate(rawDateInput, meetingDayName = 'Wednes
 
 /**
  * Formats a transaction's date into a user-friendly string aligned to the SACCO meeting day.
- * Example output: "30th July, week 4"
+ * Always synchronized with the Contribution Habit Tracker.
+ * Example output: "3rd August, week 1" or "4th August, week 1"
  */
 export function formatTransactionMeetingDate(transaction, meetingDayName = 'Wednesday', fallbackWeekNum = 1) {
   if (!transaction) return '';
