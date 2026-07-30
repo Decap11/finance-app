@@ -414,9 +414,7 @@ export default function CalendarHeatMap() {
                           e.stopPropagation();
                           triggerTooltip(e, mItem);
                         }}
-                      >
-                        <span className="heatmap-day-num">{mItem.dayNumber}</span>
-                      </div>
+                      />
                     );
                   })}
                 </div>
