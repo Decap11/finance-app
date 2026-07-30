@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS public.saccos (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Ensure historical mode & locked columns exist on saccos
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+
 -- 3. SACCO Memberships Table
 CREATE TABLE IF NOT EXISTS public.sacco_memberships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,7 +100,7 @@ ALTER TABLE public.sacco_memberships DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.accounts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sacco_settings DISABLE ROW LEVEL SECURITY;
 
--- 7. Grant full access permissions to anon, authenticated, and service_role;
+-- 7. Grant full access permissions to anon, authenticated, and service_role
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
@@ -122,7 +126,7 @@ BEGIN
   v_member_number := COALESCE(NEW.raw_user_meta_data->>'member_number', 'MEM-' || substring(NEW.id::text, 1, 8));
   v_meeting_day   := TRIM(TO_CHAR(now(), 'Day'));
 
-  -- Step A: Insert Profile
+  -- Step A: Insert Profile (allows identical member numbers like MEM-001 in different SACCO groups)
   BEGIN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     VALUES (NEW.id, v_full_name, NEW.email, v_phone, v_member_number, v_group_id, v_role, 'active')
@@ -143,8 +147,8 @@ BEGIN
       v_acronym := COALESCE(split_part(v_group_id, '-', 1), 'SACCO');
       v_sacco_name := v_full_name || ' Group (' || v_group_id || ')';
 
-      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day)
+      INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
+      VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, v_meeting_day, false, false)
       ON CONFLICT (group_code) DO UPDATE SET admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
       RETURNING id INTO v_sacco_id;
 
@@ -166,8 +170,8 @@ BEGIN
           (v_sacco_id, NEW.id, 'loan', 0.00, 'active')
         ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-        INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day)
-        VALUES (v_group_id, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day)
+        INSERT INTO public.sacco_settings (group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_historical_mode, is_locked)
+        VALUES (v_group_id, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false)
         ON CONFLICT (group_code) DO NOTHING;
       END IF;
     EXCEPTION WHEN OTHERS THEN
@@ -256,8 +260,8 @@ BEGIN
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day)
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false)
     RETURNING id INTO v_sacco_id;
   END IF;
 
@@ -280,9 +284,9 @@ BEGIN
 
     -- Settings
     INSERT INTO public.sacco_settings (
-      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day
+      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day, is_historical_mode, is_locked
     ) VALUES (
-      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day
+      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day, false, false
     ) ON CONFLICT (group_code) DO NOTHING;
   END IF;
 

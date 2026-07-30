@@ -77,7 +77,9 @@ export async function POST(request) {
               admin_profile_id: userId,
               status: 'active',
               current_week: 1,
-              meeting_day: 'Wednesday'
+              meeting_day: 'Wednesday',
+              is_historical_mode: false,
+              is_locked: false
             }, { onConflict: 'group_code' }).select('id').maybeSingle()
           ]);
 
@@ -105,7 +107,9 @@ export async function POST(request) {
                 devt_fund: 1000.00,
                 social_fund: 2000.00,
                 current_week: 1,
-                meeting_day: 'Wednesday'
+                meeting_day: 'Wednesday',
+                is_historical_mode: false,
+                is_locked: false
               }, { onConflict: 'group_code' }).catch(err => console.warn("sacco_settings upsert notice:", err))
             ]);
           }
@@ -211,7 +215,9 @@ export async function POST(request) {
         admin_profile_id: userId,
         status: 'active',
         current_week: 1,
-        meeting_day: 'Wednesday'
+        meeting_day: 'Wednesday',
+        is_historical_mode: false,
+        is_locked: false
       }, { onConflict: 'group_code' }).select('id').maybeSingle();
 
       saccoId = saccoRow?.id || (await authenticatedClient.from('saccos').select('id').ilike('group_code', groupCode).maybeSingle())?.data?.id;
@@ -239,7 +245,9 @@ export async function POST(request) {
           devt_fund: 1000.00,
           social_fund: 2000.00,
           current_week: 1,
-          meeting_day: 'Wednesday'
+          meeting_day: 'Wednesday',
+          is_historical_mode: false,
+          is_locked: false
         }, { onConflict: 'group_code' }).catch(err => console.warn("sacco_settings upsert notice:", err))
       ]);
     }
