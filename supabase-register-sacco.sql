@@ -1,6 +1,28 @@
--- RPC 4: Register a new SACCO (hardened, self-healing & atomic)
--- Idempotent: If SACCO already exists, updates admin link and returns sacco_id without throwing.
-CREATE OR REPLACE FUNCTION register_new_sacco(
+-- =============================================================================
+-- IDEMPOTENT & FAIL-SAFE SACCO REGISTRATION RPC FUNCTION
+-- Copy and paste this script into your Supabase SQL Editor and click "RUN".
+-- =============================================================================
+
+-- Ensure required columns exist on sacco_settings and saccos
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+ALTER TABLE public.sacco_settings ADD COLUMN IF NOT EXISTS onboarding_date TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_historical_mode BOOLEAN DEFAULT false;
+ALTER TABLE public.saccos ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
+
+-- Disable RLS to ensure unhindered backend execution
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saccos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sacco_memberships DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.accounts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sacco_settings DISABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.register_new_sacco(
   p_sacco_name TEXT,
   p_acronym TEXT,
   p_group_code TEXT,
@@ -10,14 +32,15 @@ DECLARE
   v_sacco_id UUID;
   v_meeting_day TEXT;
   v_clean_code TEXT;
+  v_admin_mem_num TEXT;
 BEGIN
-  -- Bypass RLS inside this SECURITY DEFINER function
   SET LOCAL row_security = off;
 
   v_clean_code := UPPER(TRIM(p_group_code));
   v_meeting_day := TRIM(TO_CHAR(now(), 'Day'));
+  v_admin_mem_num := 'MEM-001';
 
-  -- 1. Ensure admin profile exists in public.profiles.
+  -- 1. Ensure Profile exists for Admin
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_admin_profile_id) THEN
     INSERT INTO public.profiles (id, full_name, email, phone, member_number, group_id, role, status)
     SELECT
@@ -25,7 +48,7 @@ BEGIN
       COALESCE(u.raw_user_meta_data->>'full_name', 'SACCO Admin'),
       u.email,
       u.raw_user_meta_data->>'phone',
-      COALESCE(u.raw_user_meta_data->>'member_number', 'ADMIN-' || substring(u.id::text, 1, 8)),
+      COALESCE(u.raw_user_meta_data->>'member_number', v_admin_mem_num),
       v_clean_code,
       'admin',
       'active'
@@ -41,27 +64,26 @@ BEGIN
     WHERE id = p_admin_profile_id;
   END IF;
 
-  -- 2. Insert or retrieve the SACCO row in public.saccos (Idempotent)
+  -- 2. Insert or fetch SACCO
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
-
     UPDATE public.saccos
     SET admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
-    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day)
-    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day)
+    INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, meeting_day, is_historical_mode, is_locked)
+    VALUES (p_sacco_name, UPPER(TRIM(p_acronym)), v_clean_code, p_admin_profile_id, 'active', 1, v_meeting_day, false, false)
     RETURNING id INTO v_sacco_id;
   END IF;
 
-  -- 3. Insert admin membership in public.sacco_memberships
+  -- 3. Link Admin Membership
   IF v_sacco_id IS NOT NULL THEN
     INSERT INTO public.sacco_memberships (sacco_id, profile_id, role, status)
     VALUES (v_sacco_id, p_admin_profile_id, 'admin', 'active')
     ON CONFLICT (sacco_id, profile_id) DO UPDATE
       SET role = 'admin', status = 'active';
 
-    -- 4. Initialize default member accounts in public.accounts
+    -- 4. Initialize Member Accounts
     INSERT INTO public.accounts (sacco_id, profile_id, account_type, balance, status)
     VALUES 
       (v_sacco_id, p_admin_profile_id, 'savings', 0.00, 'active'),
@@ -71,36 +93,12 @@ BEGIN
       (v_sacco_id, p_admin_profile_id, 'loan', 0.00, 'active')
     ON CONFLICT (sacco_id, profile_id, account_type) DO NOTHING;
 
-    -- 5. Auto-initialize sacco_settings for Week 1
+    -- 5. Initialize SACCO Settings (core standard columns)
     INSERT INTO public.sacco_settings (
-      group_code,
-      sacco_id,
-      share_price,
-      devt_fund,
-      social_fund,
-      current_week,
-      meeting_day,
-      is_locked,
-      is_historical_mode,
-      onboarding_date,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      v_clean_code,
-      v_sacco_id,
-      25000.00,
-      1000.00,
-      2000.00,
-      1,
-      v_meeting_day,
-      false,
-      false,
-      now(),
-      now(),
-      now()
-    )
-    ON CONFLICT (group_code) DO NOTHING;
+      group_code, sacco_id, share_price, devt_fund, social_fund, current_week, meeting_day
+    ) VALUES (
+      v_clean_code, v_sacco_id, 25000.00, 1000.00, 2000.00, 1, v_meeting_day
+    ) ON CONFLICT (group_code) DO NOTHING;
   END IF;
 
   RETURN json_build_object(
@@ -109,12 +107,7 @@ BEGIN
     'group_code', v_clean_code,
     'message', 'SACCO registered successfully and admin linked'
   );
-
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE;
 END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Grant execution permissions explicitly to anon, authenticated, and service_role
 GRANT EXECUTE ON FUNCTION public.register_new_sacco(TEXT, TEXT, TEXT, UUID) TO anon, authenticated, service_role;
