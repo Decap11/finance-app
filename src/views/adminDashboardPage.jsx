@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
                 {/* Categorized Sources Breakdown */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "1rem", fontSize: "1.2rem", color: "#64748b" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span><i className="fa-solid fa-gavel" style={{ color: "#ef4444", marginRight: "0.4rem" }}></i> Fines & Absenteeism:</span>
+                    <span><i className="fa-solid fa-user-xmark" style={{ color: "#ef4444", marginRight: "0.4rem" }}></i> Absenteeism Fines:</span>
                     <strong style={{ color: "#ef4444" }}>Shs {metrics.finesProfit.toLocaleString()}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

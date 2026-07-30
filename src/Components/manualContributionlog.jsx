@@ -7,7 +7,7 @@ const fundTypeOptions = [
   { value: "shares", label: "Shares Contribution" },
   { value: "development_fund", label: "Development Fund" },
   { value: "social_fund", label: "Social Fund" },
-  { value: "fines", label: "Fines / Penalties" },
+  { value: "fines", label: "Absenteeism Fine" },
   { value: "loan_disbursement", label: "Loan Disbursement (Issue Loan)" }
 ];
 

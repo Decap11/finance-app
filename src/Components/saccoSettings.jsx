@@ -393,7 +393,7 @@ export default function SaccoSettings() {
     if (reportRows.length === 0) return;
     
     // Construct CSV header & rows
-    const headers = ["Member ID", "Member Name", "Shares Quantity", "Shares Amount (Shs)", "Development Fund (Shs)", "Social Fund (Shs)", "Fines (Shs)", "Row Total (Shs)"];
+    const headers = ["Member ID", "Member Name", "Shares Quantity", "Shares Amount (Shs)", "Development Fund (Shs)", "Social Fund (Shs)", "Absenteeism Fines (Shs)", "Row Total (Shs)"];
     
     const csvRows = [
       headers.join(","),
@@ -667,7 +667,7 @@ export default function SaccoSettings() {
                   <th>Shares</th>
                   <th>Development</th>
                   <th>Social Fund</th>
-                  <th>Fines</th>
+                  <th>Absenteeism Fines</th>
                   <th style={{ textAlign: "right" }}>Row Total</th>
                 </tr>
               </thead>
