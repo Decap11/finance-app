@@ -154,7 +154,10 @@ BEGIN
 
       INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)
       VALUES (v_sacco_name, v_acronym, v_group_id, NEW.id, 'active', 1, false, false, 1000.00)
-      ON CONFLICT (group_code) DO UPDATE SET name = EXCLUDED.name, admin_profile_id = EXCLUDED.admin_profile_id, status = 'active'
+      ON CONFLICT (group_code) DO UPDATE SET 
+        name = CASE WHEN EXCLUDED.name IS NOT NULL AND EXCLUDED.name <> '' AND EXCLUDED.name NOT LIKE '% Group' THEN EXCLUDED.name ELSE public.saccos.name END,
+        admin_profile_id = EXCLUDED.admin_profile_id, 
+        status = 'active'
       RETURNING id INTO v_sacco_id;
 
       IF v_sacco_id IS NULL THEN
@@ -258,11 +261,19 @@ BEGIN
     WHERE id = p_admin_profile_id;
   END IF;
 
-  -- Insert or fetch SACCO
+  -- Insert or fetch SACCO without overwriting real SACCO names with generic fallback strings
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
     UPDATE public.saccos
-    SET name = p_sacco_name, admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
+    SET 
+      name = CASE 
+        WHEN p_sacco_name IS NOT NULL AND p_sacco_name <> '' AND p_sacco_name NOT LIKE '% SACCO' AND p_sacco_name NOT LIKE '% Group' THEN p_sacco_name
+        WHEN name IS NULL OR name = '' OR name LIKE '% Group' OR name LIKE '% SACCO' THEN p_sacco_name
+        ELSE name
+      END,
+      admin_profile_id = p_admin_profile_id, 
+      status = 'active', 
+      updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked, absenteeism_fine_amount)

@@ -56,7 +56,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           if (!saccoRow && role === "admin" && cleanGroupCode) {
             try {
               const acronym = cleanGroupCode.split("-")[0] || "SACCO";
-              const saccoName = (profile?.full_name || session.user.user_metadata?.full_name || "SACCO Admin") + " SACCO";
+              const saccoName = session.user.user_metadata?.sacco_name || (profile?.full_name || session.user.user_metadata?.full_name || "SACCO Admin") + " SACCO";
 
               const { data: rpcRes } = await supabase.rpc("register_new_sacco", {
                 p_sacco_name: saccoName,

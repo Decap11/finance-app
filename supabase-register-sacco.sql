@@ -71,7 +71,15 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.saccos WHERE UPPER(group_code) = v_clean_code) THEN
     SELECT id INTO v_sacco_id FROM public.saccos WHERE UPPER(group_code) = v_clean_code;
     UPDATE public.saccos
-    SET name = p_sacco_name, admin_profile_id = p_admin_profile_id, status = 'active', updated_at = now()
+    SET 
+      name = CASE 
+        WHEN p_sacco_name IS NOT NULL AND p_sacco_name <> '' AND p_sacco_name NOT LIKE '% SACCO' AND p_sacco_name NOT LIKE '% Group' THEN p_sacco_name
+        WHEN name IS NULL OR name = '' OR name LIKE '% Group' OR name LIKE '% SACCO' THEN p_sacco_name
+        ELSE name
+      END,
+      admin_profile_id = p_admin_profile_id, 
+      status = 'active', 
+      updated_at = now()
     WHERE id = v_sacco_id;
   ELSE
     INSERT INTO public.saccos (name, acronym, group_code, admin_profile_id, status, current_week, is_historical_mode, is_locked)
