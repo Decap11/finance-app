@@ -61,7 +61,7 @@ export function formatTransactionMeetingDate(transaction, meetingDayName = 'Wedn
   const meetingDate = getForthcomingMeetingDate(rawDateStr, meetingDayName);
 
   const day = meetingDate.getDate();
-  const month = meetingDate.toLocaleDateString('en-US', { month: 'long' });
+  const month = meetingDate.toLocaleDateString('en-US', { month: 'short' });
 
   let weekNum = null;
   if (transaction.week_number) {
