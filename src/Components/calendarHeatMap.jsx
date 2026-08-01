@@ -346,6 +346,7 @@ export default function CalendarHeatMap({ memberId }) {
     const activeEndIndex = startMeetingIndex + currentWeek - 1;
     const isPreOnboarding = meetingItem.globalMeetingIndex < startMeetingIndex;
     const isFutureDate = meetingItem.date > today;
+    const isUpcoming = isFutureDate || meetingItem.globalMeetingIndex > activeEndIndex;
     const isMissed = !isPreOnboarding && !isUpcoming && (finData.sharesAmount === 0 || (finData.sharesCount || 0) === 0);
 
     setActiveTooltip({
@@ -455,8 +456,8 @@ export default function CalendarHeatMap({ memberId }) {
                         key={mItem.globalMeetingIndex}
                         className={`heatmap-day ${levelClass}`}
                         style={inlineStyle}
-                        title={mItem.fullDateString}
                         onMouseEnter={(e) => triggerTooltip(e, mItem)}
+                        onMouseLeave={() => setActiveTooltip(null)}
                         onClick={(e) => {
                           e.stopPropagation();
                           triggerTooltip(e, mItem);
