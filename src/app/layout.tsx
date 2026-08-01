@@ -4,22 +4,27 @@ import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
 
-const SITE_URL = "https://finance-app-decap11.vercel.app";
-const OG_IMAGE_URL = `${SITE_URL}/og-preview.jpg`;
+const defaultSiteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
+  : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`
+    : "https://finance-app-decap11.vercel.app";
+
+const ogImageUrl = `${defaultSiteUrl}/og-preview.jpg`;
 
 export const metadata: Metadata = {
   title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
   description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
-  metadataBase: new URL(SITE_URL),
+  metadataBase: new URL(defaultSiteUrl),
   openGraph: {
     title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
     description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
-    url: SITE_URL,
+    url: defaultSiteUrl,
     siteName: "PEWOSA SACCO",
     images: [
       {
-        url: OG_IMAGE_URL,
-        secureUrl: OG_IMAGE_URL,
+        url: "/og-preview.jpg",
+        secureUrl: ogImageUrl,
         width: 1200,
         height: 630,
         type: "image/jpeg",
@@ -33,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
     description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
-    images: [OG_IMAGE_URL],
+    images: ["/og-preview.jpg"],
   },
 };
 
@@ -56,18 +61,17 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
         {/* Direct Open Graph Meta Tags for WhatsApp Crawler Compatibility */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={SITE_URL} />
         <meta property="og:title" content="PEWOSA SACCO - Smart SACCO Financial Management Platform" />
         <meta property="og:description" content="Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA." />
-        <meta property="og:image" content={OG_IMAGE_URL} />
-        <meta property="og:image:secure_url" content={OG_IMAGE_URL} />
+        <meta property="og:image" content={ogImageUrl} />
+        <meta property="og:image:secure_url" content={ogImageUrl} />
         <meta property="og:image:type" content="image/jpeg" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="PEWOSA SACCO - Smart SACCO Financial Management Platform" />
         <meta name="twitter:description" content="Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA." />
-        <meta name="twitter:image" content={OG_IMAGE_URL} />
+        <meta name="twitter:image" content={ogImageUrl} />
       </head>
       <body>
         <GlobalErrorHandler />
