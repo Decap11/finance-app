@@ -94,12 +94,17 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     async function loadWeekData() {
       setLoading(true);
       try {
-        // 1. Fetch attendance audit snapshot
-        const { data: records } = await supabase
+        let auditQuery = supabase
           .from("audit_events")
           .select("*")
           .eq("entity_type", "sacco_attendance")
           .order("created_at", { ascending: false });
+
+        if (saccoId) {
+          auditQuery = auditQuery.eq("sacco_id", saccoId);
+        }
+
+        const { data: records } = await auditQuery;
 
         const weekRecord = (records || []).find(r => 
           r.metadata?.group_code?.toLowerCase() === groupCode.toLowerCase() && 
@@ -201,24 +206,36 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         }
       });
 
-      // 2. Log pending absenteeism fines for absent members
+      // 2. Log pending absenteeism fines for absent members (deduplicated)
       if (absentMembers.length > 0) {
-        const fineTransactionsToInsert = absentMembers.map(m => ({
-          sacco_id: saccoId,
-          profile_id: m.id,
-          type: "debit",
-          category: "fines",
-          amount: fineRate,
-          status: "pending",
-          description: `Absenteeism Cover Fine - Week ${currentWeek}`,
-          week_number: currentWeek,
-          created_at: new Date().toISOString()
-        }));
+        const { data: existingFines } = await supabase
+          .from("transactions")
+          .select("profile_id")
+          .eq("sacco_id", saccoId)
+          .eq("category", "fines")
+          .ilike("description", `%Week ${currentWeek}%`);
 
-        try {
-          await supabase.from("transactions").insert(fineTransactionsToInsert);
-        } catch (tErr) {
-          console.warn("Fine transactions logging notice:", tErr);
+        const existingFineMemberIds = new Set((existingFines || []).map(f => f.profile_id));
+        const newAbsentMembers = absentMembers.filter(m => !existingFineMemberIds.has(m.id));
+
+        if (newAbsentMembers.length > 0) {
+          const fineTransactionsToInsert = newAbsentMembers.map(m => ({
+            sacco_id: saccoId,
+            profile_id: m.id,
+            direction: "debit",
+            category: "fines",
+            amount: fineRate,
+            status: "pending",
+            description: `Absenteeism Cover Fine - Week ${currentWeek}`,
+            week_number: currentWeek,
+            created_at: new Date().toISOString()
+          }));
+
+          try {
+            await supabase.from("transactions").insert(fineTransactionsToInsert);
+          } catch (tErr) {
+            console.warn("Fine transactions logging notice:", tErr);
+          }
         }
       }
 

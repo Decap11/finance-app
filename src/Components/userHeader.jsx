@@ -61,7 +61,7 @@ export default function UserHeader() {
 
     loadHeaderProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setSessionUser(session.user);
         const localAvatar = localStorage.getItem(`sacco_avatar_${session.user.id}`);
@@ -76,7 +76,7 @@ export default function UserHeader() {
     });
 
     return () => {
-      authListener.subscription?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
