@@ -1,11 +1,35 @@
 import React, { ReactNode } from "react";
+import type { Metadata } from "next";
 import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
 
-export const metadata = {
-  title: "SACCO Finance",
-  description: "Sacco Management SaaS Application",
+export const metadata: Metadata = {
+  title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
+  description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
+  metadataBase: new URL("https://finance-app-decap11.vercel.app"),
+  openGraph: {
+    title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
+    description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
+    url: "https://finance-app-decap11.vercel.app",
+    siteName: "PEWOSA SACCO",
+    images: [
+      {
+        url: "/og-preview.jpg",
+        width: 1200,
+        height: 630,
+        alt: "PEWOSA SACCO Admin Control and Financial Management Platform",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PEWOSA SACCO - Smart SACCO Financial Management Platform",
+    description: "Approve requests, manage permissions, track weekly share contributions, and oversee SACCO system activity with PEWOSA.",
+    images: ["/og-preview.jpg"],
+  },
 };
 
 interface RootLayoutProps {
