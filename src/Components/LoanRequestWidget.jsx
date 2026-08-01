@@ -41,6 +41,10 @@ export default function LoanRequestWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  // Peer Guarantors State
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [selectedGuarantors, setSelectedGuarantors] = useState([]);
+
   const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
   async function loadSharesBalance() {
@@ -92,6 +96,33 @@ export default function LoanRequestWidget() {
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    async function loadMembers() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("group_id")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profile?.group_id) {
+          const res = await fetch(`/api/group-members?groupId=${encodeURIComponent(profile.group_id)}`);
+          const data = await res.json();
+          if (data.success && data.members) {
+            const peers = data.members.filter(m => String(m.id).toLowerCase() !== String(session.user.id).toLowerCase());
+            setGroupMembers(peers);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load group members for guarantors:", err);
+      }
+    }
+    loadMembers();
   }, []);
 
   const calculateLoan = (amount, type, period) => {
@@ -202,7 +233,8 @@ export default function LoanRequestWidget() {
           loanType: loanType,
           termMonths: termMonths,
           interestRate: isSocial ? 0.00 : 5.00,
-          dueDate: dbDueDate
+          dueDate: dbDueDate,
+          guarantors: selectedGuarantors
         })
       });
       const data = await res.json();
@@ -216,6 +248,7 @@ export default function LoanRequestWidget() {
       setTotalRepayment(0);
       setDueDateText("Select amount to calculate");
       setDbDueDate("");
+      setSelectedGuarantors([]);
     } catch (err) {
       setMessage(err.message || "An error occurred.");
     } finally {
@@ -299,6 +332,36 @@ export default function LoanRequestWidget() {
             />
           </div>
         </div>
+
+        {groupMembers.length > 0 && (
+          <div className="form-group">
+            <label style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-dark)", marginBottom: "0.6rem", display: "block" }}>
+              Select Peer Guarantors (Recommended)
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "160px", overflowY: "auto", padding: "0.4rem" }}>
+              {groupMembers.map((m) => {
+                const isSelected = selectedGuarantors.includes(m.id);
+                return (
+                  <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", fontSize: "1.2rem", color: "#334155", cursor: "pointer", background: isSelected ? "#e0e7ff" : "#f8fafc", padding: "0.8rem 1rem", borderRadius: "0.6rem", border: "1px solid #cbd5e1" }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedGuarantors([...selectedGuarantors, m.id]);
+                        } else {
+                          setSelectedGuarantors(selectedGuarantors.filter(id => id !== m.id));
+                        }
+                      }}
+                      style={{ width: "1.5rem", height: "1.5rem" }}
+                    />
+                    <span>{m.full_name || "SACCO Member"} ({m.member_number || "MEM-000"})</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="loan-details">
           <div className="detail-row">

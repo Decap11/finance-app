@@ -25,16 +25,16 @@ export async function GET(request) {
       return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
     }
 
-    // 1. Fetch active loan
+    // 1. Fetch active or pending loan
     const { data: loans } = await supabase
       .from('loans')
       .select('*')
       .eq('profile_id', user.id)
-      .eq('status', 'issued')
+      .in('status', ['issued', 'pending', 'pending_guarantors'])
+      .order('created_at', { ascending: false })
       .limit(1);
 
     const activeLoan = loans && loans.length > 0 ? loans[0] : null;
-
     const savingsBalance = 0;
 
     // 3. Fetch recent loan transactions
@@ -79,10 +79,10 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { action, amount, purpose, termMonths, loanType, interestRate, dueDate } = body;
+    const { action, amount, purpose, termMonths, loanType, interestRate, dueDate, guarantors } = body;
 
     if (action === 'request_loan') {
-      // 1. Fetch the user's SACCO ID from profiles (which bypasses recursive membership SELECT checks)
+      // 1. Fetch user's SACCO group
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('group_id')
@@ -105,7 +105,7 @@ export async function POST(request) {
         return Response.json({ error: 'Could not find your SACCO group.' }, { status: 400 });
       }
 
-      // 2. Call the RPC to request loan
+      // 2. Call RPC to request loan
       const { error: rpcError } = await supabase.rpc('request_loan', {
         p_sacco_id: saccoData.id,
         p_amount: Number(amount),
@@ -118,6 +118,35 @@ export async function POST(request) {
 
       if (rpcError) {
         return Response.json({ error: rpcError.message }, { status: 500 });
+      }
+
+      // 3. Nominate peer guarantors if selected
+      if (guarantors && Array.isArray(guarantors) && guarantors.length > 0) {
+        const { data: latestLoan } = await supabase
+          .from('loans')
+          .select('id')
+          .eq('profile_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestLoan?.id) {
+          const records = guarantors.map(gId => ({
+            loan_id: latestLoan.id,
+            sacco_id: saccoData.id,
+            borrower_profile_id: user.id,
+            guarantor_profile_id: gId,
+            status: 'pending',
+            guaranteed_amount: Number(amount) / guarantors.length
+          }));
+
+          await supabase.from('loan_guarantors').insert(records);
+
+          await supabase
+            .from('loans')
+            .update({ guarantor_status: 'pending_guarantors', status: 'pending_guarantors' })
+            .eq('id', latestLoan.id);
+        }
       }
 
       return Response.json({ success: true });
