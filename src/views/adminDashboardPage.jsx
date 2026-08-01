@@ -10,6 +10,7 @@ import BroadcastMessageWidget from "../Components/BroadcastMessageWidget";
 import AdminLayout from "../layout/AdminLayout";
 import PaymentPlans from "../Components/Payments";
 import SaccoSettings from "../Components/saccoSettings";
+import DividendDistributionPortal from "../Components/DividendDistributionPortal";
 
 export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
@@ -669,6 +670,12 @@ export default function AdminDashboardPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {currentTab === "dividends" && (
+          <div style={{ marginTop: "2.5rem" }}>
+            <DividendDistributionPortal />
           </div>
         )}
 

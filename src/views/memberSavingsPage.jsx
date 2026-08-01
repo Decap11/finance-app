@@ -1,5 +1,6 @@
 import UserHeader from "../Components/userHeader";
 import SavingsSummaryCards from "../Components/savingsSummarycards";
+import MemberSavingsVaults from "../Components/MemberSavingsVaults";
 import FundDistributionMix from "../Components/fundDistributionMix";
 import SavingsLatestMemberTransactions from "../Components/SavingsLatestMemberTransactions";
 import MemberLayout from "../layout/MemberLayout";
@@ -11,6 +12,7 @@ export default function MemberSavingsPage() {
       <div className="dashboard-body">
         <UserHeader />
         <SavingsSummaryCards />
+        <MemberSavingsVaults />
         <div className="dashboard-grid">
           <FundDistributionMix />
           <SavingsLatestMemberTransactions />

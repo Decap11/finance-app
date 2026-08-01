@@ -9,6 +9,7 @@ const navItems = [
   { to: "/admin?tab=overview", icon: "fa-solid fa-chart-line", label: "Overview" },
   { to: "/admin?tab=verifications", icon: "fa-solid fa-clipboard-check", label: "Verifications" },
   { to: "/admin?tab=members", icon: "fa-solid fa-users", label: "Members" },
+  { to: "/admin?tab=dividends", icon: "fa-solid fa-coins", label: "Dividends" },
   { to: "/admin?tab=payments", icon: "fa-solid fa-credit-card", label: "Payments" },
   { to: "/admin?tab=settings", icon: "fa-solid fa-gear", label: "Settings" },
 ];
