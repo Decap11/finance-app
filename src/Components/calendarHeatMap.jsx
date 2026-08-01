@@ -512,12 +512,18 @@ export default function CalendarHeatMap({ memberId }) {
               <div className="tooltip-status-badge upcoming">
                 <i className="fa-solid fa-clock"></i> Scheduled Meeting Date
               </div>
-            ) : activeTooltip.isMissed ? (
+            ) : activeTooltip.finData.totalAmount === 0 ? (
               <div className="tooltip-status-badge missed">
                 <i className="fa-solid fa-triangle-exclamation"></i> No transactions on this meeting date (Missed)
               </div>
             ) : (
               <div className="tooltip-financial-list">
+                {activeTooltip.finData.sharesAmount === 0 && (
+                  <div className="tooltip-status-badge missed" style={{ marginBottom: "0.8rem", padding: "0.4rem 0.8rem", fontSize: "1.1rem" }}>
+                    <i className="fa-solid fa-triangle-exclamation"></i> Missed Shares Obligation (0 Shares)
+                  </div>
+                )}
+
                 <div style={{ fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "0.05rem", color: "#94a3b8", fontWeight: 700, marginBottom: "0.4rem" }}>
                   Weekly Transactions Summary
                 </div>
