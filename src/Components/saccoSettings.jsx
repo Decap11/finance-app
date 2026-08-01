@@ -398,7 +398,7 @@ export default function SaccoSettings() {
       filterWeek,
       reportRows,
       reportTotals,
-      meetingDay: settingsForm.meeting_day || "Wednesday"
+      meetingDay: settings.meetingDay || "Wednesday"
     });
   };
 
