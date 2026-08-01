@@ -346,8 +346,7 @@ export default function CalendarHeatMap({ memberId }) {
     const activeEndIndex = startMeetingIndex + currentWeek - 1;
     const isPreOnboarding = meetingItem.globalMeetingIndex < startMeetingIndex;
     const isFutureDate = meetingItem.date > today;
-    const isUpcoming = isFutureDate || meetingItem.globalMeetingIndex > activeEndIndex;
-    const isMissed = !isPreOnboarding && !isUpcoming && finData.totalAmount === 0;
+    const isMissed = !isPreOnboarding && !isUpcoming && (finData.sharesAmount === 0 || (finData.sharesCount || 0) === 0);
 
     setActiveTooltip({
       x: clampedX,
@@ -429,10 +428,10 @@ export default function CalendarHeatMap({ memberId }) {
                     const activeEndIndex = startMeetingIndex + currentWeek - 1;
                     const isFutureDate = mItem.date > today;
                     const isUpcoming = isFutureDate || idx > activeEndIndex;
-                    const hasContribution = (contributions && contributions.size > 0) || sharesCount > 0;
+                    const hasShares = sharesCount > 0;
 
-                    // IF transactions exist for this meeting date, ALWAYS render its green shade tier!
-                    if (hasContribution) {
+                    // Green box level is STRICTLY conditional on user contributing shares (> 0 shares)
+                    if (hasShares) {
                       if (sharesCount <= 2) {
                         levelClass = "level-1"; // 1-2 shares
                       } else if (sharesCount <= 5) {
@@ -447,6 +446,7 @@ export default function CalendarHeatMap({ memberId }) {
                     } else if (isUpcoming) {
                       inlineStyle = { backgroundColor: "#e2e8f0", border: "0.1rem solid #cbd5e1" };
                     } else {
+                      // Failed to contribute shares for an elapsed meeting week -> RED BOX!
                       levelClass = "level-0";
                     }
 
