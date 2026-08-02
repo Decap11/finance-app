@@ -154,7 +154,15 @@ themselves. Migration `0015` added those checks; do not remove them.
 - `process_guarantor_response` — only the nominated guarantor may respond.
 - `calculate_dividend_preview` / `execute_dividend_payout` — admin of the target SACCO only.
 - `get_sacco_total_balances` — self, or staff of that member's SACCO.
-- `set_member_approval`, `make_member_admin`, `delete_member_entirely` — existing admin of the same SACCO, resolved by the shared `admin_sacco_for_member` helper. These three back the buttons on the admin Members tab. You cannot unapprove or delete yourself.
+- `set_member_approval`, `make_member_admin`, `delete_member_entirely`, `demote_sacco_admin` — existing admin of the same SACCO, resolved by the shared `admin_sacco_for_member` helper. These four back the buttons on the admin Members tab. You cannot unapprove, delete or demote yourself.
+
+**The SACCO owner** is `saccos.admin_profile_id`, the account that created the group. Any admin may
+promote a member, but only the owner may `demote_sacco_admin`, and the owner cannot themselves be
+demoted, unapproved or deleted by anyone else. Without that asymmetry a freshly promoted admin could
+remove the founder and take the group over. Demotion also refuses to remove the last admin. When
+`admin_profile_id` is `NULL` — deleting the owner clears it, and pre-0009 SACCOs never set it — any
+admin may demote, or those groups could never demote at all; the admin Members tab mirrors that
+fallback so it never offers a button the database would reject.
 
 Triggers: `handle_new_user` (on `auth.users`, creates the profile — always as `member`),
 `initialize_member_accounts`, `sync_transaction_full_name`, `sync_loan_on_transaction_approval`,
@@ -194,7 +202,8 @@ These are load-bearing. Breaking one re-opens a vulnerability that was specifica
 5. **No direct client writes to `accounts`, `transactions` status, or `loans`.** Those go through
    RPCs. RLS deliberately grants no write policy on `accounts`.
 6. **`role` is never accepted from client input.** Signup always creates a `member`. Elevation
-   happens only through `register_new_sacco` (self, at SACCO creation) or `make_member_admin`.
+   happens only through `register_new_sacco` (self, at SACCO creation) or `make_member_admin`;
+   the only way back down is `demote_sacco_admin`, which the SACCO owner alone may call.
 7. **`transactions` is an audit trail.** Reverse with a new entry; don't rewrite history.
 
 ## 11. Migrations

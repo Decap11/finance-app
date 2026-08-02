@@ -17,6 +17,7 @@ export default function AdminDashboardPage() {
   const currentTab = searchParams.get("tab") || "overview";
 
   const [allMembers, setAllMembers] = useState([]);
+  const [viewerCanDemote, setViewerCanDemote] = useState(false);
   const [metrics, setMetrics] = useState({
     pendingApprovals: 0,
     totalCapital: 0,
@@ -48,13 +49,21 @@ export default function AdminDashboardPage() {
       // 2. Fetch matching Sacco ID
       const { data: saccoData } = await supabase
         .from("saccos")
-        .select("id")
+        .select("id, admin_profile_id")
         .ilike("group_code", (profileData.group_id || "").trim())
         .limit(1);
 
+      let ownerId = null;
       if (saccoData && saccoData.length > 0) {
         saccoId = saccoData[0].id;
+        ownerId = saccoData[0].admin_profile_id || null;
       }
+
+      // Only the SACCO owner may demote another admin (demote_sacco_admin). When
+      // admin_profile_id is NULL -- deleting the owner clears it, and pre-0009 SACCOs
+      // never set it -- the RPC falls back to allowing any admin, so mirror that here or
+      // the button would be hidden from someone the database would in fact accept.
+      setViewerCanDemote(!ownerId || String(ownerId) === String(user.id));
 
       // 3. Fetch all members belonging to this sacco
       const { data: profilesList } = await supabase
@@ -99,7 +108,10 @@ export default function AdminDashboardPage() {
             created_at: p.created_at,
             // set_member_approval and delete_member_entirely both reject self-targeting,
             // so the card hides those two actions rather than offering a certain failure.
-            isCurrentUser: String(p.id) === String(user.id)
+            isCurrentUser: String(p.id) === String(user.id),
+            // saccos.admin_profile_id. 0018 makes unapprove, delete and demote all refuse
+            // this account, so its card offers none of the three.
+            isSaccoOwner: !!ownerId && String(p.id) === String(ownerId)
           };
         });
         setAllMembers(mappedMembers);
@@ -271,6 +283,24 @@ export default function AdminDashboardPage() {
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin', status: 'active' } : m));
     } catch (err) {
       alert("Failed to make member admin: " + err.message);
+    }
+  };
+
+  const handleDemoteAdmin = async (memberId) => {
+    const confirmDemote = window.confirm("Remove admin privileges from this member? They stay in the SACCO as a regular member.");
+    if (!confirmDemote) return;
+
+    try {
+      const { error } = await supabase.rpc('demote_sacco_admin', {
+        p_member_id: memberId
+      });
+
+      if (error) throw error;
+
+      alert("Admin privileges removed. This member is now a regular member.");
+      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'member' } : m));
+    } catch (err) {
+      alert("Failed to demote admin: " + err.message);
     }
   };
 
@@ -586,6 +616,9 @@ export default function AdminDashboardPage() {
                         </button>
                       ) : member.isCurrentUser ? (
                         <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>You</span>
+                      ) : member.isSaccoOwner ? (
+                        /* 0018 makes set_member_approval refuse to revoke the owner. */
+                        <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>Protected</span>
                       ) : (
                         <button
                           onClick={() => handleUnapproveMember(member.id)}
@@ -607,6 +640,10 @@ export default function AdminDashboardPage() {
                         </button>
                       )}
 
+                      {/* Role slot. Promotion is open to any admin; demotion is not --
+                          demote_sacco_admin only accepts the SACCO owner, refuses a
+                          self-demote and refuses to remove the last admin. Each label
+                          below is the case where the RPC would certainly reject. */}
                       {member.role !== "admin" ? (
                         <button
                           onClick={() => handleMakeAdmin(member.id)}
@@ -625,11 +662,36 @@ export default function AdminDashboardPage() {
                         >
                           <i className="fa-solid fa-user-shield"></i> Make Admin
                         </button>
+                      ) : member.isSaccoOwner ? (
+                        <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }} title="The account that created this SACCO">
+                          <i className="fa-solid fa-crown" style={{ color: "#f59e0b", marginRight: "0.5rem" }}></i>
+                          Main Admin
+                        </span>
+                      ) : viewerCanDemote && !member.isCurrentUser ? (
+                        <button
+                          onClick={() => handleDemoteAdmin(member.id)}
+                          title="Remove admin privileges"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#d97706",
+                            fontSize: "1.2rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.4rem 0"
+                          }}
+                        >
+                          <i className="fa-solid fa-user-minus"></i> Demote
+                        </button>
                       ) : (
                         <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>Sacco Admin</span>
                       )}
                       
-                      {!member.isCurrentUser && (
+                      {/* 0018 makes delete_member_entirely refuse the owner too. */}
+                      {!member.isCurrentUser && !member.isSaccoOwner && (
                         <button
                           onClick={() => handleDeleteMember(member.id)}
                           style={{
