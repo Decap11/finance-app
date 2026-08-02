@@ -71,13 +71,16 @@ function subscriptionSnapshot(sacco) {
   };
 }
 
-async function logPlatformEvent(supabase, { saccoId, action, actorEmail, description, metadata = {} }) {
+async function logPlatformEvent(supabase, { saccoId, entityId, action, actorEmail, description, metadata = {} }) {
   // Audit logging must never take down the action it is recording.
+  // A purge passes saccoId: null on purpose -- audit_events.sacco_id cascades, so a row
+  // still pointing at the deleted SACCO would be destroyed along with it. entityId keeps
+  // the id readable as plain data.
   const { error } = await supabase.from('audit_events').insert({
     sacco_id: saccoId,
     actor_profile_id: null,
     entity_type: 'sacco',
-    entity_id: saccoId,
+    entity_id: entityId !== undefined ? entityId : saccoId,
     action,
     metadata: { description, platform_admin: actorEmail, ...metadata }
   });
@@ -85,6 +88,148 @@ async function logPlatformEvent(supabase, { saccoId, action, actorEmail, descrip
   if (error) {
     console.warn('Platform audit log notice:', error.message);
   }
+}
+
+// Tenant-owned tables, ordered so that every ON DELETE RESTRICT foreign key is satisfied
+// before its target is removed. A bare `DELETE FROM saccos` is not enough: cascades fire in
+// an unspecified order, and transactions.loan_id, transactions.account_id and
+// loan_repayments.transaction_id are all RESTRICT, so the cascade can abort part-way.
+const PURGE_ORDER = [
+  'loan_guarantors',
+  'dividend_allocations',
+  'dividend_cycles',
+  'savings_vaults',
+  'transactions',
+  'loans',
+  'accounts',
+  'sacco_settings',
+  'audit_events',
+  'sacco_memberships'
+];
+
+async function deleteBySacco(supabase, table, saccoId) {
+  const { error } = await supabase.from(table).delete().eq('sacco_id', saccoId);
+
+  // A table that this database never had (an optional migration that was not applied) is
+  // not a purge failure -- there is nothing in it to erase.
+  if (error && !/does not exist|could not find|schema cache/i.test(error.message)) {
+    throw new Error(`Failed clearing ${table}: ${error.message}`);
+  }
+}
+
+// Counts and balances are read before anything is destroyed. Once the purge runs this
+// snapshot in the audit log is the only remaining evidence the tenant existed.
+async function captureTenantSnapshot(supabase, saccoId) {
+  const snapshot = {};
+
+  for (const table of ['sacco_memberships', 'accounts', 'transactions', 'loans', 'savings_vaults']) {
+    const { count, error } = await supabase
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .eq('sacco_id', saccoId);
+
+    snapshot[table] = error ? null : count || 0;
+  }
+
+  const { data: accounts } = await supabase.from('accounts').select('balance').eq('sacco_id', saccoId);
+  snapshot.total_balance = (accounts || []).reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
+
+  return snapshot;
+}
+
+// Erases a tenant and everything belonging to it. Irreversible by design.
+async function purgeTenant(supabase, sacco, actorEmail, reason) {
+  const saccoId = sacco.id;
+  const snapshot = await captureTenantSnapshot(supabase, saccoId);
+
+  // Members are collected up front: sacco_memberships is the record of who belonged here
+  // and it is deleted long before we get to the profiles themselves.
+  const { data: memberships, error: memberErr } = await supabase
+    .from('sacco_memberships')
+    .select('profile_id')
+    .eq('sacco_id', saccoId);
+
+  if (memberErr) throw new Error(`Failed reading members: ${memberErr.message}`);
+
+  const memberIds = [...new Set([
+    ...(memberships || []).map((m) => m.profile_id),
+    ...(sacco.admin_profile_id ? [sacco.admin_profile_id] : [])
+  ].filter(Boolean))];
+
+  // loan_repayments carries no sacco_id and holds an ON DELETE RESTRICT reference to
+  // transactions, so it has to be cleared by loan id before anything else moves.
+  const { data: loanRows } = await supabase.from('loans').select('id').eq('sacco_id', saccoId);
+  const loanIds = (loanRows || []).map((l) => l.id);
+  if (loanIds.length > 0) {
+    const { error } = await supabase.from('loan_repayments').delete().in('loan_id', loanIds);
+    if (error) throw new Error(`Failed clearing loan_repayments: ${error.message}`);
+  }
+
+  for (const table of PURGE_ORDER) {
+    await deleteBySacco(supabase, table, saccoId);
+  }
+
+  // saccos.admin_profile_id references profiles, so the tenant row goes before any profile.
+  const { error: saccoErr } = await supabase.from('saccos').delete().eq('id', saccoId);
+  if (saccoErr) throw new Error(`Failed deleting the SACCO: ${saccoErr.message}`);
+
+  // Members who belong to another SACCO are kept -- only their stale pointer at the
+  // deleted group is cleared, so ProtectedRoute cannot self-heal the tenant back into
+  // existence from a leftover group_id.
+  const removedMembers = [];
+  const retainedMembers = [];
+
+  for (const profileId of memberIds) {
+    const { data: elsewhere } = await supabase
+      .from('sacco_memberships')
+      .select('id')
+      .eq('profile_id', profileId)
+      .limit(1);
+
+    if (elsewhere && elsewhere.length > 0) {
+      retainedMembers.push(profileId);
+      continue;
+    }
+
+    // Removing the auth user cascades to profiles (profiles.id references auth.users
+    // ON DELETE CASCADE). If the admin API is unavailable, drop the profile row directly.
+    const { error: authErr } = await supabase.auth.admin.deleteUser(profileId);
+    if (authErr) {
+      const { error: profileErr } = await supabase.from('profiles').delete().eq('id', profileId);
+      if (profileErr) {
+        console.warn(`Could not remove profile ${profileId}: ${profileErr.message}`);
+        continue;
+      }
+    }
+    removedMembers.push(profileId);
+  }
+
+  if (retainedMembers.length > 0 && sacco.group_code) {
+    await supabase
+      .from('profiles')
+      .update({ group_id: null })
+      .in('id', retainedMembers)
+      .ilike('group_id', sacco.group_code);
+  }
+
+  await logPlatformEvent(supabase, {
+    saccoId: null,
+    entityId: saccoId,
+    action: 'PURGE_TENANT',
+    actorEmail,
+    description: `${sacco.name} (${sacco.group_code}) erased by ${actorEmail}. ${removedMembers.length} member account(s) deleted, ${retainedMembers.length} kept for other SACCOs. Reason: ${reason || 'none supplied'}.`,
+    metadata: {
+      sacco_name: sacco.name,
+      group_code: sacco.group_code,
+      reason: reason || null,
+      members_deleted: removedMembers.length,
+      members_retained: retainedMembers.length,
+      erased_at: new Date().toISOString(),
+      snapshot
+    }
+  });
+
+  return { snapshot, membersDeleted: removedMembers.length, membersRetained: retainedMembers.length };
 }
 
 async function fetchSacco(supabase, saccoId) {
@@ -205,7 +350,7 @@ export async function POST(request) {
     const saccoId = body.sacco_id || body.id;
     const reason = (body.reason || '').trim();
 
-    const lifecycleActions = ['suspend-tenant', 'hold-tenant', 'reactivate-tenant', 'update-subscription', 'record-payment', 'update_sacco'];
+    const lifecycleActions = ['suspend-tenant', 'purge-tenant', 'hold-tenant', 'reactivate-tenant', 'update-subscription', 'record-payment', 'update_sacco'];
 
     if (!lifecycleActions.includes(action)) {
       return Response.json({ error: 'Invalid action.' }, { status: 400 });
@@ -220,25 +365,32 @@ export async function POST(request) {
       return Response.json({ error: 'SACCO not found.' }, { status: 404 });
     }
 
-    // ---- Action 1: administrative suspension (full lockout) -------------------------
-    if (action === 'suspend-tenant') {
-      if (sacco.status === 'suspended') {
-        return Response.json({ error: `${sacco.name} is already suspended.` }, { status: 409 });
+    // ---- Action 1: suspend, which erases the tenant ----------------------------------
+    // Suspension is destructive and final: the SACCO, its members and every financial
+    // record belonging to it are deleted. There is no undo and no archive to restore
+    // from -- only the audit entry written below survives. Because of that the caller
+    // has to echo the SACCO name back before anything is touched.
+    if (action === 'suspend-tenant' || action === 'purge-tenant') {
+      const confirmName = (body.confirm_name || '').trim();
+
+      if (confirmName.toLowerCase() !== (sacco.name || '').trim().toLowerCase()) {
+        return Response.json({
+          error: `Confirmation failed. To erase this tenant, confirm_name must exactly match the SACCO name '${sacco.name}'.`
+        }, { status: 400 });
       }
 
-      const updated = await applyLifecycleChange(supabase, {
-        sacco,
-        status: 'suspended',
-        reason: reason || 'Suspended by platform administration.',
-        actorEmail,
-        action: 'SUSPEND_TENANT',
-        description: `${sacco.name} suspended by ${actorEmail}. ${reason || 'No reason supplied.'}`
-      });
+      const result = await purgeTenant(supabase, sacco, actorEmail, reason);
 
       return Response.json({
         success: true,
-        sacco: updated,
-        message: `${sacco.name} suspended. All member access is now blocked.`
+        purged: true,
+        sacco_id: sacco.id,
+        members_deleted: result.membersDeleted,
+        members_retained: result.membersRetained,
+        snapshot: result.snapshot,
+        message: `${sacco.name} has been erased. ${result.membersDeleted} member account(s) deleted`
+          + (result.membersRetained > 0 ? `, ${result.membersRetained} kept because they belong to another SACCO` : '')
+          + `. This cannot be undone.`
       });
     }
 

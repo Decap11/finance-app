@@ -451,6 +451,41 @@
   color: #cbd5e1;
 }
 
+/* Suspend is destructive, so it never reads as neutral in the legend. */
+.dev-actions-legend strong.danger-term {
+  color: #f87171;
+}
+
+/* Shown when /api/platform rejects a read, so an empty portal is never mistaken for a
+   portal with nothing in it. */
+.dev-data-error {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 1.6rem 2rem;
+  margin-bottom: 2.4rem;
+  border-radius: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+  font-size: 1.35rem;
+  line-height: 1.5;
+}
+
+.dev-data-error i {
+  font-size: 2rem;
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.dev-data-error div {
+  flex: 1;
+}
+
+.dev-data-error strong {
+  color: #fee2e2;
+}
+
 .sub-select {
   padding: 0.5rem 0.8rem;
   border-radius: 0.6rem;

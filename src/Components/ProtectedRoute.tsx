@@ -44,7 +44,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           .eq("id", userId)
           .maybeSingle();
 
-        const groupId = (profile?.group_id || session.user.user_metadata?.group_id || "").trim();
+        const profileGroupId = (profile?.group_id || "").trim();
+        const groupId = (profileGroupId || session.user.user_metadata?.group_id || "").trim();
         const role = profile?.role || session.user.user_metadata?.role || "member";
 
         // Non-admins may never reach admin-only routes, regardless of SACCO membership.
@@ -68,8 +69,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             .limit(1)
             .maybeSingle();
 
-          // Self-healing check for Admin accounts if SACCO row is still pending
-          if (!saccoRow && role === "admin" && cleanGroupCode) {
+          // Self-healing check for Admin accounts if SACCO row is still pending.
+          // Deliberately keyed off profiles.group_id rather than the JWT metadata copy:
+          // erasing a tenant clears that column, and stale metadata must not be able to
+          // recreate a SACCO the platform just deleted.
+          if (!saccoRow && role === "admin" && cleanGroupCode && profileGroupId) {
             try {
               const acronym = cleanGroupCode.split("-")[0] || "SACCO";
               const saccoName = session.user.user_metadata?.sacco_name || (profile?.full_name || session.user.user_metadata?.full_name || "SACCO Admin") + " SACCO";

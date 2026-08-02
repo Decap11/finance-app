@@ -51,6 +51,7 @@ export default function DeveloperPortal() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState("");
 
   // Database-backed states
   const [tenants, setTenants] = useState([]);
@@ -63,22 +64,57 @@ export default function DeveloperPortal() {
     enterprise: { name: "Enterprise Plan", price: 750000, memberLimit: 1000, shareValuation: 10000 }
   });
 
-  // Restore a real Supabase Auth session on mount. There is no client-side credential
-  // bypass here anymore — every protected read/write is re-verified server-side against
-  // the PLATFORM_ADMIN_EMAILS allow-list in /api/platform.
+  // Restore a session on mount — but a Supabase session on its own is NOT authorization.
+  // Any signed-in SACCO member has one, so the portal is only rendered after
+  // /api/platform confirms the session's email is on the PLATFORM_ADMIN_EMAILS
+  // allow-list, which is the same check every action re-runs server-side.
   useEffect(() => {
-    async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-      setCheckingSession(false);
-    }
-    checkSession();
+    let cancelled = false;
 
+    async function verifySession(session) {
+      if (!session) {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setCheckingSession(false);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/platform?action=tenants", {
+          headers: { "Authorization": `Bearer ${session.access_token}` }
+        });
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (!res.ok || !data.success) {
+          setIsAuthenticated(false);
+          setLoginError(data.error || "This account is not authorized for the developer portal.");
+        } else {
+          setIsAuthenticated(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setLoginError("Authorization check failed: " + err.message);
+        }
+      } finally {
+        if (!cancelled) setCheckingSession(false);
+      }
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => verifySession(session));
+
+    // Only sign-out is handled here. handleLogin runs its own verification, so
+    // re-verifying on every token refresh would just duplicate that round trip.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
+      if (!session) setIsAuthenticated(false);
     });
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // Fetch real data via the protected /api/platform route once authenticated
@@ -90,6 +126,7 @@ export default function DeveloperPortal() {
 
   async function fetchDatabaseData() {
     setLoadingData(true);
+    setDataError("");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
@@ -197,7 +234,11 @@ export default function DeveloperPortal() {
       }
 
     } catch (err) {
+      // Surfaced rather than only logged: a silent failure here leaves every table empty
+      // and every metric at zero, which reads as "the portal didn't change" instead of
+      // "the request was rejected".
       console.error("Error fetching developer portal database data:", err);
+      setDataError(err.message);
     } finally {
       setLoadingData(false);
     }
@@ -284,15 +325,36 @@ export default function DeveloperPortal() {
     }
   };
 
-  // ACTION 1 - Suspend: administrative lockout, nothing to do with billing. Members
-  // cannot even sign in until a developer explicitly reinstates the SACCO.
+  // ACTION 1 - Suspend: erases the tenant. The SACCO, its members and all of its
+  // financial records are deleted permanently. Two confirmations because there is no
+  // undo — the name has to be typed exactly, and the server checks it again.
   const suspendTenant = async (tenant) => {
+    const typed = prompt(
+      `ERASE '${tenant.name}' from the platform?\n\n` +
+      `This permanently deletes the SACCO along with its members, accounts, transactions,\n` +
+      `loans, savings vaults and dividend history. Members lose their sign-in entirely.\n\n` +
+      `THIS CANNOT BE UNDONE.\n\n` +
+      `Type the SACCO name exactly to confirm:`,
+      ""
+    );
+    if (typed === null) return;
+
+    if (typed.trim().toLowerCase() !== tenant.name.trim().toLowerCase()) {
+      alert(`The name did not match. '${tenant.name}' has NOT been erased.`);
+      return;
+    }
+
     const reason = prompt(
-      `Suspend '${tenant.name}'?\n\nEvery member loses access to the app immediately.\n\nReason (shown to the SACCO):`,
+      `Reason for erasing '${tenant.name}'?\n\nRecorded in the platform audit log, which is all that survives.`,
       ""
     );
     if (reason === null) return;
-    await runTenantAction("suspend-tenant", { sacco_id: tenant.id, reason });
+
+    await runTenantAction("suspend-tenant", {
+      sacco_id: tenant.id,
+      confirm_name: typed,
+      reason
+    });
   };
 
   // ACTION 2 - Hold: a billing measure, so it is only offered while the subscription is
@@ -549,6 +611,20 @@ export default function DeveloperPortal() {
             </div>
           )}
 
+          {dataError && (
+            <div className="dev-data-error">
+              <i className="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <strong>Live platform data could not be loaded.</strong> {dataError}
+                <div className="dev-cell-sub">
+                  Everything below is showing empty because the request was rejected, not
+                  because the platform has no tenants.
+                </div>
+              </div>
+              <button className="btn-dev-action" onClick={fetchDatabaseData}>Retry</button>
+            </div>
+          )}
+
           {/* Metric Cards Row */}
           <section className="dev-metrics-grid">
             <div className="dev-metric-card">
@@ -671,8 +747,10 @@ export default function DeveloperPortal() {
               <div className="dev-card-header">
                 <span className="dev-card-title">Platform Tenant Directory</span>
                 <span className="dev-actions-legend">
-                  <strong>Hold</strong> restricts a tenant to read-only while its subscription is unpaid.
-                  <strong> Suspend</strong> is a full administrative lockout, independent of billing.
+                  <strong>Hold</strong> restricts a tenant to read-only while its subscription is
+                  unpaid, and is reversible.
+                  <strong className="danger-term"> Suspend</strong> erases the tenant and all of its
+                  data permanently.
                 </span>
               </div>
               <div className="dev-table-container">
@@ -768,15 +846,13 @@ export default function DeveloperPortal() {
                                 </button>
                               )}
 
-                              {tenant.status !== "suspended" && (
-                                <button
-                                  onClick={() => suspendTenant(tenant)}
-                                  className="btn-dev-action critical"
-                                  title="Full administrative lockout - members cannot sign in"
-                                >
-                                  Suspend
-                                </button>
-                              )}
+                              <button
+                                onClick={() => suspendTenant(tenant)}
+                                className="btn-dev-action critical"
+                                title={`Erase ${tenant.name} and every record belonging to it. Permanent.`}
+                              >
+                                Suspend &amp; Erase
+                              </button>
 
                               <button
                                 onClick={() => recordPayment(tenant)}
