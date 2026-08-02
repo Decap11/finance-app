@@ -11,6 +11,7 @@ import AdminLayout from "../layout/AdminLayout";
 import PaymentPlans from "../Components/Payments";
 import SaccoSettings from "../Components/saccoSettings";
 import DividendDistributionPortal from "../Components/DividendDistributionPortal";
+import AdminActionModal from "../Components/AdminActionModal";
 
 export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
@@ -18,6 +19,9 @@ export default function AdminDashboardPage() {
 
   const [allMembers, setAllMembers] = useState([]);
   const [viewerCanDemote, setViewerCanDemote] = useState(false);
+  // Single dialog reused by every member-card action; null when nothing is open.
+  const [modal, setModal] = useState(null);
+  const [modalBusy, setModalBusy] = useState(false);
   const [metrics, setMetrics] = useState({
     pendingApprovals: 0,
     totalCapital: 0,
@@ -268,97 +272,167 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const handleMakeAdmin = async (memberId) => {
-    const confirmPromote = window.confirm("Are you sure you want to make this member an admin?");
-    if (!confirmPromote) return;
+  // ---- Member card actions ------------------------------------------------------------
+  // Each one opens a confirm dialog, and confirming replaces that dialog's contents with
+  // the outcome rather than closing it, so success and failure land in the same place the
+  // user is already looking. All five previously used window.confirm + alert.
 
+  const closeModal = () => {
+    if (!modalBusy) setModal(null);
+  };
+
+  // Shared tail: run the RPC, apply the optimistic list update on success, and report
+  // either way. Postgres raises the authorization and safety rules in these functions as
+  // exceptions, so err.message is already the sentence to show ("You cannot demote
+  // yourself", "This SACCO would be left with no admin", and so on).
+  const runMemberAction = async ({ rpc, params, tone, icon, title, message, failTitle, onSuccess }) => {
+    setModalBusy(true);
     try {
-      const { error } = await supabase.rpc('make_member_admin', {
-        p_member_id: memberId
-      });
-
+      const { error } = await supabase.rpc(rpc, params);
       if (error) throw error;
 
-      alert("Member successfully promoted to admin!");
-      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin', status: 'active' } : m));
+      onSuccess?.();
+      setModal({ kind: "result", tone: tone || "success", icon: icon || "fa-circle-check", title, message });
     } catch (err) {
-      alert("Failed to make member admin: " + err.message);
+      setModal({
+        kind: "result",
+        tone: "danger",
+        icon: "fa-circle-exclamation",
+        title: failTitle,
+        message: err.message
+      });
+    } finally {
+      setModalBusy(false);
     }
   };
 
-  const handleDemoteAdmin = async (memberId) => {
-    const confirmDemote = window.confirm("Remove admin privileges from this member? They stay in the SACCO as a regular member.");
-    if (!confirmDemote) return;
-
-    try {
-      const { error } = await supabase.rpc('demote_sacco_admin', {
-        p_member_id: memberId
-      });
-
-      if (error) throw error;
-
-      alert("Admin privileges removed. This member is now a regular member.");
-      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'member' } : m));
-    } catch (err) {
-      alert("Failed to demote admin: " + err.message);
-    }
+  const handleMakeAdmin = (member) => {
+    setModal({
+      kind: "confirm",
+      tone: "primary",
+      icon: "fa-user-shield",
+      title: "Grant admin privileges?",
+      confirmLabel: "Make admin",
+      message: (
+        <>
+          <strong>{member.name}</strong> will get the admin dashboard: approving
+          contributions and loans, managing members, and running dividend payouts. You can
+          reverse this later from this card.
+        </>
+      ),
+      onConfirm: () => runMemberAction({
+        rpc: "make_member_admin",
+        params: { p_member_id: member.id },
+        title: "Promoted to admin",
+        message: `${member.name} now has admin access to this SACCO.`,
+        failTitle: "Could not promote member",
+        onSuccess: () => setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: 'admin', status: 'active' } : m))
+      })
+    });
   };
 
-  const handleApproveMember = async (memberId) => {
-    const confirmApprove = window.confirm("Are you sure you want to approve this pending member?");
-    if (!confirmApprove) return;
-
-    try {
-      const { error } = await supabase.rpc('set_member_approval', {
-        p_member_id: memberId,
-        p_approve: true
-      });
-
-      if (error) throw error;
-
-      alert("Member successfully approved!");
-      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
-    } catch (err) {
-      alert("Failed to approve member: " + err.message);
-    }
+  const handleDemoteAdmin = (member) => {
+    setModal({
+      kind: "confirm",
+      tone: "warning",
+      icon: "fa-user-minus",
+      title: "Remove admin privileges?",
+      confirmLabel: "Remove privileges",
+      message: (
+        <>
+          <strong>{member.name}</strong> stays in the SACCO as a regular member. Their
+          savings, contributions and loan history are untouched — only the admin dashboard
+          is withdrawn.
+        </>
+      ),
+      onConfirm: () => runMemberAction({
+        rpc: "demote_sacco_admin",
+        params: { p_member_id: member.id },
+        title: "Admin privileges removed",
+        message: `${member.name} is now a regular member of the SACCO.`,
+        failTitle: "Could not demote admin",
+        onSuccess: () => setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: 'member' } : m))
+      })
+    });
   };
 
-  const handleUnapproveMember = async (memberId) => {
-    const confirmUnapprove = window.confirm("Are you sure you want to unapprove / revoke dashboard access for this member?");
-    if (!confirmUnapprove) return;
-
-    try {
-      const { error } = await supabase.rpc('set_member_approval', {
-        p_member_id: memberId,
-        p_approve: false
-      });
-
-      if (error) throw error;
-
-      alert("Member access revoked! Account status set to pending.");
-      setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
-    } catch (err) {
-      alert("Failed to unapprove member: " + err.message);
-    }
+  const handleApproveMember = (member) => {
+    setModal({
+      kind: "confirm",
+      tone: "primary",
+      icon: "fa-user-check",
+      title: "Approve this member?",
+      confirmLabel: "Approve member",
+      message: (
+        <>
+          <strong>{member.name}</strong> will be able to sign in and use the member
+          dashboard — recording contributions, requesting loans and viewing their savings.
+        </>
+      ),
+      onConfirm: () => runMemberAction({
+        rpc: "set_member_approval",
+        params: { p_member_id: member.id, p_approve: true },
+        title: "Member approved",
+        message: `${member.name} now has full access to the SACCO dashboard.`,
+        failTitle: "Could not approve member",
+        onSuccess: () => setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: 'active' } : m))
+      })
+    });
   };
 
-  const handleDeleteMember = async (memberId) => {
-    const confirmDelete = window.confirm("Are you sure you want to entirely delete this member's data away from our SACCO group?");
-    if (!confirmDelete) return;
+  const handleUnapproveMember = (member) => {
+    setModal({
+      kind: "confirm",
+      tone: "danger",
+      icon: "fa-user-lock",
+      title: "Revoke dashboard access?",
+      confirmLabel: "Revoke access",
+      message: (
+        <>
+          <strong>{member.name}</strong> will be locked out of the dashboard immediately,
+          even if they are signed in right now. Their savings, contributions and loan
+          records are kept and access can be restored by approving them again.
+        </>
+      ),
+      onConfirm: () => runMemberAction({
+        rpc: "set_member_approval",
+        params: { p_member_id: member.id, p_approve: false },
+        tone: "warning",
+        icon: "fa-user-lock",
+        title: "Access revoked",
+        message: `${member.name} is back to pending and can no longer open the dashboard.`,
+        failTitle: "Could not revoke access",
+        onSuccess: () => setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: 'pending' } : m))
+      })
+    });
+  };
 
-    try {
-      const { error } = await supabase.rpc('delete_member_entirely', {
-        p_member_id: memberId
-      });
-
-      if (error) throw error;
-
-      alert("Member and all associated data deleted successfully!");
-      setAllMembers(prev => prev.filter(m => m.id !== memberId));
-      setMetrics(prev => ({ ...prev, totalMembers: Math.max(0, prev.totalMembers - 1) }));
-    } catch (err) {
-      alert("Failed to delete member: " + err.message);
-    }
+  const handleDeleteMember = (member) => {
+    setModal({
+      kind: "confirm",
+      tone: "danger",
+      icon: "fa-triangle-exclamation",
+      title: "Delete this member permanently?",
+      confirmLabel: "Delete permanently",
+      message: (
+        <>
+          This erases <strong>{member.name}</strong>&apos;s account along with their
+          contributions, loans and balances. Records belonging to other members that they
+          approved are kept. <strong>This cannot be undone.</strong>
+        </>
+      ),
+      onConfirm: () => runMemberAction({
+        rpc: "delete_member_entirely",
+        params: { p_member_id: member.id },
+        title: "Member deleted",
+        message: `${member.name} and all of their SACCO data have been removed.`,
+        failTitle: "Could not delete member",
+        onSuccess: () => {
+          setAllMembers(prev => prev.filter(m => m.id !== member.id));
+          setMetrics(prev => ({ ...prev, totalMembers: Math.max(0, prev.totalMembers - 1) }));
+        }
+      })
+    });
   };
 
   const quickActionsCardsData = [
@@ -597,7 +671,7 @@ export default function AdminDashboardPage() {
                     }}>
                       {member.status === "pending" ? (
                         <button
-                          onClick={() => handleApproveMember(member.id)}
+                          onClick={() => handleApproveMember(member)}
                           style={{
                             background: "var(--primary-color)",
                             border: "none",
@@ -621,7 +695,7 @@ export default function AdminDashboardPage() {
                         <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>Protected</span>
                       ) : (
                         <button
-                          onClick={() => handleUnapproveMember(member.id)}
+                          onClick={() => handleUnapproveMember(member)}
                           style={{
                             background: "#fee2e2",
                             border: "none",
@@ -646,7 +720,7 @@ export default function AdminDashboardPage() {
                           below is the case where the RPC would certainly reject. */}
                       {member.role !== "admin" ? (
                         <button
-                          onClick={() => handleMakeAdmin(member.id)}
+                          onClick={() => handleMakeAdmin(member)}
                           style={{
                             background: "none",
                             border: "none",
@@ -669,7 +743,7 @@ export default function AdminDashboardPage() {
                         </span>
                       ) : viewerCanDemote && !member.isCurrentUser ? (
                         <button
-                          onClick={() => handleDemoteAdmin(member.id)}
+                          onClick={() => handleDemoteAdmin(member)}
                           title="Remove admin privileges"
                           style={{
                             background: "none",
@@ -693,7 +767,7 @@ export default function AdminDashboardPage() {
                       {/* 0018 makes delete_member_entirely refuse the owner too. */}
                       {!member.isCurrentUser && !member.isSaccoOwner && (
                         <button
-                          onClick={() => handleDeleteMember(member.id)}
+                          onClick={() => handleDeleteMember(member)}
                           style={{
                             background: "none",
                             border: "none",
@@ -738,6 +812,10 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Outside .dashboard-body so the fixed overlay is not clipped by the sidebar
+          layout's overflow handling on narrow screens. */}
+      <AdminActionModal modal={modal} busy={modalBusy} onClose={closeModal} />
     </AdminLayout>
   );
 }

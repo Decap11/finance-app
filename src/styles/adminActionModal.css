@@ -1,0 +1,236 @@
+/* Confirmation and result dialog for the admin Members tab, replacing window.confirm and
+   alert. Follows the .notification-modal pattern already in userHeader.css -- same
+   overlay tint, blur, radius and z-index -- so the two read as the same component.
+
+   Tokens use var(--name, fallback): --primary-color and friends are declared in several
+   feature stylesheets' :root rather than a global one, and which of them the /admin
+   bundle happens to include is not something this file should depend on. */
+
+.aam-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: aamFade 0.2s ease-out;
+  overscroll-behavior: contain;
+}
+
+.aam-dialog {
+  width: 100%;
+  max-width: 46rem;
+  /* Bounded so a long Postgres error still scrolls inside the card instead of pushing
+     the action buttons off-screen on a short viewport. */
+  max-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--white, #ffffff);
+  border-radius: 2rem;
+  box-shadow: 0 2rem 5rem rgba(15, 23, 42, 0.25);
+  animation: aamRise 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes aamFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes aamRise {
+  from { opacity: 0; transform: translateY(1.6rem) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Respect a reduced-motion preference -- the dialog appears, it just does not travel. */
+@media (prefers-reduced-motion: reduce) {
+  .aam-overlay,
+  .aam-dialog {
+    animation: none;
+  }
+}
+
+.aam-body {
+  padding: 3rem 3rem 2.4rem;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.aam-icon {
+  width: 6.4rem;
+  height: 6.4rem;
+  margin: 0 auto 1.8rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+}
+
+.aam-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--text-dark, #1e293b);
+  margin-bottom: 1rem;
+}
+
+.aam-message {
+  font-size: 1.4rem;
+  line-height: 1.7;
+  color: #475569;
+  /* Postgres errors arrive as one long unbroken string; keep it inside the card. */
+  overflow-wrap: anywhere;
+}
+
+.aam-message strong {
+  color: var(--text-dark, #1e293b);
+  font-weight: 700;
+}
+
+.aam-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 2rem 3rem 2.4rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.aam-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-width: 12rem;
+  padding: 1.2rem 2rem;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.35rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aam-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.aam-btn-ghost {
+  border: 1.5px solid var(--input-border, #e2e8f0);
+  background: var(--white, #ffffff);
+  color: var(--text-light, #64748b);
+}
+
+.aam-btn-ghost:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: var(--text-dark, #1e293b);
+}
+
+.aam-btn-solid {
+  border: none;
+  color: #ffffff;
+}
+
+.aam-btn-solid:hover:not(:disabled) {
+  transform: translateY(-0.1rem);
+  filter: brightness(0.94);
+}
+
+/* ---- Tones -------------------------------------------------------------------------
+   Reuses the palette the member cards already use for role and status badges, so a
+   dialog reads as the same colour language as the card that opened it. */
+
+.aam-icon.tone-primary { background: rgba(37, 59, 142, 0.1);  color: #253b8e; }
+.aam-icon.tone-success { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.aam-icon.tone-danger  { background: rgba(239, 68, 68, 0.1);  color: #ef4444; }
+.aam-icon.tone-warning { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+
+.aam-btn-solid.tone-primary { background: var(--primary-color, #253b8e); }
+.aam-btn-solid.tone-success { background: #16a34a; }
+.aam-btn-solid.tone-danger  { background: #ef4444; }
+.aam-btn-solid.tone-warning { background: #d97706; }
+
+.aam-spinner {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0.2rem solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: aamSpin 0.6s linear infinite;
+}
+
+@keyframes aamSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Responsive ---------------------------------------------------------------------
+   44rem is the breakpoint the rest of the app uses. Below it the dialog goes near
+   full-width and the buttons stack, with the confirming action on top so it stays under
+   the thumb. */
+
+@media (max-width: 44rem) {
+  .aam-overlay {
+    padding: 1.4rem;
+    /* Keeps the dialog clear of a phone's home indicator when it is tall enough to
+       reach the bottom of the screen. */
+    padding-bottom: max(1.4rem, env(safe-area-inset-bottom));
+  }
+
+  .aam-dialog {
+    max-height: calc(100vh - 2.8rem);
+    border-radius: 1.6rem;
+  }
+
+  .aam-body {
+    padding: 2.4rem 2rem 1.8rem;
+  }
+
+  .aam-icon {
+    width: 5.4rem;
+    height: 5.4rem;
+    font-size: 2.2rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .aam-title {
+    font-size: 1.7rem;
+  }
+
+  .aam-message {
+    font-size: 1.3rem;
+  }
+
+  .aam-footer {
+    flex-direction: column-reverse;
+    padding: 1.6rem 2rem 2rem;
+  }
+
+  .aam-btn {
+    width: 100%;
+    min-width: 0;
+    padding: 1.4rem 2rem;
+  }
+}
+
+/* Landscape phones: almost no vertical room, so drop the decorative icon and tighten
+   everything rather than letting the dialog become a scrolling sliver. */
+@media (max-height: 30rem) {
+  .aam-icon {
+    display: none;
+  }
+
+  .aam-body {
+    padding: 2rem 2.4rem 1.4rem;
+  }
+
+  .aam-footer {
+    flex-direction: row;
+    padding: 1.4rem 2.4rem 1.6rem;
+  }
+}
