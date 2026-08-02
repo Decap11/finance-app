@@ -3,32 +3,55 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  return createClient(url, serviceKey);
+  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+}
+
+async function authenticate(request) {
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) {
+    return { error: 'No authorization token provided.', status: 401 };
+  }
+
+  const jwtClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+
+  const { data: { user }, error: authErr } = await jwtClient.auth.getUser();
+  if (authErr || !user) {
+    return { error: authErr?.message || 'Authentication failed.', status: 401 };
+  }
+
+  return { user, jwtClient };
 }
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const profileId = searchParams.get('profile_id');
-    const status = searchParams.get('status') || 'pending';
-
-    if (!profileId) {
-      return NextResponse.json({ error: 'profile_id is required' }, { status: 400 });
+    const auth = await authenticate(request);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const supabase = getSupabaseAdmin();
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status') || 'pending';
 
-    const { data: requests, error } = await supabase
+    const admin = getSupabaseAdmin();
+
+    // guarantor_profile_id is always the authenticated caller's own id, never client-supplied.
+    const { data: requests, error } = await admin
       .from('loan_guarantors')
       .select(`
         *,
         borrower:profiles!borrower_profile_id(full_name, member_number, phone),
         loan:loans(amount, term_months, interest_rate, status)
       `)
-      .eq('guarantor_profile_id', profileId)
+      .eq('guarantor_profile_id', auth.user.id)
       .eq('status', status)
       .order('created_at', { ascending: false });
 
@@ -45,34 +68,50 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { action, guarantor_id, response, loan_id, guarantor_profile_ids, guaranteed_amount, borrower_id, sacco_id } = body;
+    const auth = await authenticate(request);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
-    const supabase = getSupabaseAdmin();
+    const body = await request.json();
+    const { action, guarantor_id, response, loan_id, guarantor_profile_ids, guaranteed_amount } = body;
+
+    const admin = getSupabaseAdmin();
 
     if (action === 'nominate') {
       if (!loan_id || !guarantor_profile_ids || !Array.isArray(guarantor_profile_ids) || guarantor_profile_ids.length === 0) {
         return NextResponse.json({ error: 'Valid loan_id and guarantor_profile_ids array required' }, { status: 400 });
       }
 
-      const records = guarantor_profile_ids.map(gId => ({
+      // The caller may only nominate guarantors for their own loan — sacco_id/borrower_id are
+      // resolved server-side from the loan row, never trusted from the request body.
+      const { data: loan, error: loanErr } = await admin
+        .from('loans')
+        .select('id, sacco_id, profile_id')
+        .eq('id', loan_id)
+        .single();
+
+      if (loanErr || !loan || loan.profile_id !== auth.user.id) {
+        return NextResponse.json({ error: 'Unauthorized. You may only nominate guarantors for your own loan.' }, { status: 403 });
+      }
+
+      const records = guarantor_profile_ids.map((gId) => ({
         loan_id,
-        sacco_id,
-        borrower_profile_id: borrower_id,
+        sacco_id: loan.sacco_id,
+        borrower_profile_id: auth.user.id,
         guarantor_profile_id: gId,
         status: 'pending',
         guaranteed_amount: Number(guaranteed_amount || 0)
       }));
 
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from('loan_guarantors')
         .insert(records)
         .select();
 
       if (error) throw error;
 
-      // Update loan guarantor status
-      await supabase
+      await admin
         .from('loans')
         .update({ guarantor_status: 'pending_guarantors', status: 'pending_guarantors' })
         .eq('id', loan_id);
@@ -85,7 +124,23 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Valid guarantor_id and response (approved/rejected) required' }, { status: 400 });
       }
 
-      const { data, error } = await supabase.rpc('process_guarantor_response', {
+      // The caller may only respond to a guarantee request addressed to them.
+      const { data: guarantorRow, error: fetchErr } = await admin
+        .from('loan_guarantors')
+        .select('guarantor_profile_id')
+        .eq('id', guarantor_id)
+        .single();
+
+      if (fetchErr || !guarantorRow) {
+        return NextResponse.json({ error: 'Guarantor record not found.' }, { status: 404 });
+      }
+
+      if (guarantorRow.guarantor_profile_id !== auth.user.id) {
+        return NextResponse.json({ error: 'Unauthorized. This guarantee request was not addressed to you.' }, { status: 403 });
+      }
+
+      // Forward the caller's JWT so auth.uid() resolves inside process_guarantor_response.
+      const { data, error } = await auth.jwtClient.rpc('process_guarantor_response', {
         p_guarantor_id: guarantor_id,
         p_response: response
       });

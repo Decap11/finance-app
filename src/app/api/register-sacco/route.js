@@ -42,6 +42,20 @@ export async function POST(request) {
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
           auth: { persistSession: false }
         });
+
+        // Refuse to silently take over an existing SACCO's admin seat by reusing its group code.
+        const { data: existingSacco } = await supabaseAdmin
+          .from('saccos')
+          .select('id, admin_profile_id')
+          .eq('group_code', groupCode)
+          .maybeSingle();
+
+        if (existingSacco?.admin_profile_id) {
+          return Response.json({
+            error: 'A SACCO with this group code already exists under different administration. Choose a different unique number.'
+          }, { status: 400 });
+        }
+
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email: cleanEmail,
           password: password,

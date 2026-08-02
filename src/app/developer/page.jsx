@@ -6,9 +6,11 @@ import "../../styles/developerPortal.css";
 
 export default function DeveloperPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [loadingData, setLoadingData] = useState(false);
 
@@ -23,15 +25,25 @@ export default function DeveloperPortal() {
     enterprise: { name: "Enterprise Plan", price: 750000, memberLimit: 1000, shareValuation: 10000 }
   });
 
-  // Load auth state from session storage on mount
+  // Restore a real Supabase Auth session on mount. There is no client-side credential
+  // bypass here anymore — every protected read/write is re-verified server-side against
+  // the PLATFORM_ADMIN_EMAILS allow-list in /api/platform.
   useEffect(() => {
-    const authSession = sessionStorage.getItem("dev_portal_auth");
-    if (authSession === "true") {
-      setIsAuthenticated(true);
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+      setCheckingSession(false);
     }
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
-  // Fetch real data from Supabase once authenticated
+  // Fetch real data via the protected /api/platform route once authenticated
   useEffect(() => {
     if (isAuthenticated) {
       fetchDatabaseData();
@@ -41,26 +53,25 @@ export default function DeveloperPortal() {
   const fetchDatabaseData = async () => {
     setLoadingData(true);
     try {
-      // 1. Fetch Sacco Tenants from public.saccos
-      const { data: saccoData, error: saccoError } = await supabase
-        .from('saccos')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const authHeaders = { "Authorization": `Bearer ${session.access_token}` };
 
-      if (saccoError) throw saccoError;
+      // 1. Fetch Sacco Tenants + Profiles via the protected platform route
+      const tenantsRes = await fetch("/api/platform?action=tenants", { headers: authHeaders });
+      const tenantsData = await tenantsRes.json();
+      if (!tenantsRes.ok || !tenantsData.success) {
+        throw new Error(tenantsData.error || "Failed to load tenants");
+      }
 
-      // 2. Fetch User Profiles to map Sacco Administrators
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name');
-
-      if (profileError) throw profileError;
+      const saccoData = tenantsData.saccos || [];
+      const profileData = tenantsData.profiles || [];
 
       // Map Supabase rows to local tenant objects
-      const mappedTenants = (saccoData || []).map(sacco => {
+      const mappedTenants = saccoData.map(sacco => {
         const adminUser = profileData?.find(p => p.id === sacco.admin_profile_id);
         const limit = sacco.member_limit || 50;
-        
+
         // Infer billing plan from member limit
         let planType = "basic";
         let planPrice = 150000;
@@ -87,16 +98,16 @@ export default function DeveloperPortal() {
 
       setTenants(mappedTenants);
 
-      // 3. Fetch Platform events logs from audit_events table
-      const { data: auditData, error: auditError } = await supabase
-        .from('audit_events')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
+      // 2. Fetch Platform events logs via the protected platform route
+      const auditRes = await fetch("/api/platform?action=audit-log", { headers: authHeaders });
+      const auditData = await auditRes.json();
+      if (!auditRes.ok || !auditData.success) {
+        throw new Error(auditData.error || "Failed to load audit log");
+      }
 
-      if (auditError) throw auditError;
+      const events = auditData.events || [];
 
-      const mappedLogs = (auditData || []).map(evt => {
+      const mappedLogs = events.map(evt => {
         let type = "info";
         if (evt.action.toLowerCase().includes("fail") || evt.action.toLowerCase().includes("reject") || evt.action.toLowerCase().includes("suspend")) {
           type = "warn";
@@ -138,42 +149,38 @@ export default function DeveloperPortal() {
     }
   };
 
-  // Handle developer authentication
-  const handleLogin = (e) => {
+  // Real Supabase Auth login — no client-side credential comparison. The resulting
+  // session's email is re-verified server-side against PLATFORM_ADMIN_EMAILS on every
+  // /api/platform call, so a valid-but-unlisted Supabase account still gets 403'd.
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError("");
+    setLoggingIn(true);
 
-    const targetEmail = "developer@pewosa.org";
-    const targetPassword = "pewosa2026";
-
-    const typedEmail = email.trim().toLowerCase();
-    const typedPassword = password.trim();
-
-    console.log("Developer Auth Attempt:", {
-      typedEmail,
-      targetEmail,
-      emailMatch: typedEmail === targetEmail,
-      passwordMatch: typedPassword === targetPassword
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim()
     });
 
-    if (typedEmail === targetEmail && typedPassword === targetPassword) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem("dev_portal_auth", "true");
-    } else {
-      setLoginError("Invalid developer email or password.");
+    setLoggingIn(false);
+
+    if (error || !data?.session) {
+      setLoginError(error?.message || "Invalid developer email or password.");
+      return;
     }
+
+    setIsAuthenticated(true);
   };
 
-
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
-    sessionStorage.removeItem("dev_portal_auth");
     setEmail("");
     setPassword("");
   };
 
-  // Toggle tenant status inside actual database!
+  // Toggle tenant status via the protected /api/platform route. Service-role writes now
+  // only ever happen server-side, gated by the PLATFORM_ADMIN_EMAILS allow-list.
   const toggleTenantStatus = async (id, currentStatus) => {
     let nextStatus = "active";
     if (currentStatus === "active") nextStatus = "suspended";
@@ -182,26 +189,21 @@ export default function DeveloperPortal() {
 
     setLoadingData(true);
     try {
-      const { error } = await supabase
-        .from('saccos')
-        .update({ status: nextStatus })
-        .eq('id', id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      if (error) throw error;
+      const res = await fetch("/api/platform?action=toggle-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ id, status: nextStatus })
+      });
 
-      // Log the event in the audit table (try-catch internally so it doesn't block if schema differs slightly)
-      try {
-        await supabase
-          .from('audit_events')
-          .insert({
-            sacco_id: id,
-            entity_type: "sacco",
-            entity_id: id,
-            action: "status_change",
-            metadata: { description: `Status changed to ${nextStatus.toUpperCase()}` }
-          });
-      } catch (logErr) {
-        console.warn("Failed to write to audit_events table:", logErr);
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Failed to update SACCO status");
       }
 
       // Refresh data
@@ -250,6 +252,11 @@ export default function DeveloperPortal() {
   const activeCount = tenants.filter(t => t.status === "active").length;
   const pendingCount = tenants.filter(t => t.status === "pending").length;
 
+  // Avoid flashing the login screen while the real Supabase session is still being checked.
+  if (checkingSession) {
+    return null;
+  }
+
   // Render Authentication screen if not logged in
   if (!isAuthenticated) {
     return (
@@ -262,7 +269,7 @@ export default function DeveloperPortal() {
             </div>
             <div className="dev-auth-title">SysAdmin Authorization</div>
             <p className="dev-auth-subtitle">Authorized developer credentials required to monitor platforms and subscription configurations.</p>
-            
+
 
 
             {loginError && (
@@ -277,9 +284,9 @@ export default function DeveloperPortal() {
                 <label>Admin Email</label>
                 <div className="dev-auth-input-wrapper">
                   <i className="fa-solid fa-envelope"></i>
-                  <input 
-                    type="email" 
-                    placeholder="sysadmin@pewosa.org" 
+                  <input
+                    type="email"
+                    placeholder="sysadmin@pewosa.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -291,9 +298,9 @@ export default function DeveloperPortal() {
                 <label>Password</label>
                 <div className="dev-auth-input-wrapper">
                   <i className="fa-solid fa-lock"></i>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••" 
+                  <input
+                    type="password"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -301,8 +308,8 @@ export default function DeveloperPortal() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-dev-login">
-                Authorize Access
+              <button type="submit" className="btn-dev-login" disabled={loggingIn}>
+                {loggingIn ? "Authorizing..." : "Authorize Access"}
               </button>
             </form>
           </div>
@@ -324,8 +331,8 @@ export default function DeveloperPortal() {
           <nav>
             <ul className="dev-nav-list">
               <li>
-                <button 
-                  onClick={() => setActiveTab("overview")} 
+                <button
+                  onClick={() => setActiveTab("overview")}
                   className={`dev-nav-item ${activeTab === "overview" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-grid-2"></i>
@@ -333,8 +340,8 @@ export default function DeveloperPortal() {
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActiveTab("tenants")} 
+                <button
+                  onClick={() => setActiveTab("tenants")}
                   className={`dev-nav-item ${activeTab === "tenants" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-server"></i>
@@ -342,8 +349,8 @@ export default function DeveloperPortal() {
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActiveTab("plans")} 
+                <button
+                  onClick={() => setActiveTab("plans")}
                   className={`dev-nav-item ${activeTab === "plans" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-credit-card"></i>
@@ -351,8 +358,8 @@ export default function DeveloperPortal() {
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActiveTab("logs")} 
+                <button
+                  onClick={() => setActiveTab("logs")}
                   className={`dev-nav-item ${activeTab === "logs" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-list-check"></i>
@@ -361,7 +368,7 @@ export default function DeveloperPortal() {
               </li>
             </ul>
           </nav>
-          
+
           <div className="dev-sidebar-footer">
             <button onClick={handleLogout} className="btn-dev-logout">
               <i className="fa-solid fa-right-from-bracket"></i>
@@ -570,8 +577,8 @@ export default function DeveloperPortal() {
                           </td>
                           <td>
                             <div className="dev-actions" style={{ justifyContent: "flex-end" }}>
-                              <button 
-                                onClick={() => toggleTenantStatus(tenant.id, tenant.status)} 
+                              <button
+                                onClick={() => toggleTenantStatus(tenant.id, tenant.status)}
                                 className={`btn-dev-action ${tenant.status === 'active' ? 'critical' : ''}`}
                               >
                                 {tenant.status === "active" ? "Suspend" : "Activate"}
@@ -601,7 +608,7 @@ export default function DeveloperPortal() {
                         <div className="plan-name">{plan.name}</div>
                         <div className="plan-desc">Targeted for scaling groups and cooperatives.</div>
                       </div>
-                      
+
                       <div className="plan-price-block">
                         <span className="plan-price-currency">Shs</span>
                         <span className="plan-price-amt">{plan.price.toLocaleString()}</span>
@@ -619,9 +626,9 @@ export default function DeveloperPortal() {
                         </div>
                         <div className="plan-setting-row" style={{ marginTop: "1rem" }}>
                           <span className="plan-setting-label">Edit Monthly Cost</span>
-                          <input 
-                            type="number" 
-                            className="plan-setting-input" 
+                          <input
+                            type="number"
+                            className="plan-setting-input"
                             value={plan.price}
                             onChange={(e) => updatePlanPrice(key, e.target.value)}
                           />

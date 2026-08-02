@@ -190,6 +190,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
       // 1. Record attendance snapshot
       await supabase.from("audit_events").insert({
+        sacco_id: saccoId,
         entity_type: "sacco_attendance",
         action: `register_attendance_week_${currentWeek}`,
         metadata: {

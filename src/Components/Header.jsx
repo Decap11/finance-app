@@ -144,8 +144,9 @@ export default function Header() {
     setShowNotifications(false);
   };
 
-  const handleLogout = (event) => {
+  const handleLogout = async (event) => {
     event.preventDefault();
+    await supabase.auth.signOut();
     router.push("/login");
   };
 

@@ -40,6 +40,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         const groupId = (profile?.group_id || session.user.user_metadata?.group_id || "").trim();
         const role = profile?.role || session.user.user_metadata?.role || "member";
 
+        // Non-admins may never reach admin-only routes, regardless of SACCO membership.
+        if (pathname.startsWith("/admin") && role !== "admin") {
+          setLoading(false);
+          router.replace("/dashboard");
+          return;
+        }
+
         // If user has a group_id or is an admin, they are associated with a SACCO
         if (groupId || role === "admin") {
           const cleanGroupCode = groupId.toUpperCase();

@@ -63,7 +63,12 @@ export default function MemberSavingsVaults() {
 
   const fetchVaults = async (pId, sId) => {
     try {
-      const res = await fetch(`/api/user-vaults?profile_id=${pId}&sacco_id=${sId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/user-vaults?profile_id=${pId}&sacco_id=${sId}`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` }
+      });
       const result = await res.json();
       if (result.success) {
         setVaults(result.vaults || []);
@@ -81,9 +86,15 @@ export default function MemberSavingsVaults() {
     setStatusMessage(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
       const res = await fetch("/api/user-vaults", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           action: "create",
           profile_id: profileId,
@@ -119,9 +130,15 @@ export default function MemberSavingsVaults() {
     setStatusMessage(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
       const res = await fetch("/api/user-vaults", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           action: "deposit",
           profile_id: profileId,

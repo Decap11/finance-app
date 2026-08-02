@@ -30,7 +30,12 @@ export default function MemberGuarantorRequests() {
 
   const fetchGuarantorRequests = async (pId) => {
     try {
-      const res = await fetch(`/api/loans/guarantors?profile_id=${pId}&status=pending`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/loans/guarantors?profile_id=${pId}&status=pending`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` }
+      });
       const result = await res.json();
       if (result.success) {
         setRequests(result.requests || []);
@@ -45,9 +50,15 @@ export default function MemberGuarantorRequests() {
     setStatusMessage(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
       const res = await fetch("/api/loans/guarantors", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           action: "respond",
           guarantor_id: guarantorId,

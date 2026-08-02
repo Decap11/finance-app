@@ -58,7 +58,12 @@ export default function DividendDistributionPortal() {
 
   const loadHistory = async (sId) => {
     try {
-      const res = await fetch(`/api/admin/dividends?sacco_id=${sId}&action=history`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/admin/dividends?sacco_id=${sId}&action=history`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` }
+      });
       const result = await res.json();
       if (result.success) {
         setHistory(result.cycles || []);
@@ -78,7 +83,12 @@ export default function DividendDistributionPortal() {
     setStatusMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/dividends?sacco_id=${saccoId}&profit_pool=${profitPool}&action=preview`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(`/api/admin/dividends?sacco_id=${saccoId}&profit_pool=${profitPool}&action=preview`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` }
+      });
       const result = await res.json();
 
       if (!result.success) throw new Error(result.error || "Failed to calculate preview");
@@ -104,9 +114,15 @@ export default function DividendDistributionPortal() {
     setStatusMessage(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
       const res = await fetch("/api/admin/dividends", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           sacco_id: saccoId,
           cycle_year: cycleYear,
