@@ -29,6 +29,34 @@ export async function GET(request) {
     const url = new URL(request.url);
     const targetMemberId = url.searchParams.get('memberId') || user.id;
 
+    // Only admins/loan_officers of the target member's own SACCO may view someone
+    // else's contribution habits. Do not rely on RLS alone for this -- verify explicitly.
+    if (targetMemberId !== user.id) {
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+      const { data: targetMembership } = await supabaseAdmin
+        .from('sacco_memberships')
+        .select('sacco_id')
+        .eq('profile_id', targetMemberId)
+        .maybeSingle();
+
+      let isAuthorizedStaff = false;
+      if (targetMembership?.sacco_id) {
+        const { data: callerMembership } = await supabaseAdmin
+          .from('sacco_memberships')
+          .select('role')
+          .eq('sacco_id', targetMembership.sacco_id)
+          .eq('profile_id', user.id)
+          .in('role', ['admin', 'loan_officer'])
+          .maybeSingle();
+        isAuthorizedStaff = !!callerMembership;
+      }
+
+      if (!isAuthorizedStaff) {
+        return Response.json({ error: 'Unauthorized. You may only view your own contribution habits.' }, { status: 403 });
+      }
+    }
+
     // 1. Fetch user profile group_id
     const { data: profile } = await supabase
       .from('profiles')
