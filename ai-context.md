@@ -211,7 +211,13 @@ These are load-bearing. Breaking one re-opens a vulnerability that was specifica
 `supabase/migrations/`, applied by hand in the Supabase SQL Editor — there is no migration tool.
 Read [that README](supabase/migrations/README.md) before touching the database: files 0003, 0007,
 0009 and 0010 deliberately leave the database wide open, and only 0015 reverses that. `0015` is
-idempotent and is the authority for all RLS policies and function definitions.
+idempotent and is the authority for all RLS policies and function definitions, except the
+`sacco_memberships` / `transactions` / `loans` policies, which `0019` supersedes.
+
+An RLS policy on `sacco_memberships` may never query `sacco_memberships` — that is what caused the
+`infinite recursion detected in policy` failures 0019 fixes. Ask the role question through
+`is_sacco_member` / `is_sacco_staff` / `is_sacco_admin` / `can_transact_in_sacco` instead; they are
+`SECURITY DEFINER`, so the lookup runs outside RLS. Prefer them in other tables' policies too.
 
 New migrations go in the same folder as `00NN_YYYYMMDD_description.sql` and must be safely
 re-runnable.
