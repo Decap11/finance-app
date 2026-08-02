@@ -36,7 +36,9 @@ async function authorizePlatformAdmin(request) {
 
   const allowedEmails = getAllowedEmails();
   const callerEmail = (user.email || '').trim().toLowerCase();
-  if (!callerEmail || !allowedEmails.includes(callerEmail)) {
+
+  // Strict security check: Caller email MUST be explicitly listed in PLATFORM_ADMIN_EMAILS
+  if (!callerEmail || allowedEmails.length === 0 || !allowedEmails.includes(callerEmail)) {
     return { error: 'Unauthorized. This account is not a platform administrator.', status: 403 };
   }
 
@@ -49,38 +51,43 @@ export async function GET(request) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const admin = getSupabaseAdmin();
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action') || 'tenants';
+  const supabase = getSupabaseAdmin();
 
+  try {
     if (action === 'tenants') {
-      const { data: saccos, error: saccoError } = await admin
+      const { data: saccos, error: saccoErr } = await supabase
         .from('saccos')
         .select('*')
         .order('created_at', { ascending: false });
-      if (saccoError) throw saccoError;
 
-      const { data: profiles, error: profileError } = await admin
+      if (saccoErr) throw saccoErr;
+
+      const { data: profiles, error: profErr } = await supabase
         .from('profiles')
-        .select('id, email, full_name');
-      if (profileError) throw profileError;
+        .select('id, email, full_name, role');
+
+      if (profErr) throw profErr;
 
       return Response.json({ success: true, saccos: saccos || [], profiles: profiles || [] });
     }
 
     if (action === 'audit-log') {
-      const { data: events, error: auditError } = await admin
+      const { data: events, error: auditErr } = await supabase
         .from('audit_events')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(20);
-      if (auditError) throw auditError;
+        .limit(50);
+
+      if (auditErr) {
+        return Response.json({ success: true, events: [] });
+      }
 
       return Response.json({ success: true, events: events || [] });
     }
 
-    return Response.json({ error: 'Invalid action parameter' }, { status: 400 });
+    return Response.json({ error: 'Invalid action.' }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -92,40 +99,35 @@ export async function POST(request) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    const body = await request.json();
-    const admin = getSupabaseAdmin();
+  const supabase = getSupabaseAdmin();
 
-    if (action === 'toggle-status') {
-      const { id, status } = body;
-      if (!id || !status) {
-        return Response.json({ error: 'id and status are required' }, { status: 400 });
+  try {
+    const body = await request.json();
+    const { action, sacco_id, status, member_limit } = body;
+
+    if (action === 'update_sacco') {
+      if (!sacco_id) {
+        return Response.json({ error: 'sacco_id is required' }, { status: 400 });
       }
 
-      const { error: updateErr } = await admin
+      const updates = {};
+      if (status) updates.status = status;
+      if (member_limit) updates.member_limit = Number(member_limit);
+      updates.updated_at = new Date().toISOString();
+
+      const { data: updatedSacco, error: updateErr } = await supabase
         .from('saccos')
-        .update({ status })
-        .eq('id', id);
+        .update(updates)
+        .eq('id', sacco_id)
+        .select()
+        .single();
+
       if (updateErr) throw updateErr;
 
-      try {
-        await admin.from('audit_events').insert({
-          sacco_id: id,
-          entity_type: 'sacco',
-          entity_id: id,
-          action: 'status_change',
-          metadata: { description: `Status changed to ${String(status).toUpperCase()} by platform admin` }
-        });
-      } catch (logErr) {
-        console.warn('Failed to write to audit_events table:', logErr);
-      }
-
-      return Response.json({ success: true });
+      return Response.json({ success: true, sacco: updatedSacco });
     }
 
-    return Response.json({ error: 'Invalid action parameter' }, { status: 400 });
+    return Response.json({ error: 'Invalid action.' }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
