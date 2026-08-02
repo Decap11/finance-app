@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../supabaseClient";
 import Loader from "./loader";
 import { Session } from "@supabase/supabase-js";
+import "../styles/membershipRevoked.css";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -268,65 +269,73 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 // unexpected one still produces a lockout rather than silently granting access.
 function MembershipRevoked({ member }: { member: MemberState }) {
   const isSuspended = member.status === "suspended" || member.status === "closed";
+  const variant = isSuspended ? "is-suspended" : "is-pending";
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "2.4rem",
-      background: "#0b0f19"
-    }}>
-      <div style={{
-        maxWidth: "56rem",
-        width: "100%",
-        background: "rgba(15, 23, 42, 0.9)",
-        border: "1px solid rgba(249, 115, 22, 0.28)",
-        borderRadius: "1.6rem",
-        padding: "4rem 3.2rem",
-        textAlign: "center",
-        color: "#e2e8f0"
-      }}>
-        <i
-          className={isSuspended ? "fa-solid fa-ban" : "fa-solid fa-user-clock"}
-          style={{ fontSize: "5rem", color: "#f97316", marginBottom: "2rem" }}
-        ></i>
-        <h1 style={{ fontSize: "2.4rem", fontWeight: 800, marginBottom: "1.2rem" }}>
+    <div className="membership-lock">
+      <div className="membership-lock-card">
+        <img
+          src="/images/sacco logo.png"
+          alt="SACCO Logo"
+          className="membership-lock-logo"
+          onError={(e) => {
+            (e.target as HTMLImageElement).onerror = null;
+            (e.target as HTMLImageElement).src =
+              "https://placehold.co/100x100/253b8e/ffffff?text=Logo";
+          }}
+        />
+
+        <div className={`membership-lock-icon ${variant}`}>
+          <i className={isSuspended ? "fa-solid fa-ban" : "fa-solid fa-user-clock"}></i>
+        </div>
+
+        <span className={`membership-lock-badge ${variant}`}>
+          {isSuspended ? "Suspended" : "Pending approval"}
+        </span>
+
+        <h1 className="membership-lock-title">
           {isSuspended ? "Your membership is suspended" : "Your account is awaiting approval"}
         </h1>
-        <p style={{ fontSize: "1.5rem", lineHeight: 1.6, color: "#94a3b8", marginBottom: "2rem" }}>
+
+        <p className="membership-lock-text">
           {isSuspended ? (
             <>
-              <strong style={{ color: "#e2e8f0" }}>{member.name}</strong> can no longer
-              access this SACCO&apos;s dashboard.
+              <strong>{member.name}</strong> can no longer access this SACCO&apos;s dashboard.
             </>
           ) : (
             <>
-              Your SACCO administrator has revoked dashboard access for{" "}
-              <strong style={{ color: "#e2e8f0" }}>{member.name}</strong>. Your savings,
-              contributions and loan records are safe and unchanged.
+              Your SACCO administrator has paused dashboard access for{" "}
+              <strong>{member.name}</strong>.
             </>
           )}
         </p>
-        <p style={{ fontSize: "1.35rem", color: "#64748b", marginBottom: "2.4rem" }}>
-          Contact your SACCO administrator to have your access restored.
-        </p>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          style={{
-            padding: "1.2rem 2.4rem",
-            borderRadius: "0.8rem",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            background: "rgba(15, 23, 42, 0.6)",
-            color: "#e2e8f0",
-            fontSize: "1.4rem",
-            fontWeight: 700,
-            cursor: "pointer"
-          }}
-        >
-          Sign out
-        </button>
+
+        <div className="membership-lock-note">
+          <i className="fa-solid fa-shield-halved"></i>
+          <span>
+            Your savings, contributions and loan records are safe and unchanged. Contact
+            your SACCO administrator to have your access restored.
+          </span>
+        </div>
+
+        <div className="membership-lock-actions">
+          {/* The status check only re-runs on mount, so once access is restored a reload is
+              what brings the dashboard back. Without this the panel is a dead end whose
+              only exit is signing out. */}
+          <button
+            className="membership-lock-btn is-primary"
+            onClick={() => window.location.reload()}
+          >
+            <i className="fa-solid fa-rotate-right"></i>
+            Check again
+          </button>
+          <button
+            className="membership-lock-btn is-secondary"
+            onClick={() => supabase.auth.signOut()}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
   );

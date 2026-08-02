@@ -1,0 +1,208 @@
+/* Full-page lockout shown by ProtectedRoute when profiles.status is not 'active'.
+   Deliberately mirrors the member-facing auth screens (styles/login.css) rather than the
+   slate/dark treatment used by the admin and developer portals -- the person reading this
+   is a member, and it is the last screen they see before being sent back to login.
+
+   Tokens are written as var(--name, fallback) because --primary-color and friends are
+   declared in login.css's :root, which is not loaded on dashboard routes. The fallbacks
+   are the same literals layout.css already relies on. */
+
+.membership-lock {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.4rem;
+  background-color: var(--bg-color, #f8fbff);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(37, 59, 142, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(37, 59, 142, 0.04) 0%, transparent 40%);
+}
+
+.membership-lock-card {
+  width: min(100%, 52rem);
+  background-color: var(--white, #ffffff);
+  border-radius: 2rem;
+  box-shadow: 0 1rem 4rem rgba(112, 144, 176, 0.08);
+  padding: 4.5rem 4rem;
+  text-align: center;
+  animation: membershipLockIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes membershipLockIn {
+  0% {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.membership-lock-logo {
+  width: 5.6rem;
+  height: auto;
+  margin-bottom: 2.4rem;
+}
+
+/* The tinted-circle-around-an-icon pattern used by the summary cards and status badges
+   throughout the app. Amber is what every other surface uses for 'pending'. */
+.membership-lock-icon {
+  width: 8rem;
+  height: 8rem;
+  margin: 0 auto 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.2rem;
+}
+
+.membership-lock-icon.is-pending {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.membership-lock-icon.is-suspended {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.membership-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1.2rem;
+  border-radius: 10rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08rem;
+  text-transform: uppercase;
+  margin-bottom: 1.6rem;
+}
+
+.membership-lock-badge.is-pending {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+.membership-lock-badge.is-suspended {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+.membership-lock-title {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.05rem;
+  color: var(--text-dark, #1e293b);
+  margin-bottom: 1.2rem;
+}
+
+.membership-lock-text {
+  font-size: 1.5rem;
+  line-height: 1.7;
+  color: var(--text-light, #64748b);
+  margin-bottom: 2.4rem;
+}
+
+.membership-lock-text strong {
+  color: var(--text-dark, #1e293b);
+  font-weight: 600;
+}
+
+/* Reassurance panel. Left accent bar in the status colour, same soft-tint treatment as
+   the notices on the login screen. */
+.membership-lock-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2rem;
+  text-align: left;
+  padding: 1.6rem 1.8rem;
+  border-radius: 1.2rem;
+  background-color: #f8fafc;
+  border: 1px solid var(--input-border, #e2e8f0);
+  font-size: 1.35rem;
+  line-height: 1.6;
+  color: var(--text-light, #64748b);
+  margin-bottom: 2.8rem;
+}
+
+.membership-lock-note i {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  font-size: 1.5rem;
+  color: var(--primary-color, #253b8e);
+}
+
+.membership-lock-actions {
+  display: flex;
+  gap: 1.2rem;
+}
+
+.membership-lock-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 1.5rem 1.6rem;
+  border-radius: var(--input-radius, 1.2rem);
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.membership-lock-btn.is-primary {
+  border: none;
+  background-color: var(--primary-color, #253b8e);
+  color: var(--white, #ffffff);
+  box-shadow: 0 0.8rem 2rem rgba(37, 59, 142, 0.2);
+}
+
+.membership-lock-btn.is-primary:hover {
+  background-color: #1e317a;
+  transform: translateY(-0.2rem);
+  box-shadow: 0 1rem 2.5rem rgba(37, 59, 142, 0.3);
+}
+
+.membership-lock-btn.is-secondary {
+  border: 1.5px solid var(--input-border, #e2e8f0);
+  background-color: var(--white, #ffffff);
+  color: var(--text-light, #64748b);
+}
+
+.membership-lock-btn.is-secondary:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+  color: var(--text-dark, #1e293b);
+}
+
+@media (max-width: 44rem) {
+  .membership-lock {
+    padding: 1.6rem;
+  }
+
+  .membership-lock-card {
+    padding: 3.2rem 2.2rem;
+    border-radius: 1.6rem;
+  }
+
+  .membership-lock-icon {
+    width: 6.4rem;
+    height: 6.4rem;
+    font-size: 2.6rem;
+  }
+
+  .membership-lock-title {
+    font-size: 2.1rem;
+  }
+
+  .membership-lock-actions {
+    flex-direction: column;
+  }
+}
