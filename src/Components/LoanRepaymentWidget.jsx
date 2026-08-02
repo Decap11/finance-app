@@ -37,19 +37,29 @@ export default function LoanRepaymentWidget() {
       }
     }
     fetchData();
+
+    const channel = supabase
+      .channel('repayment-widget-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const totalLoan = activeLoan ? activeLoan.amount_approved : 0;
-  const remainingAmount = activeLoan ? activeLoan.outstanding_balance : 0;
-  const paidAmount = totalLoan - remainingAmount;
+  const totalLoan = activeLoan ? (Number(activeLoan.amount_approved) || Number(activeLoan.amount) || 0) : 0;
+  const remainingAmount = activeLoan 
+    ? (activeLoan.outstanding_balance !== null && activeLoan.outstanding_balance !== undefined 
+        ? Number(activeLoan.outstanding_balance) 
+        : totalLoan) 
+    : 0;
+  const paidAmount = Math.max(0, totalLoan - remainingAmount);
   const repaymentPercentage = totalLoan > 0 ? (paidAmount / totalLoan) * 100 : 0;
 
   const handleAmountChange = (e) => {
     setRepayAmount(e.target.value);
-  };
-
-  const handleSourceChange = (e) => {
-    setPaymentSource(e.target.value);
   };
 
   const handleSubmit = async (e) => {
@@ -72,10 +82,11 @@ export default function LoanRepaymentWidget() {
       return;
     }
 
-    if (amount > remainingAmount) {
+    if (remainingAmount > 0 && amount > remainingAmount) {
       setMessage(`Cannot repay more than remaining amount: Shs ${remainingAmount.toLocaleString()}`);
       return;
     }
+
     setLoading(true);
     setMessage("");
 
@@ -128,6 +139,14 @@ export default function LoanRepaymentWidget() {
         <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-light)" }}>
           <i className="fa-solid fa-check-circle" style={{ fontSize: "3rem", color: "var(--success)", marginBottom: "1rem" }}></i>
           <p>You have no active loans to repay.</p>
+        </div>
+      ) : activeLoan.status === "pending" || activeLoan.status === "pending_guarantors" ? (
+        <div style={{ textAlign: "center", padding: "2rem", color: "#334155" }}>
+          <i className="fa-solid fa-clock" style={{ fontSize: "3rem", color: "#eab308", marginBottom: "1rem" }}></i>
+          <h4 style={{ fontSize: "1.6rem", fontWeight: 700, margin: "0 0 0.6rem" }}>Loan Application Pending</h4>
+          <p style={{ fontSize: "1.2rem", color: "#64748b", margin: 0 }}>
+            Your loan request of <strong>UGX {totalLoan.toLocaleString()}</strong> is currently pending approvals ({activeLoan.status === "pending_guarantors" ? "Guarantor Sign-off" : "Admin Review"}).
+          </p>
         </div>
       ) : (
         <form className="loan-form" onSubmit={handleSubmit}>

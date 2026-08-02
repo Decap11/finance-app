@@ -30,7 +30,7 @@ export async function GET(request) {
       .from('loans')
       .select('*')
       .eq('profile_id', user.id)
-      .in('status', ['issued', 'pending', 'pending_guarantors'])
+      .in('status', ['issued', 'active', 'disbursed', 'approved', 'pending', 'pending_guarantors'])
       .order('created_at', { ascending: false })
       .limit(1);
 
