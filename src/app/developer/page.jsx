@@ -162,14 +162,33 @@ export default function DeveloperPortal() {
       password: password.trim()
     });
 
-    setLoggingIn(false);
-
     if (error || !data?.session) {
+      setLoggingIn(false);
       setLoginError(error?.message || "Invalid developer email or password.");
       return;
     }
 
-    setIsAuthenticated(true);
+    // Verify server-side authorization against PLATFORM_ADMIN_EMAILS (.env)
+    try {
+      const authHeaders = { "Authorization": `Bearer ${data.session.access_token}` };
+      const res = await fetch("/api/platform?action=tenants", { headers: authHeaders });
+      const resData = await res.json();
+
+      if (!res.ok || !resData.success) {
+        await supabase.auth.signOut();
+        setIsAuthenticated(false);
+        setLoginError(resData.error || `Unauthorized: '${email}' is not listed in PLATFORM_ADMIN_EMAILS (.env). Access denied.`);
+        return;
+      }
+
+      setIsAuthenticated(true);
+    } catch (verifyErr) {
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setLoginError("Authorization verification failed: " + verifyErr.message);
+    } finally {
+      setLoggingIn(false);
+    }
   };
 
   const handleLogout = async () => {

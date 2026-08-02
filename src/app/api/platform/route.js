@@ -39,7 +39,7 @@ async function authorizePlatformAdmin(request) {
 
   // Strict security check: Caller email MUST be explicitly listed in PLATFORM_ADMIN_EMAILS
   if (!callerEmail || allowedEmails.length === 0 || !allowedEmails.includes(callerEmail)) {
-    return { error: 'Unauthorized. This account is not a platform administrator.', status: 403 };
+    return { error: `Access Denied: '${callerEmail}' is not listed in PLATFORM_ADMIN_EMAILS (.env).`, status: 403 };
   }
 
   return { user };
