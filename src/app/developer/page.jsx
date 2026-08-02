@@ -50,7 +50,7 @@ export default function DeveloperPortal() {
     }
   }, [isAuthenticated]);
 
-  const fetchDatabaseData = async () => {
+  async function fetchDatabaseData() {
     setLoadingData(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -147,7 +147,7 @@ export default function DeveloperPortal() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }
 
   // Real Supabase Auth login — no client-side credential comparison. The resulting
   // session's email is re-verified server-side against PLATFORM_ADMIN_EMAILS on every
