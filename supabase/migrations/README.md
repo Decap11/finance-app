@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0015 in numeric order, without stopping.**
+Run **0001 through 0016 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,10 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Only **0015** is needed. It is written to be idempotent and self-contained: every `DROP POLICY` is
+Run **0015, then 0016**. 0016 depends on 0015's `saccos_update_admin_only` policy being in place —
+it narrows that policy's reach with column-level grants.
+
+0015 is written to be idempotent and self-contained: every `DROP POLICY` is
 `IF EXISTS`, every function is `CREATE OR REPLACE`, and RLS is force-enabled as its first action.
 It converges the database to the correct state regardless of which earlier files did or didn't run.
 
@@ -45,6 +48,7 @@ It is safe to re-run 0015 at any time.
 | 0013 | `dividends-and-vaults` | Adds `dividend_cycles`, `dividend_allocations`, `savings_vaults` and the dividend RPCs. |
 | 0014 | `peer-guarantors` | Adds `loan_guarantors` and `process_guarantor_response`. |
 | 0015 | `security-hardening` | ✅ **Current authority.** Rewrites all RLS and hardens every privileged function. |
+| 0016 | `subscription-holds` | Adds the `on_hold` status and the subscription columns on `saccos`, restricts which `saccos` columns a tenant admin may update, and adds `enforce_sacco_access_state` — the trigger that blocks financial writes for suspended/held tenants. |
 
 ## What 0015 supersedes
 

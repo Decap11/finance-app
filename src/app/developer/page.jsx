@@ -4,6 +4,44 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import "../../styles/developerPortal.css";
 
+const PLAN_PRICES = { basic: 150000, premium: 350000, enterprise: 750000 };
+
+// A subscription is only "in good standing" while it is a live trial or paid up. Anything
+// else is what justifies a billing hold. Mirrors the same rule in /api/platform, which is
+// the authority -- this copy only covers rows the route didn't enrich.
+const GOOD_STANDING = ["trial", "active"];
+const SUBSCRIPTION_STATUSES = ["trial", "active", "past_due", "expired", "cancelled"];
+
+const SUBSCRIPTION_LABELS = {
+  trial: "Trial",
+  active: "Paid",
+  past_due: "Past Due",
+  expired: "Expired",
+  cancelled: "Cancelled"
+};
+
+const STATUS_LABELS = {
+  active: "active",
+  on_hold: "on hold",
+  suspended: "suspended",
+  closed: "closed",
+  pending: "pending"
+};
+
+function subscriptionSnapshot(sacco) {
+  const stored = sacco?.subscription_status || "trial";
+  const expiresAt = sacco?.subscription_expires_at ? new Date(sacco.subscription_expires_at) : null;
+  const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
+  const effective = isExpired && GOOD_STANDING.includes(stored) ? "past_due" : stored;
+
+  return {
+    stored,
+    effective,
+    daysOverdue: isExpired && expiresAt ? Math.floor((Date.now() - expiresAt.getTime()) / 86400000) : 0,
+    inGoodStanding: GOOD_STANDING.includes(effective)
+  };
+}
+
 export default function DeveloperPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -72,16 +110,17 @@ export default function DeveloperPortal() {
         const adminUser = profileData?.find(p => p.id === sacco.admin_profile_id);
         const limit = sacco.member_limit || 50;
 
-        // Infer billing plan from member limit
-        let planType = "basic";
-        let planPrice = 150000;
-        if (limit > 500) {
-          planType = "enterprise";
-          planPrice = 750000;
-        } else if (limit > 50) {
-          planType = "premium";
-          planPrice = 350000;
+        // Prefer the billing plan stored on the tenant; fall back to inferring it from
+        // the member limit for rows registered before subscriptions were tracked.
+        let planType = sacco.subscription_plan;
+        if (!planType) {
+          planType = limit > 500 ? "enterprise" : limit > 50 ? "premium" : "basic";
         }
+        const planPrice = Number(sacco.subscription_amount) || PLAN_PRICES[planType] || 150000;
+
+        // The route already derives this (an expiry in the past counts as past_due even
+        // if the stored status still says active) -- recompute only as a fallback.
+        const billing = sacco.subscription || subscriptionSnapshot(sacco);
 
         return {
           id: sacco.id,
@@ -91,8 +130,20 @@ export default function DeveloperPortal() {
           plan: planType,
           cost: planPrice,
           status: sacco.status || "active",
+          statusReason: sacco.status_reason || "",
+          statusChangedBy: sacco.status_changed_by || "",
           joined: sacco.created_at ? new Date(sacco.created_at).toISOString().split('T')[0] : "2026-01-01",
-          memberLimit: limit
+          memberLimit: limit,
+          subscriptionStatus: billing.effective,
+          storedSubscriptionStatus: billing.stored,
+          daysOverdue: billing.daysOverdue,
+          inGoodStanding: billing.inGoodStanding,
+          expiresAt: sacco.subscription_expires_at
+            ? new Date(sacco.subscription_expires_at).toISOString().split('T')[0]
+            : null,
+          lastPaymentAt: sacco.last_payment_at
+            ? new Date(sacco.last_payment_at).toISOString().split('T')[0]
+            : null
         };
       });
 
@@ -108,11 +159,14 @@ export default function DeveloperPortal() {
       const events = auditData.events || [];
 
       const mappedLogs = events.map(evt => {
+        // Success terms are checked first so PAYMENT_RELEASE_HOLD reads as a win rather
+        // than being caught by the "hold" warning term.
+        const action = evt.action.toLowerCase();
         let type = "info";
-        if (evt.action.toLowerCase().includes("fail") || evt.action.toLowerCase().includes("reject") || evt.action.toLowerCase().includes("suspend")) {
-          type = "warn";
-        } else if (evt.action.toLowerCase().includes("approve") || evt.action.toLowerCase().includes("pay") || evt.action.toLowerCase().includes("create")) {
+        if (action.includes("approve") || action.includes("pay") || action.includes("create") || action.includes("release") || action.includes("reinstate")) {
           type = "success";
+        } else if (action.includes("fail") || action.includes("reject") || action.includes("suspend") || action.includes("hold")) {
+          type = "warn";
         }
 
         const date = new Date(evt.created_at);
@@ -198,42 +252,100 @@ export default function DeveloperPortal() {
     setPassword("");
   };
 
-  // Toggle tenant status via the protected /api/platform route. Service-role writes now
-  // only ever happen server-side, gated by the PLATFORM_ADMIN_EMAILS allow-list.
-  const toggleTenantStatus = async (id, currentStatus) => {
-    let nextStatus = "active";
-    if (currentStatus === "active") nextStatus = "suspended";
-    else if (currentStatus === "suspended") nextStatus = "active";
-    else if (currentStatus === "pending") nextStatus = "active";
-
+  // Every tenant lifecycle change goes through here. Service-role writes only ever
+  // happen server-side, gated by the PLATFORM_ADMIN_EMAILS allow-list.
+  const runTenantAction = async (action, payload) => {
     setLoadingData(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const res = await fetch("/api/platform?action=toggle-status", {
+      const res = await fetch("/api/platform", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ id, status: nextStatus })
+        body: JSON.stringify({ action, ...payload })
       });
 
       const result = await res.json();
       if (!res.ok || !result.success) {
-        throw new Error(result.error || "Failed to update SACCO status");
+        throw new Error(result.error || "The platform rejected this action.");
       }
 
-      // Refresh data
       await fetchDatabaseData();
-      alert(`Success: Sacco status updated in database to ${nextStatus.toUpperCase()}!`);
+      alert(`Success: ${result.message || "Tenant updated."}`);
     } catch (err) {
-      console.error("Error updating Sacco status:", err);
-      alert(`Error updating Sacco status: ${err.message}`);
+      console.error(`Error running platform action '${action}':`, err);
+      alert(`Action failed: ${err.message}`);
     } finally {
       setLoadingData(false);
     }
+  };
+
+  // ACTION 1 - Suspend: administrative lockout, nothing to do with billing. Members
+  // cannot even sign in until a developer explicitly reinstates the SACCO.
+  const suspendTenant = async (tenant) => {
+    const reason = prompt(
+      `Suspend '${tenant.name}'?\n\nEvery member loses access to the app immediately.\n\nReason (shown to the SACCO):`,
+      ""
+    );
+    if (reason === null) return;
+    await runTenantAction("suspend-tenant", { sacco_id: tenant.id, reason });
+  };
+
+  // ACTION 2 - Hold: a billing measure, so it is only offered while the subscription is
+  // past due, expired or cancelled. Members keep read access; financial writes are blocked.
+  const holdTenant = async (tenant) => {
+    if (tenant.inGoodStanding) {
+      alert(
+        `Cannot hold '${tenant.name}': its subscription is in good standing (${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}).\n\n` +
+        `A hold requires a past due, expired or cancelled subscription. Use Suspend for non-billing enforcement.`
+      );
+      return;
+    }
+
+    const overdueNote = tenant.daysOverdue > 0 ? ` - ${tenant.daysOverdue} days overdue` : "";
+    const reason = prompt(
+      `Place '${tenant.name}' on billing hold?\n\n` +
+      `Subscription: ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}${overdueNote}.\n` +
+      `Members keep read access, but every contribution, loan and approval is blocked.\n\n` +
+      `Reason (leave blank for the default billing message):`,
+      ""
+    );
+    if (reason === null) return;
+    await runTenantAction("hold-tenant", { sacco_id: tenant.id, reason });
+  };
+
+  const reactivateTenant = async (tenant) => {
+    const verb = tenant.status === "on_hold" ? "Release the billing hold on" : "Reinstate";
+    if (!confirm(`${verb} '${tenant.name}'?\n\nFull access is restored immediately.`)) return;
+    await runTenantAction("reactivate-tenant", { sacco_id: tenant.id });
+  };
+
+  // Recording a payment renews the term and lifts a billing hold automatically. It does
+  // not lift a suspension -- that stays an explicit decision.
+  const recordPayment = async (tenant) => {
+    const monthsInput = prompt(
+      `Record a subscription payment for '${tenant.name}'.\n\nRate: Shs ${tenant.cost.toLocaleString()}/mo.\nHow many months?`,
+      "1"
+    );
+    if (monthsInput === null) return;
+    const months = Math.max(1, Number(monthsInput) || 1);
+    await runTenantAction("record-payment", {
+      sacco_id: tenant.id,
+      months,
+      amount: tenant.cost * months
+    });
+  };
+
+  const setSubscriptionStatus = async (tenant, nextStatus) => {
+    if (nextStatus === tenant.storedSubscriptionStatus) return;
+    await runTenantAction("update-subscription", {
+      sacco_id: tenant.id,
+      subscription_status: nextStatus
+    });
   };
 
   // Update plan price setting (Mock plan manager)
@@ -263,13 +375,15 @@ export default function DeveloperPortal() {
     alert(`Success: Subscription plan '${planName}' configurations saved locally!`);
   };
 
-  // Calculate platform totals
+  // Calculate platform totals. Revenue only counts tenants that are both active and paid
+  // up -- a suspended or held tenant is not billing.
   const totalRevenue = tenants
-    .filter(t => t.status === "active")
+    .filter(t => t.status === "active" && t.inGoodStanding)
     .reduce((sum, t) => sum + t.cost, 0);
 
   const activeCount = tenants.filter(t => t.status === "active").length;
-  const pendingCount = tenants.filter(t => t.status === "pending").length;
+  const restrictedCount = tenants.filter(t => t.status === "on_hold" || t.status === "suspended").length;
+  const overdueCount = tenants.filter(t => !t.inGoodStanding).length;
 
   // Avoid flashing the login screen while the real Supabase session is still being checked.
   if (checkingSession) {
@@ -459,21 +573,21 @@ export default function DeveloperPortal() {
 
             <div className="dev-metric-card">
               <div className="dev-metric-icon pending">
-                <i className="fa-solid fa-hourglass-half"></i>
+                <i className="fa-solid fa-lock"></i>
               </div>
               <div className="dev-metric-info">
-                <span className="dev-metric-label">Pending Setup Approvals</span>
-                <strong className="dev-metric-value">{pendingCount}</strong>
+                <span className="dev-metric-label">Held / Suspended Tenants</span>
+                <strong className="dev-metric-value">{restrictedCount}</strong>
               </div>
             </div>
 
             <div className="dev-metric-card">
               <div className="dev-metric-icon uptime">
-                <i className="fa-solid fa-heartbeat"></i>
+                <i className="fa-solid fa-file-invoice-dollar"></i>
               </div>
               <div className="dev-metric-info">
-                <span className="dev-metric-label">API Platform Health</span>
-                <strong className="dev-metric-value">99.98%</strong>
+                <span className="dev-metric-label">Overdue Subscriptions</span>
+                <strong className="dev-metric-value">{overdueCount}</strong>
               </div>
             </div>
           </section>
@@ -517,8 +631,8 @@ export default function DeveloperPortal() {
                             </td>
                             <td>Shs {tenant.cost.toLocaleString()}/mo</td>
                             <td>
-                              <span className={`tenant-status ${tenant.status}`}>
-                                {tenant.status}
+                              <span className={`tenant-status ${tenant.status}`} title={tenant.statusReason}>
+                                {STATUS_LABELS[tenant.status] || tenant.status}
                               </span>
                             </td>
                           </tr>
@@ -556,6 +670,10 @@ export default function DeveloperPortal() {
             <div className="dev-card-wrapper">
               <div className="dev-card-header">
                 <span className="dev-card-title">Platform Tenant Directory</span>
+                <span className="dev-actions-legend">
+                  <strong>Hold</strong> restricts a tenant to read-only while its subscription is unpaid.
+                  <strong> Suspend</strong> is a full administrative lockout, independent of billing.
+                </span>
               </div>
               <div className="dev-table-container">
                 <table className="dev-table">
@@ -565,7 +683,7 @@ export default function DeveloperPortal() {
                       <th>Group Code</th>
                       <th>Administrator</th>
                       <th>Plan Type</th>
-                      <th>Joined Date</th>
+                      <th>Subscription</th>
                       <th>Status</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
@@ -580,27 +698,92 @@ export default function DeveloperPortal() {
                     ) : (
                       tenants.map((tenant) => (
                         <tr key={tenant.id}>
-                          <td><strong>{tenant.name}</strong></td>
+                          <td>
+                            <strong>{tenant.name}</strong>
+                            <div className="dev-cell-sub">Joined {tenant.joined}</div>
+                          </td>
                           <td><code>{tenant.code}</code></td>
                           <td>{tenant.admin}</td>
                           <td>
                             <span className={`tenant-plan ${tenant.plan}`}>
                               {tenant.plan}
                             </span>
+                            <div className="dev-cell-sub">Shs {tenant.cost.toLocaleString()}/mo</div>
                           </td>
-                          <td>{tenant.joined}</td>
+                          <td>
+                            <select
+                              className={`sub-select ${tenant.inGoodStanding ? "ok" : "due"}`}
+                              value={tenant.storedSubscriptionStatus}
+                              onChange={(e) => setSubscriptionStatus(tenant, e.target.value)}
+                            >
+                              {SUBSCRIPTION_STATUSES.map((s) => (
+                                <option key={s} value={s}>{SUBSCRIPTION_LABELS[s]}</option>
+                              ))}
+                            </select>
+                            <div
+                              className="dev-cell-sub"
+                              title={tenant.lastPaymentAt ? `Last payment ${tenant.lastPaymentAt}` : "No payment recorded yet"}
+                            >
+                              {tenant.daysOverdue > 0
+                                ? `${tenant.daysOverdue} days overdue`
+                                : tenant.expiresAt
+                                  ? `Paid through ${tenant.expiresAt}`
+                                  : "No billing term set"}
+                            </div>
+                          </td>
                           <td>
                             <span className={`tenant-status ${tenant.status}`}>
-                              {tenant.status}
+                              {STATUS_LABELS[tenant.status] || tenant.status}
                             </span>
+                            {tenant.statusReason && (
+                              <div
+                                className="dev-cell-sub"
+                                title={tenant.statusChangedBy
+                                  ? `${tenant.statusReason} (set by ${tenant.statusChangedBy})`
+                                  : tenant.statusReason}
+                              >
+                                {tenant.statusReason}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <div className="dev-actions" style={{ justifyContent: "flex-end" }}>
+                              {tenant.status === "on_hold" || tenant.status === "suspended" || tenant.status === "closed" ? (
+                                <button
+                                  onClick={() => reactivateTenant(tenant)}
+                                  className="btn-dev-action positive"
+                                >
+                                  {tenant.status === "on_hold" ? "Release Hold" : "Reinstate"}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => holdTenant(tenant)}
+                                  className="btn-dev-action warn"
+                                  disabled={tenant.inGoodStanding}
+                                  title={tenant.inGoodStanding
+                                    ? "Subscription is in good standing - a billing hold does not apply."
+                                    : `Restrict to read-only: subscription ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}`}
+                                >
+                                  Hold
+                                </button>
+                              )}
+
+                              {tenant.status !== "suspended" && (
+                                <button
+                                  onClick={() => suspendTenant(tenant)}
+                                  className="btn-dev-action critical"
+                                  title="Full administrative lockout - members cannot sign in"
+                                >
+                                  Suspend
+                                </button>
+                              )}
+
                               <button
-                                onClick={() => toggleTenantStatus(tenant.id, tenant.status)}
-                                className={`btn-dev-action ${tenant.status === 'active' ? 'critical' : ''}`}
+                                onClick={() => recordPayment(tenant)}
+                                className="btn-dev-action"
+                                title="Record a subscription payment, renewing the term"
                               >
-                                {tenant.status === "active" ? "Suspend" : "Activate"}
+                                Mark Paid
                               </button>
                             </div>
                           </td>

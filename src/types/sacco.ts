@@ -18,6 +18,13 @@ export interface UserProfile {
   social_target?: number;
 }
 
+/** Platform-controlled lifecycle state. Set from the developer portal only. */
+export type SaccoStatus = 'active' | 'on_hold' | 'suspended' | 'closed';
+
+export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'expired' | 'cancelled';
+
+export type SubscriptionPlan = 'basic' | 'premium' | 'enterprise';
+
 export interface SaccoGroup {
   id: string;
   name: string;
@@ -25,7 +32,16 @@ export interface SaccoGroup {
   group_code: string;
   admin_profile_id?: string | null;
   member_limit?: number | null;
-  status: 'active' | 'suspended' | 'closed';
+  status: SaccoStatus;
+  status_reason?: string | null;
+  status_changed_at?: string | null;
+  status_changed_by?: string | null;
+  subscription_plan?: SubscriptionPlan | null;
+  subscription_status?: SubscriptionStatus | null;
+  subscription_amount?: number | null;
+  subscription_started_at?: string | null;
+  subscription_expires_at?: string | null;
+  last_payment_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

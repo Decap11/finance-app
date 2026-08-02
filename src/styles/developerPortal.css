@@ -352,6 +352,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1.6rem;
+  flex-wrap: wrap;
   margin-bottom: 2.5rem;
 }
 
@@ -415,6 +417,59 @@
   color: #ef4444;
 }
 
+/* Billing hold: restricted, but softer than an administrative suspension. */
+.tenant-status.on_hold {
+  background: rgba(249, 115, 22, 0.12);
+  color: #fb923c;
+}
+
+.tenant-status.closed {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
+/* Secondary line under a table cell: billing term, status reason, join date. */
+.dev-cell-sub {
+  margin-top: 0.5rem;
+  font-size: 1.1rem;
+  color: #64748b;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-actions-legend {
+  font-size: 1.15rem;
+  color: #64748b;
+  font-weight: 500;
+  max-width: 52rem;
+  text-align: right;
+}
+
+.dev-actions-legend strong {
+  color: #cbd5e1;
+}
+
+.sub-select {
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sub-select.ok {
+  color: #10b981;
+}
+
+.sub-select.due {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
 .tenant-plan {
   padding: 0.4rem 0.8rem;
   border-radius: 0.6rem;
@@ -468,6 +523,36 @@
 .btn-dev-action.critical:hover {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
+}
+
+.btn-dev-action.warn {
+  color: #fb923c;
+}
+
+.btn-dev-action.warn:hover {
+  background: rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+.btn-dev-action.positive {
+  color: #34d399;
+}
+
+.btn-dev-action.positive:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+/* A hold has no meaning while the subscription is paid up. */
+.btn-dev-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-dev-action:disabled:hover {
+  background: rgba(15, 23, 42, 0.4);
+  color: inherit;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Plan Configuration Cards */

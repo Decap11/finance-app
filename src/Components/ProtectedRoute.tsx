@@ -10,10 +10,17 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
+interface SaccoState {
+  name: string;
+  status: string;
+  reason: string;
+}
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isOrphan, setIsOrphan] = useState<boolean>(false);
+  const [saccoState, setSaccoState] = useState<SaccoState | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -51,10 +58,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (groupId || role === "admin") {
           const cleanGroupCode = groupId.toUpperCase();
 
-          // Check if SACCO row exists in public.saccos
+          // Check if SACCO row exists in public.saccos.
+          // select("*") rather than a column list so this still works against a database
+          // where migration 0016 (status_reason and friends) has not been applied yet.
           let { data: saccoRow } = await supabase
             .from("saccos")
-            .select("id, name, group_code")
+            .select("*")
             .or(`group_code.ilike.${cleanGroupCode},admin_profile_id.eq.${userId}`)
             .limit(1)
             .maybeSingle();
@@ -73,7 +82,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
               });
 
               if (rpcRes?.sacco_id) {
-                saccoRow = { id: rpcRes.sacco_id, name: saccoName, group_code: cleanGroupCode };
+                saccoRow = { id: rpcRes.sacco_id, name: saccoName, group_code: cleanGroupCode, status: "active" };
               }
             } catch (e) {
               console.warn("Self-healing SACCO registration notice:", e);
@@ -81,6 +90,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           }
 
           // SACCO access validated successfully
+          applySaccoState(saccoRow);
           setIsOrphan(false);
           setLoading(false);
           return;
@@ -95,6 +105,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           .maybeSingle();
 
         if (membership?.sacco_id) {
+          const { data: saccoRow } = await supabase
+            .from("saccos")
+            .select("*")
+            .eq("id", membership.sacco_id)
+            .maybeSingle();
+
+          applySaccoState(saccoRow);
           setIsOrphan(false);
           setLoading(false);
           return;
@@ -109,6 +126,22 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         console.warn("Protected route validation error:", err);
         setLoading(false);
       }
+    }
+
+    // The platform developer portal controls this: 'suspended'/'closed' lock the SACCO
+    // out entirely, 'on_hold' is a billing restriction that leaves the app readable.
+    // The matching write block is enforced in the database by trg_sacco_access_state.
+    function applySaccoState(saccoRow: { name?: string; status?: string; status_reason?: string } | null) {
+      if (!saccoRow) {
+        setSaccoState(null);
+        return;
+      }
+
+      setSaccoState({
+        name: saccoRow.name || "Your SACCO",
+        status: saccoRow.status || "active",
+        reason: saccoRow.status_reason || ""
+      });
     }
 
     checkAuthAndSaccoMembership();
@@ -127,5 +160,117 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Loader />;
   }
 
+  const status = saccoState?.status;
+
+  if (status === "suspended" || status === "closed") {
+    return <SaccoLockout sacco={saccoState as SaccoState} />;
+  }
+
+  if (status === "on_hold") {
+    return (
+      <>
+        <BillingHoldBanner sacco={saccoState as SaccoState} />
+        {children}
+      </>
+    );
+  }
+
   return <>{children}</>;
+}
+
+function SaccoLockout({ sacco }: { sacco: SaccoState }) {
+  const isClosed = sacco.status === "closed";
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2.4rem",
+      background: "#0b0f19"
+    }}>
+      <div style={{
+        maxWidth: "56rem",
+        width: "100%",
+        background: "rgba(15, 23, 42, 0.9)",
+        border: "1px solid rgba(239, 68, 68, 0.25)",
+        borderRadius: "1.6rem",
+        padding: "4rem 3.2rem",
+        textAlign: "center",
+        color: "#e2e8f0"
+      }}>
+        <i
+          className={isClosed ? "fa-solid fa-circle-xmark" : "fa-solid fa-ban"}
+          style={{ fontSize: "5rem", color: "#ef4444", marginBottom: "2rem" }}
+        ></i>
+        <h1 style={{ fontSize: "2.4rem", fontWeight: 800, marginBottom: "1.2rem" }}>
+          {isClosed ? "This SACCO account is closed" : "This SACCO has been suspended"}
+        </h1>
+        <p style={{ fontSize: "1.5rem", lineHeight: 1.6, color: "#94a3b8", marginBottom: "1.6rem" }}>
+          <strong style={{ color: "#e2e8f0" }}>{sacco.name}</strong> is not currently able to use PEWOSA.
+          Member records are safe and unchanged.
+        </p>
+        {sacco.reason && (
+          <p style={{
+            fontSize: "1.4rem",
+            lineHeight: 1.6,
+            color: "#cbd5e1",
+            background: "rgba(239, 68, 68, 0.08)",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
+            borderRadius: "0.8rem",
+            padding: "1.6rem",
+            marginBottom: "2.4rem"
+          }}>
+            {sacco.reason}
+          </p>
+        )}
+        <p style={{ fontSize: "1.35rem", color: "#64748b", marginBottom: "2.4rem" }}>
+          Your SACCO administrator should contact platform support to restore access.
+        </p>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          style={{
+            padding: "1.2rem 2.4rem",
+            borderRadius: "0.8rem",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            background: "rgba(15, 23, 42, 0.6)",
+            color: "#e2e8f0",
+            fontSize: "1.4rem",
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BillingHoldBanner({ sacco }: { sacco: SaccoState }) {
+  return (
+    <div style={{
+      position: "sticky",
+      top: 0,
+      zIndex: 900,
+      display: "flex",
+      alignItems: "center",
+      gap: "1.2rem",
+      padding: "1.2rem 2rem",
+      background: "linear-gradient(135deg, #7c2d12, #9a3412)",
+      color: "#ffedd5",
+      fontSize: "1.35rem",
+      lineHeight: 1.5,
+      borderBottom: "1px solid rgba(249, 115, 22, 0.4)"
+    }}>
+      <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "1.8rem", flexShrink: 0 }}></i>
+      <div>
+        <strong>{sacco.name} is on a billing hold.</strong>{" "}
+        {sacco.reason || "The subscription is unpaid."}{" "}
+        Records stay readable, but contributions, loans and approvals are blocked until the
+        subscription is settled.
+      </div>
+    </div>
+  );
 }
