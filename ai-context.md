@@ -73,6 +73,17 @@ never let a `.jsx` and `.tsx` of the same name coexist — the `.jsx` becomes in
 `Components/ProtectedRoute.tsx` wraps authenticated pages: it requires a session, redirects
 non-admins away from `/admin`, and sends users with no SACCO membership to `/signup?orphan=1`.
 
+It is also the only place that enforces two revocations the auth session cannot express:
+
+- **Deleted account.** `getSession()` reads the cached JWT and makes no network call, so it
+  keeps succeeding for the token's full lifetime after the account is gone. A `getUser()`
+  call revalidates against the auth server; a 401/403 signs the user out to
+  `/login?removed=1`. Other errors are ignored so an offline user is not ejected.
+- **Unapproved member.** `set_member_approval` writes `profiles.status = 'pending'` and
+  leaves the auth account intact, so `status` is the only signal. Any value other than
+  `active` renders the `MembershipRevoked` lockout instead of the page. Re-checked on tab
+  focus so a member revoked mid-session does not keep a live dashboard.
+
 ## 6. API routes
 
 Every handler except `/api/register-sacco` requires an `Authorization: Bearer <supabase access

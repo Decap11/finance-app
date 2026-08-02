@@ -16,11 +16,17 @@ interface SaccoState {
   reason: string;
 }
 
+interface MemberState {
+  status: string;
+  name: string;
+}
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isOrphan, setIsOrphan] = useState<boolean>(false);
   const [saccoState, setSaccoState] = useState<SaccoState | null>(null);
+  const [memberState, setMemberState] = useState<MemberState | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -62,9 +68,26 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         // 1. Fetch user profile
         const { data: profile } = await supabase
           .from("profiles")
-          .select("id, role, group_id, full_name, email")
+          .select("id, role, group_id, full_name, email, status")
           .eq("id", userId)
           .maybeSingle();
+
+        // Unapprove (set_member_approval) writes profiles.status = 'pending'. It does not
+        // touch the auth account, so the session stays valid and getUser() above still
+        // succeeds -- the status column is the only signal that access was revoked, and
+        // this is the one place that reads it. Deliberately keyed off an explicit
+        // non-active value rather than `!== "active"` on a possibly-absent profile: a
+        // missing row is the orphan case handled at step 3, not a revocation.
+        const memberStatus = (profile?.status || "").trim();
+        if (profile && memberStatus && memberStatus !== "active") {
+          setMemberState({
+            status: memberStatus,
+            name: profile.full_name || session.user.user_metadata?.full_name || "your account"
+          });
+          setLoading(false);
+          return;
+        }
+        setMemberState(null);
 
         const profileGroupId = (profile?.group_id || "").trim();
         const groupId = (profileGroupId || session.user.user_metadata?.group_id || "").trim();
@@ -170,7 +193,32 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       });
     }
 
+    // An admin can revoke a member while that member is sitting on the dashboard. The
+    // check above only runs on mount and on route change, so a revoked member would keep
+    // a working page until they navigated or reloaded. Re-reading the status whenever the
+    // tab regains focus closes that window without polling.
+    async function revalidateMemberStatus() {
+      if (document.visibilityState !== "visible") return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, status")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      const status = (profile?.status || "").trim();
+      if (profile && status && status !== "active") {
+        setMemberState({ status, name: profile.full_name || "your account" });
+      }
+    }
+
     checkAuthAndSaccoMembership();
+
+    document.addEventListener("visibilitychange", revalidateMemberStatus);
+    window.addEventListener("focus", revalidateMemberStatus);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -179,11 +227,21 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      document.removeEventListener("visibilitychange", revalidateMemberStatus);
+      window.removeEventListener("focus", revalidateMemberStatus);
+      subscription.unsubscribe();
+    };
   }, [router, pathname]);
 
   if (loading || !session || isOrphan) {
     return <Loader />;
+  }
+
+  // Checked before the SACCO state: a revoked member should see why *they* lost access,
+  // not a tenant-wide notice, and neither branch renders any SACCO data.
+  if (memberState) {
+    return <MembershipRevoked member={memberState} />;
   }
 
   const status = saccoState?.status;
@@ -202,6 +260,76 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return <>{children}</>;
+}
+
+// Shown when profiles.status is anything other than 'active'. 'pending' is what the
+// admin Members tab writes via set_member_approval when it unapproves someone; the other
+// values come from the status CHECK constraint on profiles and are covered here so an
+// unexpected one still produces a lockout rather than silently granting access.
+function MembershipRevoked({ member }: { member: MemberState }) {
+  const isSuspended = member.status === "suspended" || member.status === "closed";
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2.4rem",
+      background: "#0b0f19"
+    }}>
+      <div style={{
+        maxWidth: "56rem",
+        width: "100%",
+        background: "rgba(15, 23, 42, 0.9)",
+        border: "1px solid rgba(249, 115, 22, 0.28)",
+        borderRadius: "1.6rem",
+        padding: "4rem 3.2rem",
+        textAlign: "center",
+        color: "#e2e8f0"
+      }}>
+        <i
+          className={isSuspended ? "fa-solid fa-ban" : "fa-solid fa-user-clock"}
+          style={{ fontSize: "5rem", color: "#f97316", marginBottom: "2rem" }}
+        ></i>
+        <h1 style={{ fontSize: "2.4rem", fontWeight: 800, marginBottom: "1.2rem" }}>
+          {isSuspended ? "Your membership is suspended" : "Your account is awaiting approval"}
+        </h1>
+        <p style={{ fontSize: "1.5rem", lineHeight: 1.6, color: "#94a3b8", marginBottom: "2rem" }}>
+          {isSuspended ? (
+            <>
+              <strong style={{ color: "#e2e8f0" }}>{member.name}</strong> can no longer
+              access this SACCO&apos;s dashboard.
+            </>
+          ) : (
+            <>
+              Your SACCO administrator has revoked dashboard access for{" "}
+              <strong style={{ color: "#e2e8f0" }}>{member.name}</strong>. Your savings,
+              contributions and loan records are safe and unchanged.
+            </>
+          )}
+        </p>
+        <p style={{ fontSize: "1.35rem", color: "#64748b", marginBottom: "2.4rem" }}>
+          Contact your SACCO administrator to have your access restored.
+        </p>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          style={{
+            padding: "1.2rem 2.4rem",
+            borderRadius: "0.8rem",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            background: "rgba(15, 23, 42, 0.6)",
+            color: "#e2e8f0",
+            fontSize: "1.4rem",
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function SaccoLockout({ sacco }: { sacco: SaccoState }) {
