@@ -143,7 +143,7 @@ themselves. Migration `0015` added those checks; do not remove them.
 - `process_guarantor_response` — only the nominated guarantor may respond.
 - `calculate_dividend_preview` / `execute_dividend_payout` — admin of the target SACCO only.
 - `get_sacco_total_balances` — self, or staff of that member's SACCO.
-- `make_member_admin`, `delete_member_entirely` — existing admin of the same SACCO.
+- `set_member_approval`, `make_member_admin`, `delete_member_entirely` — existing admin of the same SACCO, resolved by the shared `admin_sacco_for_member` helper. These three back the buttons on the admin Members tab. You cannot unapprove or delete yourself.
 
 Triggers: `handle_new_user` (on `auth.users`, creates the profile — always as `member`),
 `initialize_member_accounts`, `sync_transaction_full_name`, `sync_loan_on_transaction_approval`,

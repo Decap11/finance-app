@@ -34,6 +34,28 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           return;
         }
 
+        // getSession() only reads the JWT cached in local storage -- it makes no network
+        // call, so it keeps returning a "valid" session for the full token lifetime after
+        // an admin deletes the account. Everything below then falls back to the claims
+        // baked into that stale token (user_metadata.group_id, user_metadata.role), which
+        // is enough to pass every check and render the dashboard to someone who no longer
+        // exists. getUser() asks the auth server whether the account is still there.
+        // Only a definitive rejection ends the session. A network failure surfaces here
+        // as an AuthRetryableFetchError with no HTTP status, and must not sign out a
+        // legitimate user who is merely offline.
+        const { data: { user: liveUser }, error: liveUserErr } = await supabase.auth.getUser();
+        const accountRejected = liveUserErr
+          ? liveUserErr.status === 401 || liveUserErr.status === 403
+          : !liveUser;
+
+        if (accountRejected) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setLoading(false);
+          router.replace("/login?removed=1");
+          return;
+        }
+
         setSession(session);
         const userId = session.user.id;
 

@@ -96,7 +96,10 @@ export default function AdminDashboardPage() {
             role: roleVal,
             status: statusVal,
             avatarUrl: p.avatar_url,
-            created_at: p.created_at
+            created_at: p.created_at,
+            // set_member_approval and delete_member_entirely both reject self-targeting,
+            // so the card hides those two actions rather than offering a certain failure.
+            isCurrentUser: String(p.id) === String(user.id)
           };
         });
         setAllMembers(mappedMembers);
@@ -258,19 +261,11 @@ export default function AdminDashboardPage() {
     if (!confirmPromote) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not logged in");
-
-      const res = await fetch("/api/admin/member-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ action: "make_admin", memberId })
+      const { error } = await supabase.rpc('make_member_admin', {
+        p_member_id: memberId
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to make member admin");
+
+      if (error) throw error;
 
       alert("Member successfully promoted to admin!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: 'admin', status: 'active' } : m));
@@ -284,19 +279,12 @@ export default function AdminDashboardPage() {
     if (!confirmApprove) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not logged in");
-
-      const res = await fetch("/api/admin/member-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ action: "approve", memberId })
+      const { error } = await supabase.rpc('set_member_approval', {
+        p_member_id: memberId,
+        p_approve: true
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to approve member");
+
+      if (error) throw error;
 
       alert("Member successfully approved!");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
@@ -310,19 +298,12 @@ export default function AdminDashboardPage() {
     if (!confirmUnapprove) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not logged in");
-
-      const res = await fetch("/api/admin/member-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ action: "unapprove", memberId })
+      const { error } = await supabase.rpc('set_member_approval', {
+        p_member_id: memberId,
+        p_approve: false
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to unapprove member");
+
+      if (error) throw error;
 
       alert("Member access revoked! Account status set to pending.");
       setAllMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
@@ -603,6 +584,8 @@ export default function AdminDashboardPage() {
                         >
                           <i className="fa-solid fa-user-check"></i> Approve
                         </button>
+                      ) : member.isCurrentUser ? (
+                        <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>You</span>
                       ) : (
                         <button
                           onClick={() => handleUnapproveMember(member.id)}
@@ -646,25 +629,27 @@ export default function AdminDashboardPage() {
                         <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>Sacco Admin</span>
                       )}
                       
-                      <button
-                        onClick={() => handleDeleteMember(member.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#ef4444",
-                          fontSize: "1.4rem",
-                          cursor: "pointer",
-                          padding: "0.4rem",
-                          borderRadius: "0.4rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "background 0.2s"
-                        }}
-                        title="Delete Member"
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                      </button>
+                      {!member.isCurrentUser && (
+                        <button
+                          onClick={() => handleDeleteMember(member.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            fontSize: "1.4rem",
+                            cursor: "pointer",
+                            padding: "0.4rem",
+                            borderRadius: "0.4rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "background 0.2s"
+                          }}
+                          title="Delete Member"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

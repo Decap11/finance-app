@@ -16,6 +16,9 @@ export default function Login() {
 
   const justRegistered = searchParams?.get("registered") === "1";
   const registeredEmail = searchParams?.get("email") || "";
+  // Set by ProtectedRoute when the auth server no longer recognises the account,
+  // i.e. an admin removed this member from the SACCO mid-session.
+  const wasRemoved = searchParams?.get("removed") === "1";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -123,6 +126,24 @@ export default function Login() {
           <strong>✅ SACCO registered successfully!</strong><br />
           We&apos;ve sent a confirmation link to <strong>{registeredEmail}</strong>.<br />
           Please check your email, click the link, then log in here.
+        </div>
+      )}
+
+      {wasRemoved && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fee2e2, #fecaca)',
+          border: '1px solid #ef4444',
+          borderRadius: '0.8rem',
+          padding: '1.2rem 1.6rem',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+          fontSize: '1.3rem',
+          color: '#991b1b',
+          lineHeight: '1.5',
+        }}>
+          <strong>Your account is no longer active.</strong><br />
+          It has been removed from the SACCO. Contact your SACCO administrator if you
+          believe this is a mistake.
         </div>
       )}
 

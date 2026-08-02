@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0016 in numeric order, without stopping.**
+Run **0001 through 0017 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,8 +20,10 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016**. 0016 depends on 0015's `saccos_update_admin_only` policy being in place —
-it narrows that policy's reach with column-level grants.
+Run **0015, then 0016, then 0017**. 0016 depends on 0015's `saccos_update_admin_only` policy being
+in place — it narrows that policy's reach with column-level grants. 0017 depends on 0015's
+column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER` precisely
+because `role` and `status` are no longer writable by `authenticated` directly.
 
 0015 is written to be idempotent and self-contained: every `DROP POLICY` is
 `IF EXISTS`, every function is `CREATE OR REPLACE`, and RLS is force-enabled as its first action.
@@ -49,12 +51,14 @@ It is safe to re-run 0015 at any time.
 | 0014 | `peer-guarantors` | Adds `loan_guarantors` and `process_guarantor_response`. |
 | 0015 | `security-hardening` | ✅ **Current authority.** Rewrites all RLS and hardens every privileged function. |
 | 0016 | `subscription-holds` | Adds the `on_hold` status and the subscription columns on `saccos`, restricts which `saccos` columns a tenant admin may update, and adds `enforce_sacco_access_state` — the trigger that blocks financial writes for suspended/held tenants. |
+| 0017 | `member-management-rpcs` | Backs the admin Members tab. Adds `set_member_approval` and the `admin_sacco_for_member` helper, and rewrites `make_member_admin` / `delete_member_entirely` (see below). |
 
-## What 0015 supersedes
+## Which definition is live
 
 Several objects were redefined repeatedly across the sequence. `CREATE OR REPLACE` means only the
 last one applied is live, which is why the earlier definitions are misleading to read in isolation.
-For each of these, **0015 holds the only definition that should be running**:
+For each of these, **only the version in the "Live version" column should be running** — 0015 for
+everything the security audit touched, 0017 for the two member-management functions it missed:
 
 | Object | Defined in | Live version |
 |--------|-----------|--------------|
@@ -65,6 +69,8 @@ For each of these, **0015 holds the only definition that should be running**:
 | `calculate_dividend_preview`, `execute_dividend_payout` | 0013 | 0015 |
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002 | 0015 |
+| `make_member_admin` | 0002 | 0017 |
+| `delete_member_entirely` | 0002 | 0017 |
 
 Concretely, 0015 fixes: RLS policies that read `USING (true)` on every table; `audit_events`
 having no RLS at all; six `SECURITY DEFINER` functions with no authorization checks (most
