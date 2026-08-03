@@ -3,248 +3,159 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Must cover every value ManualContributionLog offers. A chain of ternaries used to do
-// this and fell through to "Social Fund" for anything unlisted, so every manually logged
-// fine was filed with a description calling it a social fund contribution.
-const CATEGORY_LABELS = {
-  shares: 'Shares',
-  development_fund: 'Development Fund',
-  social_fund: 'Social Fund',
-  fines: 'Fine',
-  loan_disbursement: 'Loan Disbursement'
-};
+// Everything a SACCO could plausibly have on paper before it was onboarded. Kept in
+// step with the CHECK inside log_historical_record so a bad value is rejected here with
+// a readable message rather than as a raw Postgres exception.
+const BACKFILLABLE = new Set([
+  'shares',
+  'development_fund',
+  'social_fund',
+  'savings',
+  'fines',
+  'loan_disbursement',
+  'loan_repayment',
+  'dividend'
+]);
+
+// The anon key plus the caller's JWT, deliberately. log_historical_record is
+// SECURITY DEFINER and resolves the caller through auth.uid(); handing it a service-role
+// client would leave auth.uid() null and every call would abort on the first check.
+function clientFor(token) {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+}
+
+function bearer(request) {
+  return request.headers.get('authorization')?.split(' ')[1] || null;
+}
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-
+    const token = bearer(request);
     if (!token) {
       return Response.json({ error: 'No authorization token provided.' }, { status: 401 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    });
+    const supabase = clientFor(token);
 
-    // 1. Authenticate caller
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
       return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
     }
 
-    // 2. Verify caller is an admin
-    const { data: callerProfile, error: profileErr } = await supabase
-      .from('profiles')
-      .select('role, group_id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileErr || !callerProfile || callerProfile.role !== 'admin') {
-      return Response.json({ error: 'Unauthorized. Only admins can log manual historical data.' }, { status: 403 });
-    }
-
-    // Load request body
     const body = await request.json();
-    const { memberId, amount, category, weekNum, termMonths, purpose, loanType } = body;
+    const {
+      memberId,
+      amount,
+      category,
+      occurredOn,
+      description,
+      fineType,
+      loanId,
+      loanType,
+      termMonths,
+      purpose,
+      interestRate
+    } = body;
 
-    if (!memberId || !amount || !category || !weekNum) {
-      return Response.json({ error: 'Missing required fields: memberId, amount, category, weekNum.' }, { status: 400 });
+    if (!memberId || !category || !occurredOn) {
+      return Response.json(
+        { error: 'Missing required fields: memberId, category and occurredOn (the date it happened).' },
+        { status: 400 }
+      );
     }
 
-    // 3. Retrieve SACCO ID matching caller's group_id
-    const { data: sacco, error: saccoErr } = await supabase
-      .from('saccos')
-      .select('id')
-      .eq('group_code', callerProfile.group_id)
-      .limit(1)
-      .single();
-
-    if (saccoErr || !sacco) {
-      return Response.json({ error: 'Could not find active SACCO group for this admin.' }, { status: 400 });
+    if (!BACKFILLABLE.has(category)) {
+      return Response.json({ error: `Cannot backfill a record of type "${category}".` }, { status: 400 });
     }
 
-    // 4. Duplicate Check: Ensure member has no existing completed/approved transaction of this type in this week
-    const weekPattern = `%| Week ${weekNum}`;
-    const { data: existingTx, error: checkErr } = await supabase
-      .from('transactions')
-      .select('id')
-      .eq('profile_id', memberId)
-      .eq('category', category)
-      .in('status', ['completed', 'approved'])
-      .ilike('description', weekPattern)
-      .limit(1);
-
-    if (checkErr) {
-      return Response.json({ error: 'Database check failed: ' + checkErr.message }, { status: 500 });
+    // Checked before the round trip because `Number(undefined)` is NaN, which Postgres
+    // would reject with a message about types rather than about the amount.
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return Response.json({ error: 'Amount must be a number greater than zero.' }, { status: 400 });
     }
 
-    if (existingTx && existingTx.length > 0) {
-      return Response.json({
-        error: `Member already has a completed ${CATEGORY_LABELS[category] || category} entry logged for Week ${weekNum}.`
-      }, { status: 400 });
+    // Postgres will take any date it can parse, including '2026-13-45' style nonsense
+    // that JS coerces. Pin the shape here so the error names the real problem.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(occurredOn))) {
+      return Response.json({ error: 'occurredOn must be a date in YYYY-MM-DD form.' }, { status: 400 });
     }
 
-    // 5. Check if we are logging a loan disbursement
-    if (category === 'loan_disbursement') {
-      const parsedLoanType = loanType || 'normal';
+    // Authorization, same-SACCO checks, atomicity, balances and loan side effects all
+    // live in the function -- see migration 0028 for why none of it can be done from
+    // here under RLS.
+    const { data, error: rpcErr } = await supabase.rpc('log_historical_record', {
+      p_member_id: memberId,
+      p_category: category,
+      p_amount: parsedAmount,
+      p_occurred_on: occurredOn,
+      p_description: description || null,
+      p_fine_type: fineType || null,
+      p_loan_id: loanId || null,
+      p_loan_type: loanType || 'normal',
+      p_term_months: termMonths ? Number(termMonths) : 1,
+      p_purpose: purpose || null,
+      p_interest_rate: interestRate === undefined || interestRate === null ? null : Number(interestRate)
+    });
 
-      // Scoped to the type being logged. A normal loan and a Social Fund emergency
-      // advance run alongside each other by design -- only a second loan of the same
-      // kind is the double-borrowing this is here to stop.
-      const { data: activeLoan } = await supabase
-        .from('loans')
-        .select('id')
-        .eq('profile_id', memberId)
-        .eq('loan_type', parsedLoanType)
-        .in('status', ['issued', 'active'])
-        .limit(1);
-
-      if (activeLoan && activeLoan.length > 0) {
-        return Response.json({
-          error: parsedLoanType === 'social_fund'
-            ? 'Member already has an open Social Fund emergency loan.'
-            : 'Member already has an active or issued normal loan.'
-        }, { status: 400 });
-      }
-
-      // Get member's loan account
-      const { data: account, error: accErr } = await supabase
-        .from('accounts')
-        .select('id, balance')
-        .eq('profile_id', memberId)
-        .eq('account_type', 'loan')
-        .limit(1)
-        .single();
-
-      if (accErr || !account) {
-        return Response.json({ error: 'Could not find an initialized loan account for the selected member.' }, { status: 400 });
-      }
-
-      // Calculate parameters
-      const parsedTerm = Number(termMonths) || 1;
-      const parsedPurpose = purpose || 'Onboarded historical loan';
-      const interestRate = parsedLoanType === 'social_fund' ? 0.00 : 5.00;
-
-      // Insert Loan record
-      const { data: newLoan, error: loanInsertErr } = await supabase
-        .from('loans')
-        .insert({
-          sacco_id: sacco.id,
-          profile_id: memberId,
-          amount_requested: Number(amount),
-          amount_approved: Number(amount),
-          outstanding_balance: Number(amount),
-          interest_rate: interestRate,
-          term_months: parsedTerm,
-          purpose: parsedPurpose,
-          loan_type: parsedLoanType,
-          status: 'issued',
-          requested_at: new Date().toISOString(),
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-          disbursed_at: new Date().toISOString()
-        })
-        .select('id')
-        .single();
-
-      if (loanInsertErr || !newLoan) {
-        return Response.json({ error: 'Failed to create loan record: ' + (loanInsertErr?.message || 'Unknown error') }, { status: 500 });
-      }
-
-      // Insert corresponding Completed Transaction
-      const newTx = {
-        sacco_id: sacco.id,
-        profile_id: memberId,
-        account_id: account.id,
-        loan_id: newLoan.id,
-        amount: Number(amount),
-        direction: 'debit',
-        category: 'loan_disbursement',
-        status: 'completed',
-        description: `Manual loan onboarding: ${parsedLoanType === 'social_fund' ? 'Social Fund' : 'Normal'} | Week ${weekNum}`,
-        requested_by: user.id,
-        approved_by: user.id,
-        approved_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
-      };
-
-      const { data: txResult, error: insertErr } = await supabase
-        .from('transactions')
-        .insert(newTx)
-        .select('id')
-        .single();
-
-      if (insertErr) {
-        return Response.json({ error: 'Failed to record loan disbursement transaction: ' + insertErr.message }, { status: 500 });
-      }
-
-      // Update loan balance
-      const newBalance = Number(account.balance) + Number(amount);
-      const { error: balanceErr } = await supabase
-        .from('accounts')
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('id', account.id);
-
-      if (balanceErr) {
-        return Response.json({ error: 'Failed to update member loan balance: ' + balanceErr.message }, { status: 500 });
-      }
-
-      return Response.json({ success: true, transactionId: txResult.id, loanId: newLoan.id });
-    } else {
-      // 5. Get member's account ID for the target category (shares, dev, social)
-      const { data: account, error: accErr } = await supabase
-        .from('accounts')
-        .select('id, balance')
-        .eq('profile_id', memberId)
-        .eq('account_type', category)
-        .limit(1)
-        .single();
-
-      if (accErr || !account) {
-        return Response.json({ error: `Could not find an initialized ${category} account for the selected member.` }, { status: 400 });
-      }
-
-      // 6. Insert dynamic completed transaction
-      const newTx = {
-        sacco_id: sacco.id,
-        profile_id: memberId,
-        account_id: account.id,
-        amount: Number(amount),
-        direction: 'credit',
-        category: category,
-        status: 'completed',
-        description: `Manual contribution log by admin: ${CATEGORY_LABELS[category] || category} | Week ${weekNum}`,
-        requested_by: user.id
-      };
-
-      const { data: txResult, error: insertErr } = await supabase
-        .from('transactions')
-        .insert(newTx)
-        .select('id')
-        .single();
-
-      if (insertErr) {
-        return Response.json({ error: 'Failed to record transaction: ' + insertErr.message }, { status: 500 });
-      }
-
-      // 7. Update member's account balance atomically
-      const newBalance = Number(account.balance) + Number(amount);
-      const { error: balanceErr } = await supabase
-        .from('accounts')
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('id', account.id);
-
-      if (balanceErr) {
-        return Response.json({ error: 'Failed to update member balance ledger: ' + balanceErr.message }, { status: 500 });
-      }
-
-      return Response.json({ success: true, transactionId: txResult.id });
+    if (rpcErr) {
+      // Every RAISE EXCEPTION in the function is written to be shown to the admin as-is,
+      // so the message is passed straight through. 400 rather than 500: these are
+      // rejections of what was typed, not server faults.
+      const missing = /does not exist/i.test(rpcErr.message || '');
+      return Response.json(
+        {
+          error: missing
+            ? 'Historical onboarding is not available yet: migration 0028 has not been applied to this database.'
+            : rpcErr.message
+        },
+        { status: missing ? 503 : 400 }
+      );
     }
+
+    return Response.json({ success: true, ...(data || {}) });
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// The repayment picker needs the member's open loans, and needs exactly the set
+// log_historical_record will accept a repayment against.
+export async function GET(request) {
+  try {
+    const token = bearer(request);
+    if (!token) {
+      return Response.json({ error: 'No authorization token provided.' }, { status: 401 });
+    }
+
+    const supabase = clientFor(token);
+
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
+    }
+
+    const memberId = new URL(request.url).searchParams.get('memberId');
+    if (!memberId) {
+      return Response.json({ error: 'memberId is required.' }, { status: 400 });
+    }
+
+    const { data: loans, error: rpcErr } = await supabase.rpc('get_member_open_loans', {
+      p_member_id: memberId
+    });
+
+    if (rpcErr) {
+      // A missing function here only costs the picker its options, so it degrades to an
+      // empty list rather than blocking the rest of the form.
+      if (/does not exist/i.test(rpcErr.message || '')) {
+        return Response.json({ loans: [] });
+      }
+      return Response.json({ error: rpcErr.message }, { status: 400 });
+    }
+
+    return Response.json({ loans: loans || [] });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

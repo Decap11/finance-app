@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0027 in numeric order, without stopping.**
+Run **0001 through 0028 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -80,6 +80,7 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0025 | `concurrent-loan-types` | ✅ One open loan **per type**, not one open loan. A member repaying a normal loan may still take a Social Fund emergency advance; what they cannot do is stack two of the same kind. Replaces `request_loan` with the check scoped to `loan_type`, adds `loan_is_open(status)`, and adds a partial unique index on `(profile_id, loan_type)` over the open statuses — **the index is skipped with a warning if the data already has duplicates** (this database has several members holding multiple open normal loans from before the rule). Re-run the file once those are settled and the index appears. Depends on 0023. |
 | 0026 | `loan-numbers` | ✅ Human-readable loan references — `BYS-022-001`: SACCO acronym from `saccos.group_code`, the borrower's `member_number` digits, and which loan this is for that member. Adds `loans.loan_number` (unique) alongside the UUID primary key, which is untouched. Stamped by a `BEFORE INSERT` trigger rather than inside `request_loan`, so the admin manual-contribution path gets one too; the `UPDATE` branch holds an issued number still. Numbering runs per prefix, not per member, because two HTS-5050 members share `MEM-022` and would otherwise both be handed `-001`. Backfills existing loans oldest-first. Depends on 0025. |
 | 0027 | `capital-weekly-trend` | ✅ Puts a real number behind the "Total SACCO Assets" card's trend line, which was a hardcoded `+0.0%` and a hardcoded upward arrow. Adds `get_sacco_capital_trend`, returning the pot at Monday 00:00 plus the signed movement in this week and last. The card shows this week's growth against the opening balance, and turns the arrow down and the figure red when it is negative. Sums the same four categories the card totals (`shares`, `development_fund`, `social_fund`, `fines`) and deliberately **not** `savings`, which `/api/sacco-balances` drops from its response — a percentage over a wider set than the figure above it would not reconcile. Weeks are ISO (Monday), not the SACCO's `meeting_day`. The API treats a missing definition as non-fatal, so the other cards survive an unapplied 0027. Depends on nothing. |
+| 0028 | `historical-onboarding` | ✅ **Makes Historical Onboarding work at all.** The feature has never written a row: `/api/admin/manual-contribution` runs under the anon key, so RLS applied to every statement, and the only `transactions` INSERT policy (0019) demands `profile_id = auth.uid()` and `status = 'pending'` while `loans` and `accounts` have no write policy whatsoever. Adds `log_historical_record`, one `SECURITY DEFINER` function that does the lot in a single transaction — contributions, fines, loans issued, repayments and dividends — and critically sets `created_at` / `approved_at` / `completed_at` to **the date the event actually happened** rather than today, which is what puts a backfilled record on the right meeting in every view. Also writes `week_number` (never previously written), resolves accounts through 0024's `account_type_for_category` with the identical balance arithmetic to `approve_member_transaction`, does the loan side effects by hand because `on_transaction_approval` is an `AFTER UPDATE OF status` trigger that never fires for a row inserted already `completed`, and authorizes via `is_sacco_staff(the member's own SACCO)` — closing a hole where an admin of one SACCO could write records against another's member. Backdating requires `is_historical_mode` to be on in Configuration Settings, enforced in the function rather than only in the form. Rows carry `reference = 'HISTORICAL'`. Adds `meeting_week_of` and `get_member_open_loans`. Depends on 0019 (`is_sacco_staff`), 0024 (`account_type_for_category`) and 0025 (`loan_is_open`). |
 
 ## Which definition is live
 
@@ -100,6 +101,7 @@ everything the security audit touched, 0017 for the two member-management functi
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002, 0015 | 0022 |
 | `get_sacco_capital_trend` | — | 0027 |
+| `log_historical_record`, `get_member_open_loans`, `meeting_week_of` | — | 0028 |
 | `request_loan` | 0002, 0023, 0025 | 0026 |
 | `initialize_member_accounts` | 0001 | 0021 |
 | `make_member_admin` | 0002 | 0017 |
