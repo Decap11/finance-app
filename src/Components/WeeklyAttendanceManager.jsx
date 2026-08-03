@@ -1,7 +1,103 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
+
+/**
+ * The fine controls for one absent member, in a menu anchored to that member's row.
+ *
+ * It renders into document.body rather than into the row because the member list is a
+ * fixed-height scroller -- a menu positioned inside it would be clipped by that
+ * scroller's overflow the moment it extended past the bottom row.
+ */
+function FineActionMenu({ anchorRect, onClose, children }) {
+  const menuRef = useRef(null);
+  const [position, setPosition] = useState(null);
+
+  // Measure the menu, then place it: right edge aligned to the button, dropping down
+  // unless that would run off the bottom of the viewport, in which case it flips above.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el || !anchorRect) return;
+
+    const margin = 8;
+    const gap = 6;
+    const { width, height } = el.getBoundingClientRect();
+
+    let left = anchorRect.right - width;
+    left = Math.min(left, window.innerWidth - margin - width);
+    left = Math.max(margin, left);
+
+    let top = anchorRect.bottom + gap;
+    if (top + height > window.innerHeight - margin) {
+      top = Math.max(margin, anchorRect.top - height - gap);
+    }
+
+    setPosition({ top, left });
+  }, [anchorRect]);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    function onPointerDown(e) {
+      if (menuRef.current?.contains(e.target)) return;
+      // The kebab handles its own toggle on click. Closing here as well would close the
+      // menu on the way down and reopen it on the way up, so a second tap never shuts it.
+      if (e.target.closest?.(".attendance-fine-menu-btn")) return;
+      onClose();
+    }
+    // The list underneath scrolls, so the anchor moves out from under the menu. Rather
+    // than track it, close -- the menu is one tap away again.
+    function onViewportChange() {
+      onClose();
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    window.addEventListener("scroll", onViewportChange, true);
+    window.addEventListener("resize", onViewportChange);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("resize", onViewportChange);
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{
+        position: "fixed",
+        top: position ? `${position.top}px` : 0,
+        left: position ? `${position.left}px` : 0,
+        // Hidden for the first paint, which exists only so the menu can be measured.
+        visibility: position ? "visible" : "hidden",
+        zIndex: 1000,
+        width: "min(26rem, calc(100vw - 1.6rem))",
+        background: "white",
+        border: "1px solid #e2e8f0",
+        borderRadius: "1rem",
+        boxShadow: "0 1.2rem 3rem rgba(15, 23, 42, 0.16)",
+        padding: "1.2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem"
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const [currentWeek, setCurrentWeek] = useState(1);
@@ -15,6 +111,8 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const [clearingFineId, setClearingFineId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusMessage, setStatusMessage] = useState(null);
+  // { memberId, rect } for the row whose fine menu is open; null when none is.
+  const [fineMenu, setFineMenu] = useState(null);
 
   const [internalMembers, setInternalMembers] = useState([]);
 
@@ -142,7 +240,21 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     loadWeekData();
   }, [groupCode, saccoId, currentWeek, activeMemberList]);
 
+  // Stable so the menu's document-level listeners are not torn down and rebound on
+  // every render of this component.
+  const closeFineMenu = useCallback(() => setFineMenu(null), []);
+
+  const toggleFineMenu = (memberId, buttonEl) => {
+    setFineMenu(prev => {
+      if (prev?.memberId === memberId) return null;
+      const { top, bottom, right } = buttonEl.getBoundingClientRect();
+      return { memberId, rect: { top, bottom, right } };
+    });
+  };
+
   const toggleMemberStatus = (memberId, status) => {
+    // The menu belongs to the absent state; leaving it would leave the menu orphaned.
+    if (status !== "absent" && fineMenu?.memberId === memberId) closeFineMenu();
     setAttendance(prev => ({
       ...prev,
       [memberId]: status
@@ -150,6 +262,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   };
 
   const markAllStatus = (status) => {
+    closeFineMenu();
     const updated = {};
     (activeMemberList || []).forEach(m => {
       updated[m.id] = status;
@@ -302,6 +415,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         .ilike("description", `%Week ${currentWeek}`);
 
       setFineTransactions(updatedTx || []);
+      closeFineMenu();
 
       setStatusMessage({
         type: "success",
@@ -440,6 +554,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             const status = attendance[member.id] || "present";
             const memberFineTx = fineTransactions.find(t => t.profile_id === member.id);
             const isFinePaid = memberFineTx && (memberFineTx.status === "completed" || memberFineTx.status === "approved");
+            const isMenuOpen = fineMenu?.memberId === member.id;
 
             return (
               <div
@@ -477,42 +592,6 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
                       <span style={{ fontSize: "1.2rem", color: "#64748b" }}>{member.memberId || "MEM-000"}</span>
                     </div>
                   </div>
-
-                  {status === "absent" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                      <span style={{
-                        fontSize: "1.15rem",
-                        fontWeight: 700,
-                        color: isFinePaid ? "#065f46" : "#dc2626",
-                        padding: "0.4rem 0.8rem",
-                        borderRadius: "0.6rem",
-                        background: isFinePaid ? "#d1fae5" : "#fee2e2",
-                        border: `1px solid ${isFinePaid ? "#a7f3d0" : "#fca5a5"}`
-                      }}>
-                        {isFinePaid ? "✓ Fine Paid (UGX 1,000)" : "🔴 Unpaid Fine (UGX 1,000)"}
-                      </span>
-
-                      {!isFinePaid && (
-                        <button
-                          type="button"
-                          onClick={() => handleClearFine(member.id, memberFineTx?.id)}
-                          disabled={clearingFineId === member.id}
-                          style={{
-                            padding: "0.4rem 0.8rem",
-                            borderRadius: "0.6rem",
-                            border: "none",
-                            background: "#059669",
-                            color: "white",
-                            fontSize: "1.15rem",
-                            fontWeight: 700,
-                            cursor: "pointer"
-                          }}
-                        >
-                          {clearingFineId === member.id ? "Clearing..." : "Mark Fine Paid"}
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 <div className="attendance-member-actions" style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
@@ -564,7 +643,129 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
                   >
                     Excused
                   </button>
+
+                  {/* Fine controls live behind this rather than inline in the row: an
+                      absent member used to push a badge and a button into the row, which
+                      on a narrow screen wrapped the row onto three lines. */}
+                  {status === "absent" && (
+                    <button
+                      type="button"
+                      className="attendance-fine-menu-btn"
+                      onClick={(e) => toggleFineMenu(member.id, e.currentTarget)}
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
+                      aria-label={`Absence fine options for ${member.name}`}
+                      title="Absence fine options"
+                      style={{
+                        position: "relative",
+                        flexShrink: 0,
+                        width: "3.2rem",
+                        minWidth: "32px",
+                        height: "3.2rem",
+                        minHeight: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                        borderRadius: "0.8rem",
+                        border: isMenuOpen ? "1px solid #94a3b8" : "1px solid #cbd5e1",
+                        background: isMenuOpen ? "#f1f5f9" : "white",
+                        color: "#475569",
+                        fontSize: "1.4rem",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <i className="fa-solid fa-ellipsis-vertical"></i>
+                      {/* Only an outstanding fine needs the admin's attention, so the dot
+                          disappears once it is paid. */}
+                      {!isFinePaid && (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: "absolute",
+                            top: "-0.3rem",
+                            right: "-0.3rem",
+                            width: "0.9rem",
+                            height: "0.9rem",
+                            minWidth: "9px",
+                            minHeight: "9px",
+                            borderRadius: "50%",
+                            background: "#dc2626",
+                            border: "1.5px solid white"
+                          }}
+                        ></span>
+                      )}
+                    </button>
+                  )}
                 </div>
+
+                {isMenuOpen && (
+                  <FineActionMenu anchorRect={fineMenu.rect} onClose={closeFineMenu}>
+                    <div>
+                      <strong style={{ display: "block", fontSize: "1.35rem", color: "var(--text-dark)" }}>
+                        {member.name}
+                      </strong>
+                      <span style={{ fontSize: "1.15rem", color: "#64748b" }}>
+                        Absent &middot; Week {currentWeek}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.8rem",
+                        padding: "0.8rem 1rem",
+                        borderRadius: "0.8rem",
+                        background: isFinePaid ? "#d1fae5" : "#fee2e2",
+                        border: `1px solid ${isFinePaid ? "#a7f3d0" : "#fca5a5"}`
+                      }}
+                    >
+                      <span style={{ fontSize: "1.2rem", fontWeight: 700, color: isFinePaid ? "#065f46" : "#991b1b" }}>
+                        {isFinePaid ? "Fine paid" : "Fine unpaid"}
+                      </span>
+                      <span style={{ fontSize: "1.2rem", fontWeight: 700, color: isFinePaid ? "#065f46" : "#991b1b" }}>
+                        UGX {fineRate.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {isFinePaid ? (
+                      <p style={{ margin: 0, fontSize: "1.15rem", color: "#64748b", lineHeight: 1.5 }}>
+                        Cleared for this week. Nothing further to collect.
+                      </p>
+                    ) : memberFineTx ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleClearFine(member.id, memberFineTx.id)}
+                        disabled={clearingFineId === member.id}
+                        style={{
+                          width: "100%",
+                          padding: "0.9rem 1rem",
+                          minHeight: "40px",
+                          borderRadius: "0.8rem",
+                          border: "none",
+                          background: "#059669",
+                          color: "white",
+                          fontSize: "1.25rem",
+                          fontWeight: 700,
+                          cursor: clearingFineId === member.id ? "wait" : "pointer"
+                        }}
+                      >
+                        {clearingFineId === member.id ? "Clearing…" : "Mark Fine Paid"}
+                      </button>
+                    ) : (
+                      // Clearing a fine that was never logged silently updates no rows and
+                      // still reports success, so the action stays out of reach until the
+                      // week is saved and the fine actually exists.
+                      <p style={{ margin: 0, fontSize: "1.15rem", color: "#64748b", lineHeight: 1.5 }}>
+                        This fine is logged when you save Week {currentWeek}. Save the week
+                        first, then come back here to mark it paid.
+                      </p>
+                    )}
+                  </FineActionMenu>
+                )}
               </div>
             );
           })

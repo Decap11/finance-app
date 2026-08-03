@@ -151,6 +151,19 @@
   color: #1e293b;
 }
 
+/* Kebab that opens the absence-fine menu on a member row. The base look is set inline on
+   the element, so the hover state has to outrank it. */
+.attendance-fine-menu-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+}
+
+.attendance-fine-menu-btn:focus-visible {
+  outline: 2px solid #253b8e;
+  outline-offset: 2px;
+}
+
 /* Mobile Responsiveness for WeeklyAttendanceManager (<= 440px) */
 @media (max-width: 440px) {
   .attendance-engine-card {
@@ -211,14 +224,27 @@
   .attendance-member-actions {
     width: 100% !important;
     display: grid !important;
-    grid-template-columns: 1fr 1fr 1fr !important;
+    /* Present / Absent / Excused share the width; the kebab takes only what it needs and
+       sits at the far right. Present members render three items and leave the last track
+       collapsed to nothing. */
+    grid-template-columns: 1fr 1fr 1fr auto !important;
     gap: 0.6rem !important;
   }
 
-  .attendance-member-actions button {
+  .attendance-member-actions button:not(.attendance-fine-menu-btn) {
     padding: 0.8rem 0.4rem !important;
     font-size: 1.1rem !important;
     justify-content: center !important;
     text-align: center !important;
+  }
+
+  /* Sized in px: responsive.css runs the root font size down to 48% at this width, which
+     would leave this a ~15px target. */
+  .attendance-fine-menu-btn {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 15px !important;
   }
 }
