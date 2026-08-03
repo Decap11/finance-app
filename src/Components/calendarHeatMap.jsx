@@ -142,11 +142,26 @@ export default function CalendarHeatMap({ memberId }) {
       let onboardMeetingIdx = 1;
       let onboardDateObj = null;
 
-      const rawOnboardDate = data.saccoCreatedAt || settings.onboardingDate || settings.onboarding_date;
+      // Once the SACCO has finished historical onboarding, the anchor -- its own Week 1 --
+      // is where the record genuinely begins, and it is usually well before the day the
+      // group registered here. Preferring it is what stops a backfilled year of real
+      // contributions being dimmed as "pre-onboarding".
+      //
+      // An anchor in an earlier year than the one on screen resolves to meeting 1 through
+      // the nearest-match below, which is correct: every meeting of this year is inside
+      // the record.
+      const rawOnboardDate = settings.weekAnchorDate
+        || data.saccoCreatedAt || settings.onboardingDate || settings.onboarding_date;
+
+      // The date shown in the tooltip stays the day the group actually registered -- that
+      // label says "registered on", and the anchor is a different fact.
+      const rawRegisteredDate = data.saccoCreatedAt || settings.onboardingDate || settings.onboarding_date;
+      if (rawRegisteredDate) {
+        setSaccoCreatedAtDate(new Date(rawRegisteredDate));
+      }
 
       if (rawOnboardDate) {
         onboardDateObj = new Date(rawOnboardDate);
-        setSaccoCreatedAtDate(onboardDateObj);
 
         // Find the exact meeting date corresponding to the SACCO onboarding week using unified getForthcomingMeetingDate
         const targetOnboardMeetingDate = getForthcomingMeetingDate(onboardDateObj, configuredDay);

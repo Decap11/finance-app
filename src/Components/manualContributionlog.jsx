@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
+import { getSaccoWeekOf } from "../utils/meetingDateUtils";
 import "../styles/featureArea.css";
 
 // Everything a SACCO could have on paper before it was onboarded. Fines used to be
@@ -36,13 +37,18 @@ function todayISO() {
 }
 
 /**
- * Which meeting week a date falls in -- the Nth occurrence of the SACCO's meeting day
- * within that date's own calendar year.
+ * Which meeting week a date falls in when the SACCO has no anchor yet -- the Nth
+ * occurrence of its meeting day within that date's own calendar year.
  *
  * Mirrors meeting_week_of() in migration 0028 exactly, including the "minimum 1" for a
  * date landing before the year's first meeting day. This is only ever shown to the
  * admin for confirmation; the number actually stored is the one the database computes,
  * so the two cannot drift apart in the ledger even if this ever disagreed.
+ *
+ * Once historical onboarding is finished the SACCO counts from an anchor instead and
+ * getSaccoWeekOf takes over -- see derivedWeek below. Records typed before that point are
+ * renumbered by finalize_historical_onboarding, so this rule is only ever what a row
+ * starts out with.
  *
  * Arithmetic in UTC rather than local time: the previous version of this form walked
  * every day of the year in local time for each of 52 weeks on every single render, which
@@ -79,6 +85,9 @@ export default function ManualContributionLog({ allMembers }) {
   const [occurredOn, setOccurredOn] = useState(todayISO());
   const [currentWeek, setCurrentWeek] = useState(1);
   const [meetingDay, setMeetingDay] = useState("Wednesday");
+  // Week 1 of the SACCO's cycle, once historical onboarding has been finished. null until
+  // then, and the calendar-year rule is used instead.
+  const [weekAnchorDate, setWeekAnchorDate] = useState(null);
   // Backdating is only permitted while the SACCO has historical onboarding switched on
   // in Configuration Settings. The database enforces this too -- see migration 0028 --
   // so this flag is here to explain the rule, not to be the rule.
@@ -126,9 +135,13 @@ export default function ManualContributionLog({ allMembers }) {
     [allMembers]
   );
 
+  // What the admin is shown as "falls in week N". Follows whichever rule the database will
+  // apply to this row, so the confirmation and the ledger cannot disagree.
   const derivedWeek = useMemo(
-    () => meetingWeekOf(effectiveDate, meetingDay),
-    [effectiveDate, meetingDay]
+    () => (weekAnchorDate
+      ? getSaccoWeekOf(effectiveDate, weekAnchorDate, meetingDay)
+      : meetingWeekOf(effectiveDate, meetingDay)),
+    [effectiveDate, meetingDay, weekAnchorDate]
   );
 
   const loanOptions = useMemo(
@@ -159,6 +172,7 @@ export default function ManualContributionLog({ allMembers }) {
         const settingsObj = data.settings || data;
         setCurrentWeek(Number(settingsObj.currentWeek) || 1);
         if (settingsObj.meetingDay) setMeetingDay(settingsObj.meetingDay);
+        setWeekAnchorDate(settingsObj.weekAnchorDate || null);
         const historicalOn = Boolean(settingsObj.isHistoricalMode);
         setHistoricalEnabled(historicalOn);
 
@@ -193,9 +207,16 @@ export default function ManualContributionLog({ allMembers }) {
       .subscribe();
 
     function handleSettingsUpdate(e) {
-      if (!e.detail) return;
+      // Finishing historical onboarding moves the anchor, which changes every week number
+      // this form shows -- and it dispatches this event with no detail. Re-read rather
+      // than trying to patch state from a payload that may not be there.
+      if (!e.detail) {
+        loadSettings();
+        return;
+      }
       if (e.detail.meetingDay) setMeetingDay(e.detail.meetingDay);
       if (e.detail.currentWeek) setCurrentWeek(Number(e.detail.currentWeek));
+      if ("weekAnchorDate" in e.detail) setWeekAnchorDate(e.detail.weekAnchorDate || null);
     }
 
     if (typeof window !== "undefined") {

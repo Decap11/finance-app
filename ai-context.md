@@ -118,13 +118,13 @@ that fallback is a development convenience and is not reliable on serverless.
 | Table | Purpose |
 |-------|---------|
 | `profiles` | One row per auth user. Holds `role` (`member`/`loan_officer`/`admin`), `group_id` (the SACCO's group code), `member_number`. |
-| `saccos` | Tenants. `group_code` unique, `admin_profile_id`, fund defaults, `current_week`. |
+| `saccos` | Tenants. `group_code` unique, `admin_profile_id`, fund defaults, `week_anchor_date`, `current_week`. |
 | `sacco_memberships` | Join table, and **the authoritative source for role checks**. |
 | `accounts` | One row per member per `account_type`: savings, shares, development_fund, social_fund, fines, loan. Holds the balance. |
 | `transactions` | Immutable ledger + approval queue. `status`: pending → completed/rejected. |
 | `loans` | Loan lifecycle, `outstanding_balance`, `guarantor_status`. |
 | `loan_repayments` | Repayment records against a loan. |
-| `sacco_settings` | Per-SACCO share price, fund amounts, meeting day, current week. |
+| `sacco_settings` | Per-SACCO share price, fund amounts, meeting day, and `week_anchor_date` — the meeting date that is Week 1 of the current 52-week cycle. The active week is **derived** from it on every read (migration 0030), so it advances by itself each meeting day; `current_week` is only a cache of that value for callers reading the table directly. A NULL anchor means the SACCO never finished historical onboarding and `current_week` is a number an admin typed. |
 | `audit_events` | General event log. Also carries **broadcasts** (`entity_type='broadcast'`) and **attendance snapshots** (`entity_type='sacco_attendance'`). |
 | `dividend_cycles` / `dividend_allocations` | Annual dividend runs and per-member payouts. |
 | `savings_vaults` | Member goal-based savings ("piggybanks"). |
@@ -319,6 +319,9 @@ Legacy `VITE_*` variants are still read as fallbacks in some files, left over fr
   user across devices.
 - The `settings.json` file fallback in `sacco-settings` won't persist on serverless.
 - `sacco_settings` and `saccos` both carry fund/week values and are written together; they can drift.
+- `current_week` on both tables is a cache of a derived value, not a setting. Only
+  `finalize_historical_onboarding` and `start_new_sacco_cycle` may move it; read the week through
+  `/api/sacco-settings` (or `sacco_active_week()` in SQL), never from the column.
 - Loan interest is a flat rate applied in application code, not amortised in the database.
 
 ## 14. Working notes

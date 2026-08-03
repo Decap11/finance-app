@@ -72,9 +72,14 @@ export default function MemberFinesManager({ allMembers = [] }) {
   useEffect(() => {
     loadFines();
 
-    // Read the SACCO row directly rather than GET /api/sacco-settings: that endpoint is
-    // public and, called without a group_code, falls back to the most recently updated
-    // settings row in the table -- which on a multi-tenant database is somebody else's.
+    // Asked for BY GROUP CODE, always. /api/sacco-settings is public and, called without
+    // one, falls back to the most recently updated settings row in the table -- which on a
+    // multi-tenant database is somebody else's. Naming the group is what makes it safe.
+    //
+    // This used to read saccos.current_week straight from the table. It cannot any more:
+    // since migration 0030 the active week is derived from week_anchor_date so it advances
+    // on its own each meeting day, and the stored column is only a cache that goes a week
+    // stale between meetings. A fine stamped from it would land on the wrong week.
     async function loadSaccoDefaults() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -86,21 +91,20 @@ export default function MemberFinesManager({ allMembers = [] }) {
           .eq("id", user.id)
           .maybeSingle();
 
-        if (!profile?.group_id) return;
+        const groupCode = (profile?.group_id || "").trim();
+        if (!groupCode) return;
 
-        const { data: sacco } = await supabase
-          .from("saccos")
-          .select("current_week, late_fine_amount")
-          .ilike("group_code", profile.group_id.trim())
-          .limit(1)
-          .maybeSingle();
+        const res = await fetch(
+          `/api/sacco-settings?group_code=${encodeURIComponent(groupCode)}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) return;
 
-        if (sacco) {
-          setCurrentWeek(sacco.current_week || 1);
-          const late = Number(sacco.late_fine_amount) || 500;
-          setDefaults({ late });
-          setAmount(String(late));
-        }
+        const settings = await res.json();
+        setCurrentWeek(Number(settings.currentWeek) || 1);
+        const late = Number(settings.lateFineAmount) || 500;
+        setDefaults({ late });
+        setAmount(String(late));
       } catch {
         // A missing default is not fatal -- the admin types an amount either way.
       }

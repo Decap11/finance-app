@@ -49,6 +49,80 @@ export function getForthcomingMeetingDate(rawDateInput, meetingDayName = 'Wednes
   return meetingDate;
 }
 
+/** A SACCO's savings cycle. The week number runs 1..52 and then a new cycle begins. */
+export const WEEKS_PER_CYCLE = 52;
+
+/**
+ * Parses anything the app stores a date as -- a Date, an ISO timestamp, a 'YYYY-MM-DD'
+ * string -- into midnight UTC of that calendar day.
+ *
+ * UTC on purpose. The week arithmetic below counts whole days between two dates, and doing
+ * that in local time silently loses an hour across a DST boundary, which is enough to push
+ * a meeting into the wrong week twice a year.
+ */
+function toUTCDay(input) {
+  if (!input) return null;
+  if (input instanceof Date) {
+    if (Number.isNaN(input.getTime())) return null;
+    return new Date(Date.UTC(input.getFullYear(), input.getMonth(), input.getDate()));
+  }
+  const str = String(input);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(str) ? `${str}T00:00:00Z` : str;
+  const d = new Date(dateOnly);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * The SACCO meeting date on or after the given date. A date already on the meeting day is
+ * returned unchanged.
+ *
+ * The UTC twin of getForthcomingMeetingDate above, and the mirror of
+ * meeting_day_on_or_after() in migration 0030. Snapping both ends of a span to the meeting
+ * day is what makes the difference between them an exact multiple of seven days.
+ */
+export function getMeetingDayOnOrAfter(dateInput, meetingDayName = 'Wednesday') {
+  const d = toUTCDay(dateInput);
+  if (!d) return null;
+  const target = DAY_MAP[(meetingDayName || 'Wednesday').trim().toLowerCase()] ?? 3;
+  d.setUTCDate(d.getUTCDate() + ((target - d.getUTCDay() + 7) % 7));
+  return d;
+}
+
+/**
+ * Which week of its own 52-week cycle a date falls in, counted from the anchor -- the
+ * meeting date the SACCO treats as Week 1.
+ *
+ * Mirrors sacco_week_of() in migration 0030, including the behaviour for dates BEFORE the
+ * anchor: they belong to an earlier cycle and still get a true 1-52 position, which is why
+ * the modulo is taken twice.
+ */
+export function getSaccoWeekOf(dateInput, anchorInput, meetingDayName = 'Wednesday') {
+  const on = getMeetingDayOnOrAfter(dateInput, meetingDayName);
+  const anchor = getMeetingDayOnOrAfter(anchorInput, meetingDayName);
+  if (!on || !anchor) return null;
+
+  const weeks = Math.round((on - anchor) / 86400000 / 7);
+  return ((weeks % WEEKS_PER_CYCLE) + WEEKS_PER_CYCLE) % WEEKS_PER_CYCLE + 1;
+}
+
+/**
+ * The SACCO's current week. Derived rather than stored, which is what makes it advance on
+ * its own every meeting day.
+ *
+ * Clamped at 52: past that the cycle is over and an admin starts a new one, which re-anchors
+ * the count. Returns null when the SACCO has no anchor, and the caller falls back to the
+ * typed current_week.
+ */
+export function getActiveWeek(anchorInput, meetingDayName = 'Wednesday', todayInput = new Date()) {
+  const anchor = getMeetingDayOnOrAfter(anchorInput, meetingDayName);
+  const today = getMeetingDayOnOrAfter(todayInput, meetingDayName);
+  if (!anchor || !today) return null;
+
+  const elapsed = Math.round((today - anchor) / 86400000 / 7) + 1;
+  return Math.max(1, Math.min(WEEKS_PER_CYCLE, elapsed));
+}
+
 /**
  * Formats a transaction's date into a user-friendly string aligned to the SACCO meeting day.
  * Always synchronized with the Contribution Habit Tracker.

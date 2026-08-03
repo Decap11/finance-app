@@ -4,7 +4,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
 import { exportWeeklyReportPDF } from "../utils/pdfExportUtils";
+import { getActiveWeek, WEEKS_PER_CYCLE } from "../utils/meetingDateUtils";
 import "../styles/saccoSettings.css";
+
+/** "Wed 4 Jun 2025" -- how the anchor is shown next to the week number. */
+function formatAnchor(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(`${String(dateStr).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC"
+  });
+}
 
 export default function SaccoSettings() {
   const [settings, setSettings] = useState(() => {
@@ -51,6 +62,12 @@ export default function SaccoSettings() {
   const [loadingData, setLoadingData] = useState(true);
   const [message, setMessage] = useState("");
   const [saccoInfo, setSaccoInfo] = useState(null);
+  const [cycleBusy, setCycleBusy] = useState(false);
+
+  // A SACCO that has finished historical onboarding counts its weeks from an anchor date
+  // (migration 0030) and the number is derived on every read, so it advances by itself.
+  // Until then "Active Week Number" is the typed field it has always been.
+  const isAnchored = Boolean(settings.weekAnchorDate);
 
   // Load Sacco configuration and live records cleanly
   async function loadDatabaseData() {
@@ -108,13 +125,23 @@ export default function SaccoSettings() {
             .maybeSingle();
 
           if (directSetting) {
+            // This read is the fast path for first paint; /api/sacco-settings below is
+            // the authority. Derive the week here too rather than trusting the stored
+            // column -- that column is a cache, and between meetings it is a week behind.
+            const meetingDay = directSetting.meeting_day || "Wednesday";
+            const anchor = directSetting.week_anchor_date || null;
+            const derivedWeek = anchor ? getActiveWeek(anchor, meetingDay) : null;
+
             const formatted = {
               sharePrice: Number(directSetting.share_price) || 25000,
               devtFund: Number(directSetting.devt_fund) || 1000,
               socialFund: Number(directSetting.social_fund) || 2000,
-              currentWeek: Number(directSetting.current_week) || 1,
-              meetingDay: directSetting.meeting_day || "Wednesday",
+              currentWeek: derivedWeek || Number(directSetting.current_week) || 1,
+              meetingDay,
               isLocked: Boolean(directSetting.is_locked),
+              isHistoricalMode: Boolean(directSetting.is_historical_mode),
+              weekAnchorDate: anchor,
+              isCycleComplete: Boolean(anchor) && (derivedWeek || 0) >= WEEKS_PER_CYCLE,
               groupCode: directSetting.group_code
             };
             setSettings(formatted);
@@ -337,11 +364,17 @@ export default function SaccoSettings() {
       }
 
       // 1. Direct Supabase update using logged-in Admin client
+      //
+      // current_week is omitted once the SACCO is anchored. The field is read-only in that
+      // state and the number here is only what was last rendered into it, so writing it
+      // back would pin the cache to a value that goes stale the moment the week rolls over.
+      // finalize_historical_onboarding and start_new_sacco_cycle are the only things that
+      // may move it.
       const updatePayload = {
         share_price: Number(settings.sharePrice),
         devt_fund: Number(settings.devtFund),
         social_fund: Number(settings.socialFund),
-        current_week: Number(settings.currentWeek),
+        ...(isAnchored ? {} : { current_week: Number(settings.currentWeek) }),
         meeting_day: (settings.meetingDay || "Wednesday").trim(),
         is_locked: Boolean(settings.isLocked),
         updated_at: new Date().toISOString()
@@ -407,6 +440,59 @@ export default function SaccoSettings() {
       setMessage(`Error: ${err.message}`);
     }
   };
+
+  /**
+   * Ends a backfill, or starts a fresh cycle. Both go through the same RPC route because
+   * both do the same thing underneath: move the anchor and let every week number follow.
+   *
+   * "finish" rewrites the week number on every transaction and attendance register in the
+   * SACCO, so it asks first. There is no undo short of running it again.
+   */
+  async function handleCycleAction(action) {
+    const confirmText = action === "start_new_cycle"
+      ? "Start a new 52-week cycle? This week's meeting becomes Week 1. Past records keep the week numbers of the cycle they happened in."
+      : "Finish historical onboarding?\n\nYour oldest record becomes Week 1, and every transaction and attendance register in this SACCO is renumbered to count from it. Historical Onboarding Mode will be switched off.";
+
+    if (typeof window !== "undefined" && !window.confirm(confirmText)) return;
+
+    setCycleBusy(true);
+    setMessage(action === "start_new_cycle" ? "Starting a new cycle..." : "Finishing historical onboarding...");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Authentication session not found.");
+
+      const res = await fetch("/api/admin/finalize-onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ action, saccoId: saccoInfo?.id || null })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update the week cycle.");
+
+      setMessage(
+        action === "start_new_cycle"
+          ? `New cycle started. Week 1 is ${formatAnchor(data.anchor_date)}.`
+          : `Historical onboarding complete. Week 1 is ${formatAnchor(data.anchor_date)}; this is now Week ${data.active_week}. ${data.transactions_restamped} record(s) and ${data.attendance_restamped} attendance register(s) renumbered.`
+      );
+
+      // The anchor changed, so every derived number on this screen is stale. Re-read rather
+      // than patching state, and tell the rest of the app to do the same.
+      await loadDatabaseData();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_settings_updated"));
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+      }
+    } catch (err) {
+      setMessage(`Error: ${err.message}`);
+    } finally {
+      setCycleBusy(false);
+    }
+  }
 
   const handlePrintReport = () => {
     window.print();
@@ -491,15 +577,38 @@ export default function SaccoSettings() {
 
           <div className="form-group">
             <label htmlFor="currentWeek">Active Week Number</label>
-            <input
-              type="number"
-              id="currentWeek"
-              name="currentWeek"
-              value={settings.currentWeek}
-              onChange={handleChange}
-              placeholder="e.g. 1"
-              required
-            />
+            {isAnchored ? (
+              // Derived from the anchor, so there is nothing here to type. Showing it as a
+              // field the admin can edit would invite them to correct a number that will
+              // simply be recomputed on the next read.
+              <>
+                <div style={{
+                  padding: "1rem",
+                  fontSize: "1.3rem",
+                  fontWeight: 700,
+                  backgroundColor: "var(--bg-light, #f8fafc)",
+                  border: "0.1rem solid var(--border-color, #e2e8f0)",
+                  borderRadius: "0.8rem",
+                  color: "var(--text-dark, #1e293b)"
+                }}>
+                  Week {settings.currentWeek} of {WEEKS_PER_CYCLE}
+                </div>
+                <small className="settings-hint">
+                  Week 1 was {formatAnchor(settings.weekAnchorDate)}. Counts forward on its own
+                  every {settings.meetingDay || "Wednesday"}.
+                </small>
+              </>
+            ) : (
+              <input
+                type="number"
+                id="currentWeek"
+                name="currentWeek"
+                value={settings.currentWeek}
+                onChange={handleChange}
+                placeholder="e.g. 1"
+                required
+              />
+            )}
           </div>
 
           <div className="form-group">
@@ -636,9 +745,62 @@ export default function SaccoSettings() {
           </label>
         </div>
 
+        {/* Finishing a backfill is what turns the typed week number into a counted one, so
+            the button belongs next to the switch that started it. */}
+        {settings.isHistoricalMode && (
+          <div style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "1.2rem 1.4rem", borderRadius: "0.8rem", marginTop: "1.2rem", fontSize: "1.25rem", color: "#92400e" }}>
+            <p style={{ margin: "0 0 1rem" }}>
+              When every past record has been entered up to today, finish onboarding. Your oldest
+              record becomes <strong>Week 1</strong>, the active week is counted forward from it,
+              and every record is renumbered to match.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleCycleAction("finish")}
+              disabled={cycleBusy}
+              className="btn-save-settings"
+              style={{ marginTop: 0, background: "#b45309" }}
+            >
+              {cycleBusy ? "Working..." : "Finish Historical Onboarding"}
+            </button>
+          </div>
+        )}
+
+        {/* The active week clamps at 52. Without this the SACCO would sit there forever. */}
+        {settings.isCycleComplete && (
+          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1.2rem 1.4rem", borderRadius: "0.8rem", marginTop: "1.2rem", fontSize: "1.25rem", color: "#1e40af" }}>
+            <p style={{ margin: "0 0 1rem" }}>
+              <strong>Week {WEEKS_PER_CYCLE} reached.</strong> This cycle is complete. Starting a new
+              one makes this week&apos;s meeting Week 1 again; past records keep the week numbers of
+              the cycle they happened in.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleCycleAction("start_new_cycle")}
+              disabled={cycleBusy}
+              className="btn-save-settings"
+              style={{ marginTop: 0, background: "#1d4ed8" }}
+            >
+              {cycleBusy ? "Working..." : "Start New Cycle"}
+            </button>
+          </div>
+        )}
+
         <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "1rem 1.4rem", borderRadius: "0.8rem", marginTop: "1.5rem", fontSize: "1.25rem", color: "#166534" }}>
           <i className="fa-solid fa-calendar-check" style={{ marginRight: "0.8rem" }}></i>
-          <strong>Onboarding Week 1 Active:</strong> Week 1 begins on the day your SACCO onboarded ({settings.meetingDay || "Wednesday"}). Historical mode allows past weeks (Week 1, Week 2...) manual entry.
+          {isAnchored ? (
+            <>
+              <strong>Week 1 was {formatAnchor(settings.weekAnchorDate)}.</strong> The active week is
+              counted from there, one per {settings.meetingDay || "Wednesday"}, and rolls over after{" "}
+              {WEEKS_PER_CYCLE} weeks.
+            </>
+          ) : (
+            <>
+              <strong>Week counted by hand:</strong> the active week is whatever is typed above.
+              Switch on Historical Onboarding, enter your past records, then finish onboarding to
+              have it counted from your first record instead.
+            </>
+          )}
         </div>
 
         <button type="submit" disabled={loadingSettings} className="btn-save-settings" style={{ marginTop: "1.5rem" }}>

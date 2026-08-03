@@ -134,17 +134,38 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
           const { data: sacco } = await supabase
             .from("saccos")
-            .select("id, current_week, absenteeism_fine_amount")
+            .select("id, absenteeism_fine_amount")
             .ilike("group_code", activeGroupCode.trim())
             .limit(1)
             .maybeSingle();
 
           if (sacco) {
             setSaccoId(sacco.id);
-            setCurrentWeek(sacco.current_week || 1);
             if (sacco.absenteeism_fine_amount) {
               setFineRate(Number(sacco.absenteeism_fine_amount));
             }
+          }
+
+          // The week comes from the settings endpoint, not from saccos.current_week.
+          // Since migration 0030 the active week is derived from week_anchor_date so it
+          // advances by itself each meeting day; the stored column is only a cache and is
+          // a week behind between meetings. Opening this tab on the wrong week is how an
+          // admin ends up saving a register over a previous meeting's.
+          //
+          // Asked for by group code -- called without one the endpoint falls back to the
+          // most recently updated settings row in the table, which on a multi-tenant
+          // database belongs to somebody else.
+          try {
+            const res = await fetch(
+              `/api/sacco-settings?group_code=${encodeURIComponent(activeGroupCode.trim())}`,
+              { cache: "no-store" }
+            );
+            if (res.ok) {
+              const settings = await res.json();
+              setCurrentWeek(Number(settings.currentWeek) || 1);
+            }
+          } catch {
+            // Falls back to the week already selected; the picker is still usable.
           }
         }
       } catch (err) {

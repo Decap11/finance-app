@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0029 in numeric order, without stopping.**
+Run **0001 through 0030 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029, then 0030**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -82,6 +82,7 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0027 | `capital-weekly-trend` | ✅ Puts a real number behind the "Total SACCO Assets" card's trend line, which was a hardcoded `+0.0%` and a hardcoded upward arrow. Adds `get_sacco_capital_trend`, returning the pot at Monday 00:00 plus the signed movement in this week and last. The card shows this week's growth against the opening balance, and turns the arrow down and the figure red when it is negative. Sums the same four categories the card totals (`shares`, `development_fund`, `social_fund`, `fines`) and deliberately **not** `savings`, which `/api/sacco-balances` drops from its response — a percentage over a wider set than the figure above it would not reconcile. Weeks are ISO (Monday), not the SACCO's `meeting_day`. The API treats a missing definition as non-fatal, so the other cards survive an unapplied 0027. Depends on nothing. |
 | 0028 | `historical-onboarding` | ✅ **Makes Historical Onboarding work at all.** The feature has never written a row: `/api/admin/manual-contribution` runs under the anon key, so RLS applied to every statement, and the only `transactions` INSERT policy (0019) demands `profile_id = auth.uid()` and `status = 'pending'` while `loans` and `accounts` have no write policy whatsoever. Adds `log_historical_record`, one `SECURITY DEFINER` function that does the lot in a single transaction — contributions, fines, loans issued, repayments and dividends — and critically sets `created_at` / `approved_at` / `completed_at` to **the date the event actually happened** rather than today, which is what puts a backfilled record on the right meeting in every view. Also writes `week_number` (never previously written), resolves accounts through 0024's `account_type_for_category` with the identical balance arithmetic to `approve_member_transaction`, does the loan side effects by hand because `on_transaction_approval` is an `AFTER UPDATE OF status` trigger that never fires for a row inserted already `completed`, and authorizes via `is_sacco_staff(the member's own SACCO)` — closing a hole where an admin of one SACCO could write records against another's member. Backdating requires `is_historical_mode` to be on in Configuration Settings, enforced in the function rather than only in the form. Rows carry `reference = 'HISTORICAL'`. Adds `meeting_week_of` and `get_member_open_loans`. Depends on 0019 (`is_sacco_staff`), 0024 (`account_type_for_category`) and 0025 (`loan_is_open`). |
 | 0029 | `transactions-reference` | ✅ **Unblocks Historical Onboarding a second time.** Adds the missing `transactions.reference` column. 0028 tags every backfilled row `reference = 'HISTORICAL'`, but the column was declared only in 0001's `CREATE TABLE` and the live table predates that file, so every submission aborted on `column "reference" of relation "transactions" does not exist`. It aborted misleadingly: the API tested the message for `does not exist` alone, which an undefined *column* matches exactly as an undefined *function* does, so a schema gap was reported as an unapplied 0028 — and 0028 was re-run repeatedly with no effect. Fixed in the route to key on `PGRST202`/`42883` instead. Confirmed missing on the live database 2026-08-04, while every other column 0028 writes was present. Adds a partial index over the tagged rows. Depends on nothing. |
+| 0030 | `week-anchor-cycles` | ✅ **Gives the week number a meaning.** There were two week numbers and neither was the one a SACCO counts: `sacco_settings.current_week` was typed by hand in Configuration Settings and nothing in the app ever advanced it, while 0028 stamped rows with the *Nth meeting day of that date's own calendar year* — so a record from 5 Aug 2026 was "week 31" because it was the 31st Wednesday of 2026, which says nothing about how long the group had been running. Adds `week_anchor_date` to `sacco_settings`/`saccos`: the meeting date that is Week 1 of the current 52-week cycle, from which the active week is **derived on every read**, so it advances by itself each meeting day. Adds `finalize_historical_onboarding` — the button at the end of a backfill — which makes the oldest record Week 1, re-stamps `transactions.week_number` (and the trailing `\| Week N` in the description) plus `audit_events.metadata.week_number` on every saved attendance register, sets the active week and switches historical mode off, all in one transaction. The attendance half is not cosmetic: `WeeklyAttendanceManager` finds a saved register by matching that field against the active week, so one left on the old scale becomes unreachable, not merely mislabelled. Row numbers are deliberately **not** clamped at 52 — that would squash a multi-year history — and instead carry a true 1–52 position within their own cycle, while the active week clamps and `start_new_sacco_cycle` re-anchors. Also replaces `log_historical_record` to use the anchor when one exists (falling back to 0028's calendar-year rule until then, since rows typed mid-backfill are renumbered by the finalize anyway), and adds `meeting_dow`, `meeting_day_on_or_after`, `sacco_week_of`, `sacco_active_week`, `sacco_week_config`, `staff_sacco_for_caller` and `apply_sacco_week_anchor`. Mirrored in JS by `getSaccoWeekOf` / `getActiveWeek` in `src/utils/meetingDateUtils.js`. Depends on 0019 (`is_sacco_staff`) and 0028. |
 
 ## Which definition is live
 
@@ -102,7 +103,9 @@ everything the security audit touched, 0017 for the two member-management functi
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002, 0015 | 0022 |
 | `get_sacco_capital_trend` | — | 0027 |
-| `log_historical_record`, `get_member_open_loans`, `meeting_week_of` | — | 0028 |
+| `get_member_open_loans` | — | 0028 |
+| `log_historical_record`, `meeting_week_of` | 0028 | 0030 |
+| `finalize_historical_onboarding`, `start_new_sacco_cycle`, `sacco_week_of`, `sacco_active_week` | — | 0030 |
 | `request_loan` | 0002, 0023, 0025 | 0026 |
 | `initialize_member_accounts` | 0001 | 0021 |
 | `make_member_admin` | 0002 | 0017 |
@@ -123,7 +126,7 @@ comes from real commit timestamps and is reliable.
 
 ## Adding a new migration
 
-Use the next number and today's date: `0016_YYYYMMDD_short-description.sql`. Write it to be
+Use the next number and today's date: `0031_YYYYMMDD_short-description.sql`. Write it to be
 re-runnable (`IF EXISTS` / `IF NOT EXISTS` / `CREATE OR REPLACE`) — with no migration tool tracking
 what has been applied, assume any file may be run more than once.
 

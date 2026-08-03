@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { getActiveWeek, WEEKS_PER_CYCLE } from '../../../utils/meetingDateUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,33 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 const getFilePath = () => path.join(process.cwd(), 'src/app/api/sacco-settings/settings.json');
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Replaces the stored current_week with the one derived from week_anchor_date.
+ *
+ * This function is the single read path for the whole app -- every screen that shows a week
+ * number ends up here, directly or through /api/sacco-settings -- so deriving it in one
+ * place is what makes the week advance by itself each meeting day. The stored column is
+ * only a cache kept in sync by migration 0030's RPCs, for callers that read the table
+ * directly.
+ *
+ * No anchor means the SACCO has never finished historical onboarding: the typed
+ * current_week is returned untouched, exactly as before 0030.
+ */
+function withDerivedWeek(settings) {
+  const anchor = settings.weekAnchorDate || null;
+  const derived = anchor ? getActiveWeek(anchor, settings.meetingDay) : null;
+  const currentWeek = derived || settings.currentWeek || 1;
+
+  return {
+    ...settings,
+    currentWeek,
+    weekAnchorDate: anchor,
+    // Drives the "Start New Cycle" button. Only an anchored SACCO can reach the end of a
+    // cycle -- a typed 52 is just a number somebody entered.
+    isCycleComplete: Boolean(anchor) && currentWeek >= WEEKS_PER_CYCLE
+  };
+}
 
 // Helper to query settings from Supabase sacco_settings / saccos table
 export async function getActiveSaccoSettings(groupCodeInput = null) {
@@ -30,7 +58,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         .maybeSingle();
 
       if (setRow && !setErr) {
-        return {
+        return withDerivedWeek({
           sharePrice: Number(setRow.share_price) || 25000,
           devtFund: Number(setRow.devt_fund) || 1000,
           socialFund: Number(setRow.social_fund) || 2000,
@@ -42,9 +70,10 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
           meetingDay: setRow.meeting_day || 'Wednesday',
           isLocked: Boolean(setRow.is_locked),
           isHistoricalMode: Boolean(setRow.is_historical_mode),
+          weekAnchorDate: setRow.week_anchor_date || null,
           onboardingDate: setRow.onboarding_date || setRow.created_at || new Date().toISOString(),
           groupCode: setRow.group_code
-        };
+        });
       }
     } catch (e) {
       // ignore
@@ -82,7 +111,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
           // ignore
         }
 
-        return {
+        return withDerivedWeek({
           sharePrice: Number(saccoRow.share_price) || 25000,
           devtFund: Number(saccoRow.devt_fund) || 1000,
           socialFund: Number(saccoRow.social_fund) || 2000,
@@ -94,9 +123,10 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
           meetingDay: defaultMeetingDay,
           isLocked: Boolean(saccoRow.is_locked),
           isHistoricalMode: Boolean(saccoRow.is_historical_mode),
+          weekAnchorDate: saccoRow.week_anchor_date || null,
           onboardingDate: saccoRow.created_at || new Date().toISOString(),
           groupCode: saccoRow.group_code
-        };
+        });
       }
     } catch (e) {
       // ignore
@@ -113,7 +143,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
       .maybeSingle();
 
     if (latestRow && !latestErr) {
-      return {
+      return withDerivedWeek({
         sharePrice: Number(latestRow.share_price) || 25000,
         devtFund: Number(latestRow.devt_fund) || 1000,
         socialFund: Number(latestRow.social_fund) || 2000,
@@ -125,9 +155,10 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         meetingDay: latestRow.meeting_day || 'Wednesday',
         isLocked: Boolean(latestRow.is_locked),
         isHistoricalMode: Boolean(latestRow.is_historical_mode),
+        weekAnchorDate: latestRow.week_anchor_date || null,
         onboardingDate: latestRow.onboarding_date || latestRow.created_at || new Date().toISOString(),
         groupCode: latestRow.group_code
-      };
+      });
     }
   } catch (e) {
     // ignore
@@ -138,12 +169,12 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
     const filePath = getFilePath();
     const data = await fs.readFile(filePath, 'utf8');
     const parsed = JSON.parse(data);
-    if (parsed) return parsed;
+    if (parsed) return withDerivedWeek(parsed);
   } catch (err) {
     // ignore
   }
 
-  return {
+  return withDerivedWeek({
     sharePrice: 25000,
     devtFund: 1000,
     socialFund: 2000,
@@ -155,8 +186,9 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
     meetingDay: DAYS[new Date().getDay()],
     isLocked: false,
     isHistoricalMode: false,
+    weekAnchorDate: null,
     onboardingDate: new Date().toISOString()
-  };
+  });
 }
 
 export async function GET(request) {
@@ -178,7 +210,9 @@ export async function GET(request) {
       currentWeek: 1,
       meetingDay: 'Wednesday',
       isLocked: false,
-      isHistoricalMode: false
+      isHistoricalMode: false,
+      weekAnchorDate: null,
+      isCycleComplete: false
     });
   }
 }
@@ -246,6 +280,15 @@ export async function POST(request) {
 
     const onboardingDay = saccoAdmin?.[0]?.created_at ? DAYS[new Date(saccoAdmin[0].created_at).getDay()] : DAYS[new Date().getDay()];
 
+    // Is this SACCO's week derived from an anchor? If so the "Active Week Number" field is
+    // read-only in the UI and the number below is only whatever was last rendered into it.
+    // Writing it back would overwrite the cache with a stale value the moment the week
+    // rolls over, so every current_week write in this handler is skipped when anchored.
+    // finalize_historical_onboarding and start_new_sacco_cycle are the only things that
+    // should move it.
+    const existing = await getActiveSaccoSettings(groupCode);
+    const isAnchored = Boolean(existing?.weekAnchorDate);
+
     const newSettings = {
       sharePrice: Number(sharePrice) || 25000,
       devtFund: Number(devtFund) || 1000,
@@ -254,10 +297,13 @@ export async function POST(request) {
       loanApplicationFee: Number(loanApplicationFee) || 0,
       loanLateFeeAmount: Number(loanLateFeeAmount) || 0,
       loanMinGuarantors: Number(loanMinGuarantors) || 3,
-      currentWeek: Number(currentWeek) || 1,
+      // Anchored: report the derived week back, not whatever the form posted.
+      currentWeek: isAnchored ? existing.currentWeek : (Number(currentWeek) || 1),
       meetingDay: meetingDay ? meetingDay.trim() : onboardingDay,
       isLocked: Boolean(isLocked),
       isHistoricalMode: Boolean(isHistoricalMode),
+      weekAnchorDate: existing?.weekAnchorDate || null,
+      isCycleComplete: Boolean(existing?.isCycleComplete),
       groupCode
     };
 
@@ -274,7 +320,7 @@ export async function POST(request) {
       loan_application_fee: newSettings.loanApplicationFee,
       loan_late_fee_amount: newSettings.loanLateFeeAmount,
       loan_min_guarantors: newSettings.loanMinGuarantors,
-      current_week: newSettings.currentWeek,
+      ...(isAnchored ? {} : { current_week: newSettings.currentWeek }),
       meeting_day: newSettings.meetingDay,
       is_locked: newSettings.isLocked,
       is_historical_mode: newSettings.isHistoricalMode,
@@ -295,7 +341,7 @@ export async function POST(request) {
       loan_application_fee: newSettings.loanApplicationFee,
       loan_late_fee_amount: newSettings.loanLateFeeAmount,
       loan_min_guarantors: newSettings.loanMinGuarantors,
-      current_week: newSettings.currentWeek,
+      ...(isAnchored ? {} : { current_week: newSettings.currentWeek }),
       is_locked: newSettings.isLocked,
       is_historical_mode: newSettings.isHistoricalMode,
       updated_at: new Date().toISOString()
