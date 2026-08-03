@@ -37,7 +37,11 @@ export async function GET(request) {
     const formattedAccounts = [
       { account_type: 'shares', balance: 0 },
       { account_type: 'development_fund', balance: 0 },
-      { account_type: 'social_fund', balance: 0 }
+      { account_type: 'social_fund', balance: 0 },
+      // Collected fines of every kind -- absence, late arrival, anything else. The pool
+      // is one pot because the cash is; the breakdown by reason lives in the fines
+      // manager, which is where anyone asking "what were these for" will look.
+      { account_type: 'fines', balance: 0 }
     ];
 
     if (accounts) {

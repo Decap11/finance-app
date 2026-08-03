@@ -60,6 +60,7 @@ export type AccountType =
   | 'shares'
   | 'development_fund'
   | 'social_fund'
+  | 'fines'
   | 'loan';
 
 export interface Account {
@@ -83,7 +84,7 @@ export type TransactionCategory =
   | 'loan_disbursement'
   | 'loan_repayment'
   | 'fee'
-  | 'fine'
+  | 'fines'
   | 'dividend'
   | 'adjustment';
 
@@ -105,6 +106,13 @@ export interface Transaction {
   direction: TransactionDirection;
   category: TransactionCategory;
   status: TransactionStatus;
+  /**
+   * Set only when category is 'fines'. 'absenteeism' belongs to the attendance engine;
+   * any other value is a general fine issued from the fines manager. The two are counted
+   * and reported separately everywhere a person reads them.
+   */
+  fine_type?: string | null;
+  week_number?: number | null;
   description?: string | null;
   full_name?: string | null;
   reference?: string | null;

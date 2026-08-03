@@ -9,10 +9,22 @@ import Link from "next/link";
 import "../../styles/UserRecentTransactionsTable.css";
 import { formatTransactionMeetingDate } from "@/utils/meetingDateUtils";
 
+// A fine's label comes from its fine_type, never from the category alone -- 'fines'
+// covers absence and everything else, and calling a late-arrival penalty an absence is
+// how a member ends up disputing a record that was right about the money.
+const FINE_LABELS: Record<string, string> = {
+  absenteeism: "Absence Fine",
+  late: "Late Arrival Fine",
+  misconduct: "Misconduct Fine",
+  loan_default: "Late Repayment Fine",
+  other: "Fine"
+};
+
 interface Transaction {
   id: string;
   amount: number;
   category: string;
+  fine_type?: string | null;
   status: string;
   created_at: string;
   completed_at?: string;
@@ -185,7 +197,11 @@ function TransactionsList() {
                 if (displayType === "savings") displayType = "Savings";
                 if (displayType === "loan_disbursement") displayType = "Loan";
                 if (displayType === "loan_repayment") displayType = "Loan Repayment";
-                if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Absenteeism Fine";
+                // Not every fine is an absence one. Read the reason off the row rather
+                // than telling a member they missed a meeting they in fact attended.
+                if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") {
+                  displayType = FINE_LABELS[transaction.fine_type || "absenteeism"] || "Fine";
+                }
 
                 const isApproved = transaction.status === "completed" || transaction.status === "approved";
                 const isPending = transaction.status === "pending";

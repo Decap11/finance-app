@@ -40,6 +40,9 @@ export default function SaccoSettings() {
     shares: 0,
     devt: 0,
     social: 0,
+    // Absence fines and every other fine are reported in their own columns -- they are
+    // separate offences and a single "fines" figure would hide which is which.
+    absent: 0,
     fines: 0,
     grandTotal: 0,
   });
@@ -237,6 +240,10 @@ export default function SaccoSettings() {
       let sharesQty = 0;
       let devtAmt = 0;
       let socialAmt = 0;
+      // Absence and every other fine are counted apart. They are both money owed for
+      // breaking a rule, but "was this member here?" and "what else did they do?" are
+      // different questions and the report answers them in different columns.
+      let absentAmt = 0;
       let finesAmt = 0;
 
       memberTxs.forEach((tx) => {
@@ -255,11 +262,15 @@ export default function SaccoSettings() {
         } else if (catNorm === "social_fund") {
           socialAmt += amt;
         } else if (catNorm === "fines") {
-          finesAmt += amt;
+          if ((tx.fine_type || "absenteeism") === "absenteeism") {
+            absentAmt += amt;
+          } else {
+            finesAmt += amt;
+          }
         }
       });
 
-      const rowTotal = sharesAmt + devtAmt + socialAmt + finesAmt;
+      const rowTotal = sharesAmt + devtAmt + socialAmt + absentAmt + finesAmt;
 
       return {
         memberId: member.memberId,
@@ -268,6 +279,7 @@ export default function SaccoSettings() {
         sharesAmt,
         devtAmt,
         socialAmt,
+        absentAmt,
         finesAmt,
         rowTotal,
       };
@@ -276,6 +288,7 @@ export default function SaccoSettings() {
     let totalShares = 0;
     let totalDev = 0;
     let totalSocial = 0;
+    let totalAbsent = 0;
     let totalFines = 0;
     let grandTotal = 0;
 
@@ -283,6 +296,7 @@ export default function SaccoSettings() {
       totalShares += r.sharesAmt;
       totalDev += r.devtAmt;
       totalSocial += r.socialAmt;
+      totalAbsent += r.absentAmt;
       totalFines += r.finesAmt;
       grandTotal += r.rowTotal;
     });
@@ -292,6 +306,7 @@ export default function SaccoSettings() {
       shares: totalShares,
       devt: totalDev,
       social: totalSocial,
+      absent: totalAbsent,
       fines: totalFines,
       grandTotal,
     });
@@ -646,19 +661,20 @@ export default function SaccoSettings() {
                   <th>Development</th>
                   <th>Social Fund</th>
                   <th>Absent</th>
+                  <th>Fines</th>
                   <th style={{ textAlign: "right" }}>Row Total</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingData ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: "2rem" }}>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "2rem" }}>
                       Loading database records...
                     </td>
                   </tr>
                 ) : reportRows.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: "2rem" }}>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "2rem" }}>
                       No member records found.
                     </td>
                   </tr>
@@ -672,6 +688,7 @@ export default function SaccoSettings() {
                       </td>
                       <td>Shs {row.devtAmt.toLocaleString()}</td>
                       <td>Shs {row.socialAmt.toLocaleString()}</td>
+                      <td>Shs {row.absentAmt.toLocaleString()}</td>
                       <td>Shs {row.finesAmt.toLocaleString()}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>
                         Shs {row.rowTotal.toLocaleString()}
@@ -685,6 +702,7 @@ export default function SaccoSettings() {
                   <td><strong>Shs {reportTotals.shares.toLocaleString()}</strong></td>
                   <td><strong>Shs {reportTotals.devt.toLocaleString()}</strong></td>
                   <td><strong>Shs {reportTotals.social.toLocaleString()}</strong></td>
+                  <td><strong>Shs {reportTotals.absent.toLocaleString()}</strong></td>
                   <td><strong>Shs {reportTotals.fines.toLocaleString()}</strong></td>
                   <td style={{ textAlign: "right", fontWeight: 800, color: "#1e3a8a" }}>
                     <strong>Shs {reportTotals.grandTotal.toLocaleString()}</strong>

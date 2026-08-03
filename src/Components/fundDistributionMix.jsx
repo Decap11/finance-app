@@ -7,6 +7,7 @@ export default function FundDistributionMix() {
     shares: 0,
     development_fund: 0,
     social_fund: 0,
+    fines: 0,
   });
 
   async function fetchBalances() {
@@ -25,6 +26,7 @@ export default function FundDistributionMix() {
           shares: 0,
           development_fund: 0,
           social_fund: 0,
+          fines: 0,
         };
         data.accounts.forEach((acc) => {
           if (newBalances[acc.account_type] !== undefined) {
@@ -68,13 +70,15 @@ export default function FundDistributionMix() {
     };
   }, []);
 
-  const totalCapital = balances.shares + balances.development_fund + balances.social_fund;
+  const totalCapital =
+    balances.shares + balances.development_fund + balances.social_fund + balances.fines;
 
   // Chart configuration
   const segments = [
     { label: "Shares", value: balances.shares, color: "#253b8e", desc: "Core capital pool" },
     { label: "Dev Fund", value: balances.development_fund, color: "#10b981", desc: "Projects and operations" },
-    { label: "Social Fund", value: balances.social_fund, color: "#ef4444", desc: "Member welfare cover" }
+    { label: "Social Fund", value: balances.social_fund, color: "#ef4444", desc: "Member welfare cover" },
+    { label: "Fines", value: balances.fines, color: "#8b5cf6", desc: "Penalties collected" }
   ];
 
   // SVG Circle Geometry Math
@@ -85,7 +89,9 @@ export default function FundDistributionMix() {
   // Calculate percentages and stroke offsets
   let accumulatedLength = 0;
   const segmentsWithMath = segments.map((seg) => {
-    const percentage = totalCapital > 0 ? (seg.value / totalCapital) * 100 : 33.33; // Equal split fallback if 0
+    // Equal split fallback while every pool is still empty, so the ring renders as a
+    // neutral wheel rather than collapsing to nothing.
+    const percentage = totalCapital > 0 ? (seg.value / totalCapital) * 100 : 100 / segments.length;
     const strokeLength = (percentage / 100) * circumference;
     const strokeOffset = circumference - accumulatedLength;
     accumulatedLength += strokeLength;

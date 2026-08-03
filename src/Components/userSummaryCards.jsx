@@ -9,6 +9,7 @@ export default function UserSummaryCards() {
     shares: 0,
     development_fund: 0,
     social_fund: 0,
+    fines: 0,
   });
 
   async function fetchBalances() {
@@ -30,6 +31,7 @@ export default function UserSummaryCards() {
           shares: 0,
           development_fund: 0,
           social_fund: 0,
+          fines: 0,
         };
         data.accounts.forEach((acc) => {
           let cat = (acc.account_type || '').toLowerCase();
@@ -98,6 +100,9 @@ export default function UserSummaryCards() {
     };
   }, []);
 
+  // Fines are deliberately absent from this sum. A member's capital is what they have a
+  // claim on; money they paid as a penalty is not part of that, and adding it here would
+  // tell them their stake is larger than it is.
   const totalCapital =
     balances.shares +
     balances.development_fund +
@@ -137,6 +142,14 @@ export default function UserSummaryCards() {
         icon="fa-solid fa-handshake-angle"
         info={loading ? "..." : balances.social_fund.toLocaleString()}
         subInfo="Total Social funds"
+      />
+      <Card
+        title="Fines Paid"
+        backgroundColor="#8b5cf61a"
+        color="#8b5cf6"
+        icon="fa-solid fa-gavel"
+        info={loading ? "..." : balances.fines.toLocaleString()}
+        subInfo="Not part of your capital"
       />
     </section>
   );

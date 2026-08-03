@@ -39,7 +39,11 @@ export async function GET(request) {
     const balances = {
       shares: 0,
       development_fund: 0,
-      social_fund: 0
+      social_fund: 0,
+      // What this member has actually paid in fines. It is reported, never folded into
+      // their contributed total -- a fine is a penalty, not savings, and showing it as
+      // part of someone's stake in the SACCO would overstate what they are owed.
+      fines: 0
     };
 
     if (transactions) {

@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0020 in numeric order, without stopping.**
+Run **0001 through 0022 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,14 +20,15 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
 depends on 0017's `admin_sacco_for_member` helper and replaces two of its functions. 0019 depends on
 0015's policy names — it drops and rewrites three of them by name. 0020 depends on nothing;
 it only touches the realtime publication, and is what makes the dashboard's live counters
-update without a page reload.
+update without a page reload. 0021 depends on nothing either, but it is what makes the
+absence-fine feature able to write a row at all — see below.
 
 **0019 is required for the app to function at all after 0015.** 0015's `sacco_memberships` policies
 consult `sacco_memberships`, so every policy that asks "is this caller staff here?" aborts with
@@ -41,6 +42,12 @@ It converges the database to the correct state regardless of which earlier files
 
 It is safe to re-run 0015 at any time — **but always follow it with 0019**, which is what makes its
 `sacco_memberships` policies non-recursive. 0015 on its own leaves the database unusable.
+
+**0021 repairs a feature that has never worked.** `transactions.category` allowed `'fine'`;
+every caller writes `'fines'`, and the same insert also sent a `week_number` column that did not
+exist. Confirmed on the live database 2026-08-03: two attendance weeks had been saved, each
+assessing UGX 1,000 against one absentee, and the ledger held no fine of either spelling.
+0021 also adds the `fines` account type, without which approving a fine aborts.
 
 ## The files
 
@@ -66,6 +73,8 @@ It is safe to re-run 0015 at any time — **but always follow it with 0019**, wh
 | 0018 | `demote-sacco-admin` | Adds `demote_sacco_admin`, the missing inverse of `make_member_admin`. Restricts demotion to the SACCO owner (`saccos.admin_profile_id`) and rewrites `set_member_approval` / `delete_member_entirely` so that owner cannot be revoked or deleted by another admin. |
 | 0019 | `fix-membership-policy-recursion` | ✅ Breaks 0015's self-referential `sacco_memberships` policies with the `is_sacco_member` / `is_sacco_staff` / `is_sacco_admin` / `can_transact_in_sacco` helpers. Adds the missing member-side `transactions` INSERT policy, and fixes an ambiguous column that made the `transactions` / `loans` SELECT policies readable across every tenant. |
 | 0020 | `enable-realtime-publication` | Adds the six tables the client subscribes to (`transactions`, `loans`, `profiles`, `accounts`, `saccos`, `sacco_settings`) to the `supabase_realtime` publication and sets `REPLICA IDENTITY FULL` on them. Without this every `postgres_changes` subscription in the app subscribes successfully and then never receives an event. |
+| 0021 | `repair-fines-category` | ✅ Makes a fine storable. Replaces the `transactions.category` check so it lists `'fines'` instead of `'fine'` (migrating any existing rows), adds `'fines'` to `accounts.account_type` and backfills the account for every member, and adds the `transactions.week_number` column the attendance manager has always tried to write. |
+| 0022 | `fines-fund-pool` | ✅ Makes fines the fourth fund pool. Adds `transactions.fine_type` — `'absenteeism'` belongs to the attendance engine, everything else to the fines manager — plus `late_fine_amount` on `saccos`/`sacco_settings`. Rewrites `get_sacco_total_balances` to sum `'fines'` too, adds `levy_member_fine` / `waive_member_fine`, and drops 0015's `transactions_insert_staff_fines` policy now that no browser writes fines directly. |
 
 ## Which definition is live
 
@@ -84,7 +93,8 @@ everything the security audit touched, 0017 for the two member-management functi
 | `approve_transaction` / `reject_transaction` | 0002, 0011 | 0015 |
 | `calculate_dividend_preview`, `execute_dividend_payout` | 0013 | 0015 |
 | `process_guarantor_response` | 0014 | 0015 |
-| `get_sacco_total_balances` | 0002 | 0015 |
+| `get_sacco_total_balances` | 0002, 0015 | 0022 |
+| `initialize_member_accounts` | 0001 | 0021 |
 | `make_member_admin` | 0002 | 0017 |
 | `set_member_approval` | 0017 | 0018 |
 | `delete_member_entirely` | 0002, 0017 | 0018 |

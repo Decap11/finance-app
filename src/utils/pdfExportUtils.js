@@ -56,8 +56,12 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
   doc.text(`Generated: ${generatedAt}`, 155, 36);
 
   // 3. Table Column Setup
+  //
+  // Absent and Fines are separate columns and must stay that way. "Absent" is what the
+  // attendance register produced; "Fines" is every other penalty. Summed together they
+  // would answer neither question an audit meeting actually asks.
   const tableHeaders = [
-    ['Member ID', 'Member Name', 'Shares', 'Shares (Shs)', 'Devt (Shs)', 'Social (Shs)', 'Absent', 'Total (Shs)']
+    ['Member ID', 'Member Name', 'Shares', 'Shares (Shs)', 'Devt (Shs)', 'Social (Shs)', 'Absent', 'Fines', 'Total (Shs)']
   ];
 
   const tableData = displayRows.map(row => [
@@ -67,6 +71,7 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
     Number(row.sharesAmt || 0).toLocaleString(),
     Number(row.devtAmt || 0).toLocaleString(),
     Number(row.socialAmt || 0).toLocaleString(),
+    Number(row.absentAmt || 0).toLocaleString(),
     Number(row.finesAmt || 0).toLocaleString(),
     Number(row.rowTotal || 0).toLocaleString()
   ]);
@@ -79,6 +84,7 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
     Number(reportTotals?.shares || displayRows.reduce((sum, r) => sum + Number(r.sharesAmt || 0), 0)).toLocaleString(),
     Number(reportTotals?.devt || displayRows.reduce((sum, r) => sum + Number(r.devtAmt || 0), 0)).toLocaleString(),
     Number(reportTotals?.social || displayRows.reduce((sum, r) => sum + Number(r.socialAmt || 0), 0)).toLocaleString(),
+    Number(reportTotals?.absent || displayRows.reduce((sum, r) => sum + Number(r.absentAmt || 0), 0)).toLocaleString(),
     Number(reportTotals?.fines || displayRows.reduce((sum, r) => sum + Number(r.finesAmt || 0), 0)).toLocaleString(),
     Number(reportTotals?.grandTotal || displayRows.reduce((sum, r) => sum + Number(r.rowTotal || 0), 0)).toLocaleString()
   ];
@@ -105,15 +111,18 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
       textColor: darkTextColor,
       cellPadding: 2.2
     },
+    // Widths total the 190mm of A4 portrait left between the 10mm margins. Re-budgeted
+    // when Fines became its own column: the name column gave up most of the space.
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 24 },
-      1: { cellWidth: 42 },
-      2: { halign: 'center', cellWidth: 16 },
-      3: { halign: 'right', cellWidth: 24 },
-      4: { halign: 'right', cellWidth: 22 },
-      5: { halign: 'right', cellWidth: 22 },
-      6: { halign: 'right', cellWidth: 18 },
-      7: { halign: 'right', fontStyle: 'bold', cellWidth: 22 }
+      0: { fontStyle: 'bold', cellWidth: 22 },
+      1: { cellWidth: 34 },
+      2: { halign: 'center', cellWidth: 14 },
+      3: { halign: 'right', cellWidth: 23 },
+      4: { halign: 'right', cellWidth: 21 },
+      5: { halign: 'right', cellWidth: 21 },
+      6: { halign: 'right', cellWidth: 17 },
+      7: { halign: 'right', cellWidth: 17 },
+      8: { halign: 'right', fontStyle: 'bold', cellWidth: 21 }
     },
     didParseCell: (data) => {
       // Highlight the Totals row at bottom
@@ -146,7 +155,8 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
       `Shares Pool: UGX ${Number(reportTotals?.shares || 0).toLocaleString()}   |   ` +
       `Development: UGX ${Number(reportTotals?.devt || 0).toLocaleString()}   |   ` +
       `Social Fund: UGX ${Number(reportTotals?.social || 0).toLocaleString()}   |   ` +
-      `Fines: UGX ${Number(reportTotals?.fines || 0).toLocaleString()}`,
+      `Absence Fines: UGX ${Number(reportTotals?.absent || 0).toLocaleString()}   |   ` +
+      `Other Fines: UGX ${Number(reportTotals?.fines || 0).toLocaleString()}`,
       14, finalY + 15
     );
   }

@@ -43,6 +43,28 @@ export default function MemberFineAlertBanner() {
   const totalOwed = pendingFines.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const latestFine = pendingFines[0];
 
+  // A fine for arriving late is not an absence, and this banner used to tell every fined
+  // member they had been "marked absent" regardless. Split the outstanding fines so the
+  // wording matches what the member is actually being charged for.
+  const absenceFines = pendingFines.filter(
+    (tx) => (tx.fine_type || "absenteeism") === "absenteeism"
+  );
+  const otherFines = pendingFines.filter(
+    (tx) => (tx.fine_type || "absenteeism") !== "absenteeism"
+  );
+
+  const heading = absenceFines.length === 0
+    ? `Unpaid Fine Notice (${pendingFines.length})`
+    : otherFines.length === 0
+      ? `Absenteeism Cover Fine Notice (${absenceFines.length} Unpaid)`
+      : `Unpaid Fines (${absenceFines.length} absence, ${otherFines.length} other)`;
+
+  const detail = absenceFines.length > 0 && otherFines.length === 0
+    ? <>You were marked absent for meeting session <strong>{latestFine.description || `Week ${latestFine.week_number}`}</strong>.</>
+    : otherFines.length > 0 && absenceFines.length === 0
+      ? <>Most recent: <strong>{latestFine.description || "Fine issued by your SACCO"}</strong>.</>
+      : <>You have <strong>{absenceFines.length}</strong> unpaid absence fine(s) and <strong>{otherFines.length}</strong> other unpaid fine(s).</>;
+
   return (
     <div style={{
       background: "linear-gradient(135deg, #fef2f2 0%, #ffe4e6 100%)",
@@ -74,11 +96,10 @@ export default function MemberFineAlertBanner() {
         </div>
         <div>
           <h4 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#991b1b", marginBottom: "0.2rem" }}>
-            Absenteeism Cover Fine Notice ({pendingFines.length} Unpaid)
+            {heading}
           </h4>
           <p style={{ fontSize: "1.3rem", color: "#7f1d1d", lineHeight: 1.4 }}>
-            You were marked absent for meeting session <strong>{latestFine.description || `Week ${latestFine.week_number}`}</strong>.
-            You currently owe <strong>UGX {totalOwed.toLocaleString()}</strong> in absenteeism fines.
+            {detail} You currently owe <strong>UGX {totalOwed.toLocaleString()}</strong> in unpaid fines.
           </p>
         </div>
       </div>

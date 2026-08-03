@@ -5,6 +5,17 @@ import { useToast } from "../context/ToastContext";
 import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
 import "../styles/UserRecentTransactionsTable.css";
 
+// A fine's label comes from its fine_type, never from the category alone -- 'fines'
+// covers absence and everything else, and calling a late-arrival penalty an absence is
+// how a member ends up disputing a record that was right about the money.
+const FINE_LABELS = {
+  absenteeism: "Absence Fine",
+  late: "Late Arrival Fine",
+  misconduct: "Misconduct Fine",
+  loan_default: "Late Repayment Fine",
+  other: "Fine"
+};
+
 export default function UserRecentTransactions() {
   const [transactions, setTransactions] = useState([]);
   const [saccoCurrentWeek, setSaccoCurrentWeek] = useState(1);
@@ -182,7 +193,11 @@ export default function UserRecentTransactions() {
                 if (displayType === "savings") displayType = "Savings";
                 if (displayType === "loan_disbursement") displayType = "Loan";
                 if (displayType === "loan_repayment") displayType = "Loan Repayment";
-                if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") displayType = "Absenteeism Fine";
+                // Not every fine is an absence one. Read the reason off the row rather
+                // than telling a member they missed a meeting they in fact attended.
+                if (displayType === "fines" || displayType === "fine" || displayType === "penalty" || displayType === "absenteeism") {
+                  displayType = FINE_LABELS[transaction.fine_type || "absenteeism"] || "Fine";
+                }
 
                 const isApproved = transaction.status === "completed" || transaction.status === "approved";
                 const isPending = transaction.status === "pending";
@@ -261,7 +276,13 @@ function TransactionTypeBadge({ type }) {
     "Loan Repayment": { color: "#059669", backgroundColor: "#d1fae5" },
     Savings: { color: "#2563eb", backgroundColor: "rgba(59, 130, 246, 0.1)" },
     Shares: { color: "#253b8e", backgroundColor: "#ebf0fe" },
-    "Absenteeism Fine": { color: "#dc2626", backgroundColor: "#fee2e2" }
+    // Absence keeps the red it has always had; other fines take the fines-pool violet so
+    // the two are distinguishable at a glance in a member's own history.
+    "Absence Fine": { color: "#dc2626", backgroundColor: "#fee2e2" },
+    "Late Arrival Fine": { color: "#8b5cf6", backgroundColor: "#8b5cf61a" },
+    "Misconduct Fine": { color: "#8b5cf6", backgroundColor: "#8b5cf61a" },
+    "Late Repayment Fine": { color: "#8b5cf6", backgroundColor: "#8b5cf61a" },
+    Fine: { color: "#8b5cf6", backgroundColor: "#8b5cf61a" }
   };
 
   const defaultStyle = { color: "#4b5563", backgroundColor: "#f3f4f6" };

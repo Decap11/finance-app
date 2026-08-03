@@ -100,6 +100,10 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
           )
         `)
         .eq('sacco_id', saccoId)
+        // A levied fine is also a pending transaction, but it is not a contribution
+        // awaiting verification -- nobody is claiming to have paid it, and it is
+        // collected from the attendance engine's own control rather than from here.
+        .neq('category', 'fines')
         .order('created_at', { ascending: false });
 
       if (pendingOnly) {

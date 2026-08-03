@@ -219,14 +219,19 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           setAttendance(defaultMap);
         }
 
-        // 2. Fetch fine transactions for this week
+        // 2. Fetch this week's absence fines.
+        //
+        // Scoped to fine_type 'absenteeism' on purpose. A member fined for arriving late
+        // is not absent, and showing that fine on this row would tell the admin the
+        // opposite of what the attendance record says.
         if (saccoId) {
           const { data: txList } = await supabase
             .from("transactions")
             .select("*")
             .eq("sacco_id", saccoId)
             .eq("category", "fines")
-            .ilike("description", `%Week ${currentWeek}`);
+            .eq("fine_type", "absenteeism")
+            .eq("week_number", currentWeek);
 
           setFineTransactions(txList || []);
         }
@@ -302,7 +307,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       const absentMembers = activeMemberList.filter(m => absentMemberIds.includes(m.id));
 
       // 1. Record attendance snapshot
-      await supabase.from("audit_events").insert({
+      const { error: snapshotErr } = await supabase.from("audit_events").insert({
         sacco_id: saccoId,
         entity_type: "sacco_attendance",
         action: `register_attendance_week_${currentWeek}`,
@@ -320,6 +325,10 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         }
       });
 
+      if (snapshotErr) {
+        throw new Error(`Could not record the attendance snapshot: ${snapshotErr.message}`);
+      }
+
       // 2. Log pending absenteeism fines for absent members (deduplicated)
       if (absentMembers.length > 0) {
         const { data: existingFines } = await supabase
@@ -327,28 +336,52 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           .select("profile_id")
           .eq("sacco_id", saccoId)
           .eq("category", "fines")
-          .ilike("description", `%Week ${currentWeek}`);
+          .eq("fine_type", "absenteeism")
+          .eq("week_number", currentWeek);
 
         const existingFineMemberIds = new Set((existingFines || []).map(f => f.profile_id));
         const newAbsentMembers = absentMembers.filter(m => !existingFineMemberIds.has(m.id));
 
         if (newAbsentMembers.length > 0) {
-          const fineTransactionsToInsert = newAbsentMembers.map(m => ({
-            sacco_id: saccoId,
-            profile_id: m.id,
-            direction: "debit",
-            category: "fines",
-            amount: fineRate,
-            status: "pending",
-            description: `Absenteeism Cover Fine - Week ${currentWeek}`,
-            week_number: currentWeek,
-            created_at: new Date().toISOString()
-          }));
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Your session expired. Sign in again to record fines.");
 
-          try {
-            await supabase.from("transactions").insert(fineTransactionsToInsert);
-          } catch (tErr) {
-            console.warn("Fine transactions logging notice:", tErr);
+          // Levied through the fines API rather than inserted from here. The RPC behind
+          // it re-checks that the caller is staff of the member's own SACCO, which an
+          // insert from the browser cannot do for itself.
+          const res = await fetch("/api/admin/fines", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              members: newAbsentMembers.map(m => m.id),
+              amount: fineRate,
+              fineType: "absenteeism",
+              description: `Absenteeism Cover Fine - Week ${currentWeek}`,
+              weekNumber: currentWeek
+            })
+          });
+
+          const result = await res.json();
+
+          // This used to be a try/catch around a supabase-js call, which reports failure
+          // by returning { error } rather than throwing -- so it could never fire. Every
+          // fine assessed before 2026-08-03 was rejected by the database and dropped in
+          // silence while the admin was told it had been assessed.
+          if (!res.ok) {
+            throw new Error(
+              `Attendance was saved, but the absence fine(s) could not be recorded: ` +
+              `${result.error || res.statusText}`
+            );
+          }
+
+          if (result.failed?.length > 0) {
+            throw new Error(
+              `Attendance was saved and ${result.issued.length} fine(s) recorded, but ` +
+              `${result.failed.length} failed: ${result.failed[0].error}`
+            );
           }
         }
       }
@@ -359,7 +392,8 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         .select("*")
         .eq("sacco_id", saccoId)
         .eq("category", "fines")
-        .ilike("description", `%Week ${currentWeek}`);
+        .eq("fine_type", "absenteeism")
+        .eq("week_number", currentWeek);
 
       setFineTransactions(updatedTx || []);
 
@@ -388,17 +422,13 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("/api/admin/clear-fine", {
-        method: "POST",
+      const res = await fetch("/api/admin/fines", {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({
-          transactionId: existingTxId,
-          memberId: memberId,
-          weekNum: currentWeek
-        })
+        body: JSON.stringify({ transactionId: existingTxId, action: "collect" })
       });
 
       const data = await res.json();
@@ -412,7 +442,8 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         .select("*")
         .eq("sacco_id", saccoId)
         .eq("category", "fines")
-        .ilike("description", `%Week ${currentWeek}`);
+        .eq("fine_type", "absenteeism")
+        .eq("week_number", currentWeek);
 
       setFineTransactions(updatedTx || []);
       closeFineMenu();

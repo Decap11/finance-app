@@ -3,11 +3,14 @@ import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
 import "../styles/featureArea.css";
 
+// Fines are deliberately not here. An absence fine comes from the attendance engine and
+// any other fine from the fines manager -- both record what the fine was for, which this
+// form has no field for. Logging one here would have produced a fine with no reason
+// attached, indistinguishable from an absence fine it has nothing to do with.
 const fundTypeOptions = [
   { value: "shares", label: "Shares Contribution" },
   { value: "development_fund", label: "Development Fund" },
   { value: "social_fund", label: "Social Fund" },
-  { value: "fines", label: "Absenteeism Fine" },
   { value: "loan_disbursement", label: "Loan Disbursement (Issue Loan)" }
 ];
 

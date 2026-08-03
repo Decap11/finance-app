@@ -5,6 +5,7 @@ import Header from "../Components/Header";
 import ActionCards from "../Components/ActionCard";
 import ContributionApprovals from "../Components/ContributionApprovals";
 import WeeklyAttendanceManager from "../Components/WeeklyAttendanceManager";
+import MemberFinesManager from "../Components/MemberFinesManager";
 import ManualContributionLog from "../Components/manualContributionlog";
 import BroadcastMessageWidget from "../Components/BroadcastMessageWidget";
 import AdminLayout from "../layout/AdminLayout";
@@ -138,7 +139,11 @@ export default function AdminDashboardPage() {
         .from("transactions")
         .select("*", { count: "exact", head: true })
         .eq("sacco_id", saccoId)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        // Unpaid fines are pending too, but they are not contributions to verify and the
+        // table below does not list them, so counting them here would put the card back
+        // out of step with what it sits above.
+        .neq("category", "fines");
 
       if (pendingError) {
         // Leave the previous number in place rather than flashing 0, which reads as
@@ -559,6 +564,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="features-area">
                 <WeeklyAttendanceManager allMembers={allMembers} />
+                <MemberFinesManager allMembers={allMembers} />
                 <ManualContributionLog allMembers={allMembers} />
                 <BroadcastMessageWidget />
               </div>

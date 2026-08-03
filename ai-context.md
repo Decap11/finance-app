@@ -103,7 +103,7 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/sacco-settings` | GET, POST | GET is public; POST requires SACCO admin |
 | `/api/admin/dividends` | GET, POST | Admin of the target SACCO |
 | `/api/admin/manual-contribution` | POST | Admin — backfills historical contributions/loans |
-| `/api/admin/clear-fine` | POST | Admin — marks an absenteeism fine paid |
+| `/api/admin/fines` | GET, POST, PATCH | Admin/loan officer — list, levy, collect, waive. The only write path for fines |
 | `/api/register-sacco` | POST | Unauthenticated by design (signup entry point) |
 | `/api/platform` | GET, POST | Email must be in `PLATFORM_ADMIN_EMAILS` |
 
@@ -118,7 +118,7 @@ that fallback is a development convenience and is not reliable on serverless.
 | `profiles` | One row per auth user. Holds `role` (`member`/`loan_officer`/`admin`), `group_id` (the SACCO's group code), `member_number`. |
 | `saccos` | Tenants. `group_code` unique, `admin_profile_id`, fund defaults, `current_week`. |
 | `sacco_memberships` | Join table, and **the authoritative source for role checks**. |
-| `accounts` | One row per member per `account_type`: savings, shares, development_fund, social_fund, loan. Holds the balance. |
+| `accounts` | One row per member per `account_type`: savings, shares, development_fund, social_fund, fines, loan. Holds the balance. |
 | `transactions` | Immutable ledger + approval queue. `status`: pending → completed/rejected. |
 | `loans` | Loan lifecycle, `outstanding_balance`, `guarantor_status`. |
 | `loan_repayments` | Repayment records against a loan. |
@@ -131,16 +131,30 @@ that fallback is a development convenience and is not reliable on serverless.
 Note that `profiles.group_id` stores a **group code string**, while most tables key off `sacco_id`
 (a UUID). Resolving one to the other via `saccos.group_code` is a very common pattern in this code.
 
-### Contribution categories
+### Fund pools
 
-Three funds, each with a fixed colour used consistently in the UI:
+Four pools, each with a fixed colour used consistently in the UI:
 
 | Fund | Category | Colour |
 |------|----------|--------|
 | Shares | `shares` | `#253b8e` |
 | Development fund | `development_fund` | `#10b981` |
 | Social fund (mandatory, small fixed amount) | `social_fund` | `#ef4444` |
-| Aggregate of all three | — | `#f59e0b` |
+| Fines (collected penalties) | `fines` | `#8b5cf6` |
+| Aggregate | — | `#f59e0b` |
+
+The first three are contributions. **Fines are not**, and the distinction is load-bearing:
+
+- A fine is levied by staff, never declared by the member, so it never enters the
+  Contribution Approvals queue or its dashboard counter.
+- Fines count toward the **SACCO's** total capital (the group holds that cash) but never
+  toward a **member's** — a penalty is not a stake, and dividends are share-proportional
+  regardless.
+- **Absence is not a general fine.** `transactions.fine_type` separates `'absenteeism'`,
+  owned end to end by the attendance engine, from every other reason, owned by
+  `MemberFinesManager`. They share one pool because the money is real either way and has
+  to sit somewhere; every column, banner and total a human reads keeps them apart. The
+  weekly report and the PDF each carry an **Absent** column and a separate **Fines** one.
 
 ## 8. Database functions
 
@@ -153,7 +167,8 @@ themselves. Migration `0015` added those checks; do not remove them.
 - `request_loan` — creates a pending loan plus its disbursement transaction for the caller.
 - `process_guarantor_response` — only the nominated guarantor may respond.
 - `calculate_dividend_preview` / `execute_dividend_payout` — admin of the target SACCO only.
-- `get_sacco_total_balances` — self, or staff of that member's SACCO.
+- `get_sacco_total_balances` — self, or staff of that member's SACCO. Sums the four pools.
+- `levy_member_fine` / `waive_member_fine` — staff of the target member's SACCO, via `is_sacco_staff`. `0022` retired the browser-side fine INSERT policy in favour of these.
 - `set_member_approval`, `make_member_admin`, `delete_member_entirely`, `demote_sacco_admin` — existing admin of the same SACCO, resolved by the shared `admin_sacco_for_member` helper. These four back the buttons on the admin Members tab. You cannot unapprove, delete or demote yourself.
 
 **The SACCO owner** is `saccos.admin_profile_id`, the account that created the group. Any admin may
@@ -181,7 +196,21 @@ approve, the loan escalates to admin approval → approval issues the loan and s
 `outstanding_balance`. Repayments follow the same pending-then-approved path as contributions.
 
 **Attendance.** Admin records presence per member for a meeting week. Absentees get a pending
-`category='fines'` transaction. A snapshot is written to `audit_events`.
+`category='fines'` transaction, `direction='credit'` — the pool grows when the fine is collected,
+and the debt while it is unpaid is carried by the `pending` status, not by a negative balance
+(`accounts.balance` is constrained non-negative). Collecting one goes through
+`approve_member_transaction` like any other transaction, which is what moves the money into the
+member's `fines` account. A snapshot is written to `audit_events`.
+
+Fines are deliberately excluded from the Contribution Approvals queue and its dashboard counter:
+they are pending, but nobody is claiming to have paid them, so they are not contributions to
+verify. Migration `0021` is what made any of this storable — see the migrations README.
+
+**Other fines.** `MemberFinesManager` on the admin dashboard issues late-arrival and any other
+penalty through `/api/admin/fines`, which is the only write path for fines of any kind — the
+attendance engine posts to it too. Behind it are `levy_member_fine` and `waive_member_fine`;
+collecting reuses `approve_member_transaction`. Waiving marks the row `rejected` and records who
+and why, never deleting it.
 
 **Dividends.** Admin enters a profit pool → preview shows each member's share-proportional payout →
 executing writes a `dividend_cycles` row, per-member `dividend_allocations`, credits accounts, and

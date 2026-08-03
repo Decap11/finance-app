@@ -8,6 +8,7 @@ export default function SavingsSummaryCards() {
     shares: 0,
     development_fund: 0,
     social_fund: 0,
+    fines: 0,
   });
 
   async function fetchBalances() {
@@ -28,6 +29,7 @@ export default function SavingsSummaryCards() {
           shares: 0,
           development_fund: 0,
           social_fund: 0,
+          fines: 0,
         };
         data.accounts.forEach((acc) => {
           if (newBalances[acc.account_type] !== undefined) {
@@ -71,7 +73,10 @@ export default function SavingsSummaryCards() {
     };
   }, []);
 
-  const totalCapital = balances.shares + balances.development_fund + balances.social_fund;
+  // Fines are in the SACCO's asset total because the group genuinely holds that cash.
+  // The member-facing equivalent deliberately leaves them out -- see userSummaryCards.
+  const totalCapital =
+    balances.shares + balances.development_fund + balances.social_fund + balances.fines;
 
   return (
     <section className="summary-cards">
@@ -157,6 +162,27 @@ export default function SavingsSummaryCards() {
         </div>
         <div className="card-change">
           <span style={{ color: "#8893a7" }}>Available for member support</span>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Fines Collected</span>
+          <div
+            className="card-icon"
+            style={{
+              color: "#8b5cf6",
+              backgroundColor: "rgba(139, 92, 246, 0.1)",
+            }}
+          >
+            <i className="fa-solid fa-gavel"></i>
+          </div>
+        </div>
+        <div className="card-amount">
+          <span>Ugx</span> {loading ? "..." : balances.fines.toLocaleString()}
+        </div>
+        <div className="card-change">
+          <span style={{ color: "#8893a7" }}>Absence and other penalties</span>
         </div>
       </div>
     </section>

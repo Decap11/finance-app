@@ -3,6 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
+// Must cover every value ManualContributionLog offers. A chain of ternaries used to do
+// this and fell through to "Social Fund" for anything unlisted, so every manually logged
+// fine was filed with a description calling it a social fund contribution.
+const CATEGORY_LABELS = {
+  shares: 'Shares',
+  development_fund: 'Development Fund',
+  social_fund: 'Social Fund',
+  fines: 'Fine',
+  loan_disbursement: 'Loan Disbursement'
+};
+
 export async function POST(request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -74,15 +85,7 @@ export async function POST(request) {
 
     if (existingTx && existingTx.length > 0) {
       return Response.json({
-        error: `Member already has a completed ${
-          category === 'shares'
-            ? 'shares'
-            : category === 'development_fund'
-            ? 'development fund'
-            : category === 'social_fund'
-            ? 'social fund'
-            : 'loan disbursement'
-        } contribution logged for Week ${weekNum}.`
+        error: `Member already has a completed ${CATEGORY_LABELS[category] || category} entry logged for Week ${weekNum}.`
       }, { status: 400 });
     }
 
@@ -207,7 +210,7 @@ export async function POST(request) {
         direction: 'credit',
         category: category,
         status: 'completed',
-        description: `Manual contribution log by admin: ${category === 'shares' ? 'Shares' : category === 'development_fund' ? 'Development Fund' : 'Social Fund'} | Week ${weekNum}`,
+        description: `Manual contribution log by admin: ${CATEGORY_LABELS[category] || category} | Week ${weekNum}`,
         requested_by: user.id
       };
 
