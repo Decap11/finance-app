@@ -8,6 +8,7 @@ export default function LoanRepaymentWidget() {
   const [paymentSource, setPaymentSource] = useState("");
   
   const [activeLoan, setActiveLoan] = useState(null);
+  const [repayments, setRepayments] = useState([]);
   const [savingsBalance, setSavingsBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -29,6 +30,7 @@ export default function LoanRepaymentWidget() {
         if (data.activeLoan) {
           setActiveLoan(data.activeLoan);
         }
+        setRepayments(data.repayments || []);
         setSavingsBalance(data.savingsBalance || 0);
       } catch (err) {
         console.warn("Error loading loan data:", err);
@@ -49,13 +51,23 @@ export default function LoanRepaymentWidget() {
     };
   }, []);
 
-  const totalLoan = activeLoan ? (Number(activeLoan.amount_approved) || Number(activeLoan.amount) || 0) : 0;
+  // What is actually owed, interest included, is total_repayable. amount_approved is only
+  // the principal, so paying that off would leave the interest unaccounted for.
+  const totalLoan = activeLoan
+    ? (Number(activeLoan.total_repayable) || Number(activeLoan.amount_approved) || 0)
+    : 0;
   const remainingAmount = activeLoan 
     ? (activeLoan.outstanding_balance !== null && activeLoan.outstanding_balance !== undefined 
         ? Number(activeLoan.outstanding_balance) 
         : totalLoan) 
     : 0;
   const paidAmount = Math.max(0, totalLoan - remainingAmount);
+  const isOverdue = Boolean(
+    activeLoan &&
+    remainingAmount > 0 &&
+    (activeLoan.status === "overdue" ||
+      (activeLoan.due_date && new Date(activeLoan.due_date) < new Date()))
+  );
   const repaymentPercentage = totalLoan > 0 ? (paidAmount / totalLoan) * 100 : 0;
 
   const handleAmountChange = (e) => {
@@ -110,7 +122,7 @@ export default function LoanRepaymentWidget() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to submit repayment request.");
 
-      setMessage("success: Repayment requested successfully (pending approval).");
+      setMessage("success: " + (data.message || "Installment submitted (pending approval)."));
       setRepayAmount("");
       setPaymentSource("");
     } catch (err) {
@@ -140,16 +152,56 @@ export default function LoanRepaymentWidget() {
           <i className="fa-solid fa-check-circle" style={{ fontSize: "3rem", color: "var(--success)", marginBottom: "1rem" }}></i>
           <p>You have no active loans to repay.</p>
         </div>
-      ) : activeLoan.status === "pending" || activeLoan.status === "pending_guarantors" ? (
+      ) : ["pending", "pending_guarantors", "pending_fee", "approved"].includes(activeLoan.status) ? (
         <div style={{ textAlign: "center", padding: "2rem", color: "#334155" }}>
           <i className="fa-solid fa-clock" style={{ fontSize: "3rem", color: "#eab308", marginBottom: "1rem" }}></i>
           <h4 style={{ fontSize: "1.6rem", fontWeight: 700, margin: "0 0 0.6rem" }}>Loan Application Pending</h4>
           <p style={{ fontSize: "1.2rem", color: "#64748b", margin: 0 }}>
-            Your loan request of <strong>UGX {totalLoan.toLocaleString()}</strong> is currently pending approvals ({activeLoan.status === "pending_guarantors" ? "Guarantor Sign-off" : "Admin Review"}).
+            Your loan request of <strong>UGX {totalLoan.toLocaleString()}</strong> is waiting on{" "}
+            {activeLoan.status === "pending_fee"
+              ? <>the <strong>UGX {Number(activeLoan.application_fee || 0).toLocaleString()}</strong> application fee to be confirmed by an admin</>
+              : activeLoan.status === "pending_guarantors"
+                ? "your guarantors to sign"
+                : "admin review"}.
           </p>
         </div>
       ) : (
         <form className="loan-form" onSubmit={handleSubmit}>
+          <div className="loan-schedule">
+            <div className="loan-schedule-row">
+              <span>Installment</span>
+              <strong>
+                Shs {Number(activeLoan.installment_amount || 0).toLocaleString()}
+                {activeLoan.term_months ? ` × ${activeLoan.term_months}` : ""}
+              </strong>
+            </div>
+            <div className="loan-schedule-row">
+              <span>Paid so far</span>
+              <strong>
+                Shs {paidAmount.toLocaleString()}
+                {repayments.length > 0 ? ` (${repayments.length} installment${repayments.length === 1 ? "" : "s"})` : ""}
+              </strong>
+            </div>
+            <div className="loan-schedule-row">
+              <span>Due by</span>
+              <strong>
+                {activeLoan.due_date
+                  ? new Date(activeLoan.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                  : "—"}
+              </strong>
+            </div>
+          </div>
+
+          {isOverdue && (
+            <div className="loan-overdue-note">
+              <i className="fa-solid fa-triangle-exclamation"></i>
+              <span>
+                This loan passed its due date. A late charge is added for every whole month
+                it stays unpaid — pay it off to stop them accruing.
+              </span>
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="repay-amount">Amount to Repay (Shs)</label>
             <div className="input-wrapper input-wrapper-icon">

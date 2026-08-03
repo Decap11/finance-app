@@ -100,10 +100,12 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
           )
         `)
         .eq('sacco_id', saccoId)
-        // A levied fine is also a pending transaction, but it is not a contribution
-        // awaiting verification -- nobody is claiming to have paid it, and it is
-        // collected from the attendance engine's own control rather than from here.
-        .neq('category', 'fines')
+        // Fines and loan application fees are pending transactions too, but neither is a
+        // contribution awaiting verification: nobody is claiming to have paid them, and
+        // each is confirmed from its own panel. A fee would also fail if approved here --
+        // approve_member_transaction resolves an account by account_type = category and
+        // there is no 'fee' account. Loan disbursements and repayments do belong here.
+        .not('category', 'in', '("fines","fee")')
         .order('created_at', { ascending: false });
 
       if (pendingOnly) {

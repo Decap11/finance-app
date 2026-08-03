@@ -1,0 +1,205 @@
+/* Loan applications panel on the admin dashboard. Matches the attendance and fines cards
+   it sits beside: same radius, shadow and border. */
+
+.loan-admin-card {
+  padding: 2.4rem;
+  background: var(--white, #ffffff);
+  border-radius: 1.6rem;
+  box-shadow: var(--card-shadow, 0 1rem 4rem rgba(112, 144, 176, 0.08));
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  margin-bottom: 2.4rem;
+}
+
+.loan-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.loan-admin-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-dark, #1e293b);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.loan-admin-title i {
+  color: var(--primary-color, #253b8e);
+}
+
+.loan-admin-subtitle {
+  margin: 0.4rem 0 0;
+  font-size: 1.25rem;
+  color: #64748b;
+  max-width: 54ch;
+  line-height: 1.5;
+}
+
+.loan-admin-sweep {
+  padding: 1rem 1.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  color: #334155;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.loan-admin-sweep:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.loan-admin-sweep:disabled { opacity: 0.65; cursor: wait; }
+
+.loan-admin-message {
+  padding: 1rem 1.4rem;
+  border-radius: 0.8rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.6rem;
+}
+
+.loan-admin-message-success {
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.loan-admin-message-error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.loan-admin-counts {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+}
+
+.loan-admin-counts > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem 1.4rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.loan-admin-counts span {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.loan-admin-counts strong {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-dark, #1e293b);
+}
+
+.loan-admin-bad { color: #dc2626; }
+
+.loan-admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.2rem;
+}
+
+.loan-admin-table {
+  width: 100%;
+  min-width: 64rem;
+  border-collapse: collapse;
+  font-size: 1.3rem;
+}
+
+.loan-admin-table th {
+  text-align: left;
+  padding: 1.2rem 1.4rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.loan-admin-table td {
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-dark, #1e293b);
+  vertical-align: top;
+}
+
+.loan-admin-table tr:last-child td { border-bottom: none; }
+
+.loan-admin-sub {
+  font-size: 1.15rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+.loan-admin-empty {
+  text-align: center;
+  padding: 2.4rem 1.4rem !important;
+  color: #94a3b8;
+}
+
+.loan-admin-badge {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-pending_fee { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; }
+.badge-pending_guarantors { background: #e0e7ff; border: 1px solid #c7d2fe; color: #3730a3; }
+.badge-overdue { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+
+.loan-admin-btn {
+  padding: 0.7rem 1.1rem;
+  border-radius: 0.6rem;
+  border: none;
+  background: var(--primary-color, #253b8e);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.loan-admin-btn:hover:not(:disabled) { background: #1e317a; }
+.loan-admin-btn:disabled { opacity: 0.6; cursor: wait; }
+
+@media (max-width: 44rem) {
+  .loan-admin-card { padding: 1.6rem 1.2rem; }
+  .loan-admin-header { flex-direction: column; }
+
+  /* px, not rem: responsive.css drops the root font size to 53%/48% at these widths. */
+  .loan-admin-sweep {
+    width: 100%;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .loan-admin-btn { min-height: 36px; font-size: 13px; }
+}

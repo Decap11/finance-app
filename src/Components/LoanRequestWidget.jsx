@@ -45,6 +45,11 @@ export default function LoanRequestWidget() {
   const [groupMembers, setGroupMembers] = useState([]);
   const [selectedGuarantors, setSelectedGuarantors] = useState([]);
 
+  // Loan rules come from the SACCO's settings, not from constants here, so a committee
+  // can change the fee or the guarantor minimum without a deploy. The defaults below
+  // only apply until the fetch lands.
+  const [rules, setRules] = useState({ applicationFee: 0, minGuarantors: 3, lateFeeAmount: 0 });
+
   const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
   async function loadSharesBalance() {
@@ -122,7 +127,25 @@ export default function LoanRequestWidget() {
         console.warn("Failed to load group members for guarantors:", err);
       }
     }
+
+    async function loadRules() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch("/api/loans", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store"
+        });
+        const data = await res.json();
+        if (res.ok && data.rules) setRules(data.rules);
+      } catch (err) {
+        console.warn("Failed to load loan rules:", err);
+      }
+    }
+
     loadMembers();
+    loadRules();
   }, []);
 
   const calculateLoan = (amount, type, period) => {
@@ -209,7 +232,19 @@ export default function LoanRequestWidget() {
       );
       return;
     }
-    
+
+    // request_loan rejects this too -- a rule about who carries someone else's debt is
+    // not something the browser gets the final say on. Checked here so the member is
+    // told before a round trip.
+    if (selectedGuarantors.length < rules.minGuarantors) {
+      setMessage(
+        `Select at least ${rules.minGuarantors} guarantors from your SACCO. ` +
+        `You have selected ${selectedGuarantors.length}.`
+      );
+      return;
+    }
+
+
     setIsLoading(true);
     setMessage("");
 
@@ -218,7 +253,10 @@ export default function LoanRequestWidget() {
       if (!session) throw new Error("You must be logged in.");
 
       const isSocial = loanType === "social_fund";
-      const termMonths = isSocial ? null : Number(repaymentPeriod);
+      // A social fund loan runs two weeks, which the term is expressed in months as 1 --
+      // request_loan needs a term to derive the installment and the due date from, and
+      // null would be rejected. dueDate still carries the real two-week deadline.
+      const termMonths = isSocial ? 1 : Number(repaymentPeriod);
 
       const res = await fetch("/api/loans", {
         method: "POST",
@@ -240,7 +278,9 @@ export default function LoanRequestWidget() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to submit loan request.");
 
-      setMessage("success: Loan request submitted successfully!");
+      // The API's message names the fee that is now due and what happens next, which is
+      // more use than a generic acknowledgement.
+      setMessage("success: " + (data.message || "Loan request submitted successfully!"));
       
       // Reset form
       setLoanAmount("");
@@ -336,8 +376,24 @@ export default function LoanRequestWidget() {
         {groupMembers.length > 0 && (
           <div className="form-group">
             <label style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-dark)", marginBottom: "0.6rem", display: "block" }}>
-              Select Peer Guarantors (Recommended)
+              Select Peer Guarantors
+              <span
+                style={{
+                  marginLeft: "0.6rem",
+                  fontWeight: 700,
+                  color: selectedGuarantors.length >= rules.minGuarantors ? "#059669" : "#dc2626"
+                }}
+              >
+                {selectedGuarantors.length} of {rules.minGuarantors} required
+              </span>
             </label>
+            {rules.applicationFee > 0 && (
+              <p style={{ fontSize: "1.15rem", color: "#64748b", margin: "0 0 0.8rem", lineHeight: 1.5 }}>
+                A non-refundable application fee of{" "}
+                <strong>UGX {rules.applicationFee.toLocaleString()}</strong> applies. An
+                admin confirms it before your guarantors are asked to sign.
+              </p>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "160px", overflowY: "auto", padding: "0.4rem" }}>
               {groupMembers.map((m) => {
                 const isSelected = selectedGuarantors.includes(m.id);

@@ -529,6 +529,63 @@ export default function SaccoSettings() {
           </div>
 
           <div className="form-group">
+            <label htmlFor="loanApplicationFee">Loan Application Fee (Shs)</label>
+            {/* min and step are both multiples of 500 so the step base lines up and
+                round figures stay valid -- min="1" with a step would reject 5,000. */}
+            <input
+              type="number"
+              id="loanApplicationFee"
+              name="loanApplicationFee"
+              value={settings.loanApplicationFee ?? 5000}
+              onChange={handleChange}
+              min="0"
+              step="500"
+              placeholder="e.g. 5000"
+            />
+            <small className="settings-hint">
+              Flat charge per application, whatever the loan is worth. An admin confirms it
+              before the guarantors are asked to sign.
+            </small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="loanLateFeeAmount">Late Repayment Charge (Shs / month)</label>
+            <input
+              type="number"
+              id="loanLateFeeAmount"
+              name="loanLateFeeAmount"
+              value={settings.loanLateFeeAmount ?? 10000}
+              onChange={handleChange}
+              min="0"
+              step="500"
+              placeholder="e.g. 10000"
+            />
+            <small className="settings-hint">
+              Charged for each whole month a loan stays unpaid past its due date. Set to 0
+              to charge nothing.
+            </small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="loanMinGuarantors">Guarantors Required per Loan</label>
+            <input
+              type="number"
+              id="loanMinGuarantors"
+              name="loanMinGuarantors"
+              value={settings.loanMinGuarantors ?? 3}
+              onChange={handleChange}
+              min="0"
+              max="10"
+              step="1"
+              placeholder="e.g. 3"
+            />
+            <small className="settings-hint">
+              A member cannot submit a request with fewer than this many guarantors from
+              your SACCO.
+            </small>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="meetingDay">Weekly Meeting Day</label>
             <CustomSelect
               value={settings.meetingDay || "Wednesday"}

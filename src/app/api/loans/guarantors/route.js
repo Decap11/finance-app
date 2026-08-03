@@ -49,7 +49,7 @@ export async function GET(request) {
       .select(`
         *,
         borrower:profiles!borrower_profile_id(full_name, member_number, phone),
-        loan:loans(amount, term_months, interest_rate, status)
+        loan:loans(amount_requested, total_repayable, term_months, interest_rate, status, purpose)
       `)
       .eq('guarantor_profile_id', auth.user.id)
       .eq('status', status)

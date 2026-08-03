@@ -164,6 +164,53 @@ html {
   box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.1);
 }
 
+/* Installment schedule shown above the repayment form: what one installment is, how much
+   has gone in, and the date the late charges start from. */
+.loan-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1.6rem;
+}
+
+.loan-schedule-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.2rem;
+  font-size: 1.3rem;
+  color: var(--text-light, #64748b);
+}
+
+.loan-schedule-row strong {
+  color: var(--text-dark, #1e293b);
+  font-weight: 700;
+  text-align: right;
+}
+
+.loan-overdue-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 1rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  margin-bottom: 1.6rem;
+}
+
+.loan-overdue-note i {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
 .loan-details {
   background-color: #f8fafc;
   border-radius: 1.2rem;

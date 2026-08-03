@@ -97,7 +97,7 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/sacco-balances` | GET | Via `get_sacco_total_balances` RPC |
 | `/api/user-transactions` | GET, POST | Own transactions; POST logs pending contributions |
 | `/api/contribution-habits` | GET | Own data; `?memberId=` requires admin/loan_officer of that member's SACCO |
-| `/api/loans` | GET, POST | Own loan; POST calls `request_loan` |
+| `/api/loans` | GET, POST, PATCH | Own loan; POST calls `request_loan` / `record_loan_repayment`; PATCH is staff-only (`confirm_fee`, `apply_late_fees`) |
 | `/api/loans/guarantors` | GET, POST | Nominate only for own loan; respond only if you are the nominated guarantor |
 | `/api/user-vaults` | GET, POST | Own vaults; client-supplied `profile_id` is ignored |
 | `/api/sacco-settings` | GET, POST | GET is public; POST requires SACCO admin |
@@ -166,7 +166,8 @@ themselves. Migration `0015` added those checks; do not remove them.
 - `register_new_sacco` — requires `auth.uid() = p_admin_profile_id`; refuses to reassign a SACCO that already has a different admin.
 - `process_transaction` — creates a pending transaction for the caller.
 - `approve_member_transaction` / `reject_member_transaction` (aliased as `approve_transaction` / `reject_transaction`) — admin or loan officer **of that transaction's SACCO**.
-- `request_loan` — creates a pending loan plus its disbursement transaction for the caller.
+- `request_loan` — creates the loan, its guarantor rows and its application fee for the caller, in one call. Enforces the SACCO's guarantor minimum and one open loan per member.
+- `confirm_loan_application_fee`, `apply_loan_late_fees` — staff of that loan's SACCO. `record_loan_repayment` — the borrower only.
 - `process_guarantor_response` — only the nominated guarantor may respond.
 - `calculate_dividend_preview` / `execute_dividend_payout` — admin of the target SACCO only.
 - `get_sacco_total_balances` — self, or staff of that member's SACCO. Sums the four pools.
@@ -192,10 +193,35 @@ with `status='pending'` → admin sees it in the verifications queue → approva
 `approve_member_transaction`, which updates `accounts.balance` and marks the transaction completed.
 Balances are never written from the browser.
 
-**Loan.** Member checks eligibility (derived from savings) → `request_loan` creates a pending loan →
-optionally nominates peer guarantors, who each approve via `process_guarantor_response` → once all
-approve, the loan escalates to admin approval → approval issues the loan and sets
-`outstanding_balance`. Repayments follow the same pending-then-approved path as contributions.
+**Loan.** Member checks eligibility (derived from savings) and submits a request naming **at least
+`saccos.loan_min_guarantors` guarantors** (default 3) — `request_loan` creates the loan, its
+guarantor rows and the application-fee charge in one call, and rejects the request outright if
+there are too few or if any nominee is not a member of the same SACCO.
+
+```
+pending_fee → pending_guarantors → pending → issued → completed
+     |               |                |
+admin confirms   all guarantors   admin approves
+the fee          approve          the disbursement
+```
+
+The **application fee** is a flat per-application amount (`saccos.loan_application_fee`), raised as
+a pending `category='fee'` transaction and confirmed by `confirm_loan_application_fee`. It is
+marked collected directly rather than through `approve_member_transaction`, which would look for a
+non-existent `fee` account type. Fines and fees are both kept out of the Contribution Approvals
+queue for that reason.
+
+**Repayment is by installment.** `record_loan_repayment` creates a pending `loan_repayment`
+transaction (capped at outstanding minus anything already submitted but unapproved); approving it
+runs through `sync_loan_on_transaction_approval`, which is the single place that reduces
+`outstanding_balance`, writes the `loan_repayments` row, and closes the loan at zero.
+`loans.total_repayable` fixes principal-plus-interest when the loan is requested, so a later
+settings change cannot re-price an agreed loan.
+
+**Overdue loans** are charged a flat amount per whole month past `due_date`
+(`saccos.loan_late_fee_amount`) by `apply_loan_late_fees`, levied as a fine of type
+`'loan_default'` so it lands in the fines pool. `loans.late_fee_months_charged` makes it
+idempotent — re-running it never double-charges.
 
 **Attendance.** Admin records presence per member for a meeting week. Absentees get a pending
 `category='fines'` transaction, `direction='credit'` — the pool grows when the fine is collected,

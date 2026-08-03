@@ -114,7 +114,9 @@ export default function MemberGuarantorRequests() {
         {requests.map((req) => {
           const borrowerName = req.borrower?.full_name || "SACCO Member";
           const borrowerNumber = req.borrower?.member_number || "MEM-000";
-          const loanAmount = Number(req.loan?.amount || req.guaranteed_amount || 0);
+          // `loans` has no `amount` column; the request used to select one, which made
+          // PostgREST reject the whole query and this list come back permanently empty.
+          const loanAmount = Number(req.loan?.amount_requested || req.guaranteed_amount || 0);
           const term = req.loan?.term_months || 12;
 
           return (

@@ -47,6 +47,14 @@
   color: #334155;
 }
 
+/* Explains what a rule actually does to members, under the field that sets it. */
+.settings-hint {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: #64748b;
+  margin-top: -0.2rem;
+}
+
 .form-group input {
   padding: 1.2rem 1.6rem;
   border-radius: 1rem;

@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0022 in numeric order, without stopping.**
+Run **0001 through 0023 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -75,6 +75,7 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0020 | `enable-realtime-publication` | Adds the six tables the client subscribes to (`transactions`, `loans`, `profiles`, `accounts`, `saccos`, `sacco_settings`) to the `supabase_realtime` publication and sets `REPLICA IDENTITY FULL` on them. Without this every `postgres_changes` subscription in the app subscribes successfully and then never receives an event. |
 | 0021 | `repair-fines-category` | ✅ Makes a fine storable. Replaces the `transactions.category` check so it lists `'fines'` instead of `'fine'` (migrating any existing rows), adds `'fines'` to `accounts.account_type` and backfills the account for every member, and adds the `transactions.week_number` column the attendance manager has always tried to write. |
 | 0022 | `fines-fund-pool` | ✅ Makes fines the fourth fund pool. Adds `transactions.fine_type` — `'absenteeism'` belongs to the attendance engine, everything else to the fines manager — plus `late_fine_amount` on `saccos`/`sacco_settings`. Rewrites `get_sacco_total_balances` to sum `'fines'` too, adds `levy_member_fine` / `waive_member_fine`, and drops 0015's `transactions_insert_staff_fines` policy now that no browser writes fines directly. |
+| 0023 | `loan-lifecycle` | ✅ Application fee, guarantor minimum, installment repayment and late charges. Adds the three loan settings to `saccos`/`sacco_settings`, widens the `loans.status` check (`pending_fee`, `pending_guarantors`, `overdue`), adds `closed_at`/`total_repayable`/`installment_amount`/`late_fee_months_charged`, replaces `request_loan` (takes the guarantor array, enforces the minimum, raises the fee), and adds `confirm_loan_application_fee`, `record_loan_repayment` and `apply_loan_late_fees`. Extends `sync_loan_on_transaction_approval` so an approved repayment finally reduces `outstanding_balance` and writes a `loan_repayments` row. Depends on 0022 for `fine_type`. |
 
 ## Which definition is live
 
