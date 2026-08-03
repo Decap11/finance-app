@@ -44,6 +44,7 @@ export default function LoanRequestWidget() {
   // Peer Guarantors State
   const [groupMembers, setGroupMembers] = useState([]);
   const [selectedGuarantors, setSelectedGuarantors] = useState([]);
+  const [membersError, setMembersError] = useState("");
 
   // Loan rules come from the SACCO's settings, not from constants here, so a committee
   // can change the fee or the guarantor minimum without a deploy. The defaults below
@@ -105,26 +106,30 @@ export default function LoanRequestWidget() {
 
   useEffect(() => {
     async function loadMembers() {
+      setMembersError("");
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("group_id")
-          .eq("id", session.user.id)
-          .single();
+        // Two things were wrong here and either alone was enough to leave the guarantor
+        // picker invisible: the call carried no Authorization header, so the route
+        // answered 401, and it read data.success/data.members while the route returns
+        // { profiles }. groupMembers stayed empty and the picker, which only rendered
+        // when the list was non-empty, never appeared at all.
+        const res = await fetch("/api/group-members", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store"
+        });
+        const data = await res.json();
 
-        if (profile?.group_id) {
-          const res = await fetch(`/api/group-members?groupId=${encodeURIComponent(profile.group_id)}`);
-          const data = await res.json();
-          if (data.success && data.members) {
-            const peers = data.members.filter(m => String(m.id).toLowerCase() !== String(session.user.id).toLowerCase());
-            setGroupMembers(peers);
-          }
-        }
+        if (!res.ok) throw new Error(data.error || "Could not load your SACCO members");
+
+        const peers = (data.profiles || []).filter(
+          (m) => String(m.id).toLowerCase() !== String(session.user.id).toLowerCase()
+        );
+        setGroupMembers(peers);
       } catch (err) {
-        console.warn("Failed to load group members for guarantors:", err);
+        setMembersError(err.message || "Could not load your SACCO members.");
       }
     }
 
@@ -373,9 +378,10 @@ export default function LoanRequestWidget() {
           </div>
         </div>
 
-        {groupMembers.length > 0 && (
-          <div className="form-group">
-            <label style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-dark)", marginBottom: "0.6rem", display: "block" }}>
+        {/* Always rendered. Hiding this whole block when the list was empty is what made
+            a failed fetch look like a feature that did not exist. */}
+        <div className="form-group">
+          <label style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-dark)", marginBottom: "0.6rem", display: "block" }}>
               Select Peer Guarantors
               <span
                 style={{
@@ -394,6 +400,16 @@ export default function LoanRequestWidget() {
                 admin confirms it before your guarantors are asked to sign.
               </p>
             )}
+            {membersError ? (
+              <p style={{ fontSize: "1.2rem", color: "#991b1b", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "0.6rem", padding: "0.9rem 1.1rem", margin: 0 }}>
+                {membersError}
+              </p>
+            ) : groupMembers.length === 0 ? (
+              <p style={{ fontSize: "1.2rem", color: "#64748b", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.6rem", padding: "0.9rem 1.1rem", margin: 0, lineHeight: 1.5 }}>
+                No other members found in your SACCO yet. You need at least{" "}
+                {rules.minGuarantors} before you can apply for a loan.
+              </p>
+            ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "160px", overflowY: "auto", padding: "0.4rem" }}>
               {groupMembers.map((m) => {
                 const isSelected = selectedGuarantors.includes(m.id);
@@ -416,8 +432,8 @@ export default function LoanRequestWidget() {
                 );
               })}
             </div>
-          </div>
-        )}
+            )}
+        </div>
 
         <div className="loan-details">
           <div className="detail-row">
