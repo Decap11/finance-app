@@ -78,6 +78,36 @@ export default function MemberSavingsVaults() {
     }
   };
 
+  // This component used to load once on mount and never again, so a member sitting on
+  // this screen saw nothing until they refreshed. It dispatches
+  // `sacco_transaction_updated` but never listened for one, and a window event would not
+  // have been enough anyway: an admin backfilling records (or approving anything) is in a
+  // different browser session entirely, and realtime is the only channel that crosses it.
+  useEffect(() => {
+    if (!profileId || !saccoId) return;
+
+    const refresh = () => fetchVaults(profileId, saccoId);
+
+    const channel = supabase
+      .channel("member-vaults-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "accounts" }, refresh)
+      .subscribe();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sacco_transaction_updated", refresh);
+      window.addEventListener("manual_contribution_logged", refresh);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sacco_transaction_updated", refresh);
+        window.removeEventListener("manual_contribution_logged", refresh);
+      }
+    };
+  }, [profileId, saccoId]);
+
   const handleCreateVault = async (e) => {
     e.preventDefault();
     if (!vaultName || !targetAmount || Number(targetAmount) <= 0) return;
