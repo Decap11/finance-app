@@ -241,14 +241,20 @@ export default function SaccoSettings() {
 
       memberTxs.forEach((tx) => {
         const amt = Number(tx.amount) || 0;
-        if (tx.category === "shares") {
+        // Normalize legacy/alias category spellings before bucketing
+        let catNorm = (tx.category || "").toLowerCase();
+        if (catNorm === "fine" || catNorm === "penalty" || catNorm === "absenteeism") catNorm = "fines";
+        if (catNorm === "devt") catNorm = "development_fund";
+        if (catNorm === "social") catNorm = "social_fund";
+
+        if (catNorm === "shares") {
           sharesAmt += amt;
           sharesQty += Math.round(amt / settings.sharePrice);
-        } else if (tx.category === "development_fund") {
+        } else if (catNorm === "development_fund") {
           devtAmt += amt;
-        } else if (tx.category === "social_fund") {
+        } else if (catNorm === "social_fund") {
           socialAmt += amt;
-        } else if (tx.category === "fine") {
+        } else if (catNorm === "fines") {
           finesAmt += amt;
         }
       });
@@ -639,7 +645,7 @@ export default function SaccoSettings() {
                   <th>Shares</th>
                   <th>Development</th>
                   <th>Social Fund</th>
-                  <th>Absenteeism Fines</th>
+                  <th>Absent</th>
                   <th style={{ textAlign: "right" }}>Row Total</th>
                 </tr>
               </thead>

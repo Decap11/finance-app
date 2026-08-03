@@ -128,7 +128,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             .select("*")
             .eq("sacco_id", saccoId)
             .eq("category", "fines")
-            .ilike("description", `%Week ${currentWeek}%`);
+            .ilike("description", `%Week ${currentWeek}`);
 
           setFineTransactions(txList || []);
         }
@@ -214,7 +214,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           .select("profile_id")
           .eq("sacco_id", saccoId)
           .eq("category", "fines")
-          .ilike("description", `%Week ${currentWeek}%`);
+          .ilike("description", `%Week ${currentWeek}`);
 
         const existingFineMemberIds = new Set((existingFines || []).map(f => f.profile_id));
         const newAbsentMembers = absentMembers.filter(m => !existingFineMemberIds.has(m.id));
@@ -246,7 +246,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         .select("*")
         .eq("sacco_id", saccoId)
         .eq("category", "fines")
-        .ilike("description", `%Week ${currentWeek}%`);
+        .ilike("description", `%Week ${currentWeek}`);
 
       setFineTransactions(updatedTx || []);
 
@@ -299,7 +299,7 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         .select("*")
         .eq("sacco_id", saccoId)
         .eq("category", "fines")
-        .ilike("description", `%Week ${currentWeek}%`);
+        .ilike("description", `%Week ${currentWeek}`);
 
       setFineTransactions(updatedTx || []);
 

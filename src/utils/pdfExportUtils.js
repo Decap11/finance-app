@@ -57,7 +57,7 @@ export function exportWeeklyReportPDF({ saccoInfo, filterWeek, reportRows, repor
 
   // 3. Table Column Setup
   const tableHeaders = [
-    ['Member ID', 'Member Name', 'Shares', 'Shares (Shs)', 'Devt (Shs)', 'Social (Shs)', 'Fines (Shs)', 'Total (Shs)']
+    ['Member ID', 'Member Name', 'Shares', 'Shares (Shs)', 'Devt (Shs)', 'Social (Shs)', 'Absent', 'Total (Shs)']
   ];
 
   const tableData = displayRows.map(row => [
