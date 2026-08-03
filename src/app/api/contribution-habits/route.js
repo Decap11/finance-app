@@ -100,21 +100,49 @@ export async function GET(request) {
       }
     }
 
-    // 4. Query all contribution and fine transactions for current year
-    const currentYear = new Date().getFullYear();
-    const startOfYear = `${currentYear}-01-01`;
+    // 4. Query contribution and fine transactions for the requested year
+    //
+    // Historical onboarding (migration 0028) files a backfilled record under the date it
+    // actually happened, so a SACCO that joined with years of paper records has rows well
+    // before this one. This used to be hardcoded to the current year with no upper bound,
+    // which meant those rows were dropped here and never reached the heatmap at all.
+    const CONTRIBUTION_CATEGORIES = [
+      'shares', 'development_fund', 'social_fund', 'devt', 'social',
+      'fine', 'fines', 'penalty', 'absenteeism'
+    ];
+
+    const thisYear = new Date().getFullYear();
+    const requestedYear = parseInt(url.searchParams.get('year'), 10);
+    const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= thisYear
+      ? requestedYear
+      : thisYear;
 
     const { data: rawTransactions, error: txErr } = await supabase
       .from('transactions')
       .select('*')
       .eq('profile_id', targetMemberId)
-      .in('category', ['shares', 'development_fund', 'social_fund', 'devt', 'social', 'fine', 'fines', 'penalty', 'absenteeism'])
-      .gte('created_at', startOfYear)
+      .in('category', CONTRIBUTION_CATEGORIES)
+      .gte('created_at', `${year}-01-01`)
+      .lt('created_at', `${year + 1}-01-01`)
       .order('created_at', { ascending: true });
 
     if (txErr) {
       return Response.json({ error: txErr.message }, { status: 500 });
     }
+
+    // Which years this member has any activity in, so the client can offer a year
+    // selector that only lists years with something to show. One narrow column.
+    const { data: allDates } = await supabase
+      .from('transactions')
+      .select('created_at')
+      .eq('profile_id', targetMemberId)
+      .in('category', CONTRIBUTION_CATEGORIES);
+
+    const availableYears = Array.from(
+      new Set((allDates || []).map(r => new Date(r.created_at).getFullYear()).filter(Number.isFinite))
+    ).sort((a, b) => b - a);
+
+    if (!availableYears.includes(thisYear)) availableYears.unshift(thisYear);
 
     // Filter to completed/approved or valid non-debit transactions
     const transactions = (rawTransactions || []).filter(tx => {
@@ -127,7 +155,9 @@ export async function GET(request) {
     return Response.json({
       transactions,
       settings,
-      saccoCreatedAt
+      saccoCreatedAt,
+      year,
+      availableYears
     });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });

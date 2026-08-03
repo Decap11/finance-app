@@ -67,6 +67,11 @@ export default function CalendarHeatMap({ memberId }) {
   const [monthlyMeetingsStructure, setMonthlyMeetingsStructure] = useState([]);
   const [saccoCreatedAtDate, setSaccoCreatedAtDate] = useState(null);
   const [startMeetingIndex, setStartMeetingIndex] = useState(1);
+  // A SACCO onboarded with years of paper records has activity long before this year.
+  // The grid is built for one year at a time, so which year is being looked at has to be
+  // part of the state rather than assumed to be the current one.
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState([]);
 
   useEffect(() => {
     function handleClickOutside() {
@@ -90,8 +95,9 @@ export default function CalendarHeatMap({ memberId }) {
         return;
       }
 
-      const queryUrl = memberId ? `/api/contribution-habits?memberId=${encodeURIComponent(memberId)}` : "/api/contribution-habits";
-      const res = await fetch(queryUrl, {
+      const params = new URLSearchParams({ year: String(selectedYear) });
+      if (memberId) params.set("memberId", memberId);
+      const res = await fetch(`/api/contribution-habits?${params.toString()}`, {
         headers: {
           "Authorization": `Bearer ${session.access_token}`
         },
@@ -105,8 +111,14 @@ export default function CalendarHeatMap({ memberId }) {
       const configuredDay = settings.meetingDay || "Wednesday";
       setMeetingDay(configuredDay);
 
-      const currentYear = new Date().getFullYear();
-      const { monthlyData, totalMeetings } = getMonthlyMeetingDates(currentYear, configuredDay);
+      if (Array.isArray(data.availableYears) && data.availableYears.length) {
+        setAvailableYears(data.availableYears);
+      }
+
+      // The grid must be built for the year being viewed, not for today. Building it for
+      // the current year while showing another year's transactions would snap every one
+      // of them onto the nearest meeting of the wrong year.
+      const { monthlyData, totalMeetings } = getMonthlyMeetingDates(selectedYear, configuredDay);
       setMonthlyMeetingsStructure(monthlyData);
 
       const weeksElapsed = settings.currentWeek || 1;
@@ -116,14 +128,23 @@ export default function CalendarHeatMap({ memberId }) {
       const allMeetings = [];
       monthlyData.forEach(m => allMeetings.push(...m.meetings));
 
-      // Synchronized Onboarding Start Meeting Index Calculation using getForthcomingMeetingDate
-      const isHistorical = Boolean(settings.isHistoricalMode);
+      // Which meeting the SACCO actually joined on. Meetings before it are dimmed rather
+      // than scored, because a member cannot have missed a meeting that happened before
+      // their group was keeping records here.
+      //
+      // This used to be skipped entirely whenever isHistoricalMode was on, pinning the
+      // start to meeting 1 -- which meant switching the toggle on to backfill turned every
+      // week between January and the onboarding date bright red on every member's screen,
+      // accusing them of missing meetings that predate the SACCO. Backfilled entries were
+      // never at risk of being hidden by clipping here (a meeting with contributions is
+      // coloured from its own data, before the start index is ever consulted), so the
+      // special case bought nothing and cost that.
       let onboardMeetingIdx = 1;
       let onboardDateObj = null;
 
       const rawOnboardDate = data.saccoCreatedAt || settings.onboardingDate || settings.onboarding_date;
 
-      if (!isHistorical && rawOnboardDate) {
+      if (rawOnboardDate) {
         onboardDateObj = new Date(rawOnboardDate);
         setSaccoCreatedAtDate(onboardDateObj);
 
@@ -142,8 +163,6 @@ export default function CalendarHeatMap({ memberId }) {
         });
 
         onboardMeetingIdx = bestIdx;
-      } else if (isHistorical) {
-        onboardMeetingIdx = 1;
       }
 
       setStartMeetingIndex(onboardMeetingIdx);
@@ -319,7 +338,7 @@ export default function CalendarHeatMap({ memberId }) {
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);
       }
     };
-  }, [memberId]);
+  }, [memberId, selectedYear]);
 
   const triggerTooltip = (e, meetingItem) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -361,6 +380,12 @@ export default function CalendarHeatMap({ memberId }) {
       onboardDateFormatted: saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""
     });
   };
+
+  // A year that finished before the SACCO joined the system holds only whatever has been
+  // backfilled so far. "Missed" is not a claim that can be made about it -- an empty
+  // meeting there means nobody has typed that record in yet, not that the member failed
+  // to pay. Live years keep the original red/grey semantics.
+  const isHistoricalYear = selectedYear < new Date().getFullYear();
 
   return (
     <div className="quick-actions">
@@ -404,10 +429,39 @@ export default function CalendarHeatMap({ memberId }) {
             <div>
               <h4>Contribution Habit Tracker</h4>
               <p>
-                Visualizing meeting obligations for every <strong>{meetingDay}</strong> starting from SACCO onboarding ({saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Registration Date"}).
+                {isHistoricalYear ? (
+                  <>Backfilled records for every <strong>{meetingDay}</strong> of <strong>{selectedYear}</strong>, filed on the dates they actually happened.</>
+                ) : (
+                  <>Visualizing meeting obligations for every <strong>{meetingDay}</strong> starting from SACCO onboarding ({saccoCreatedAtDate ? saccoCreatedAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Registration Date"}).</>
+                )}
               </p>
             </div>
-            <span>Green = contributed, Red = missed, Gray = scheduled</span>
+            {availableYears.length > 1 && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                aria-label="Year"
+                style={{
+                  fontSize: "1.3rem",
+                  fontWeight: 600,
+                  padding: "0.5rem 0.8rem",
+                  borderRadius: "0.6rem",
+                  border: "0.1rem solid #cbd5e1",
+                  background: "var(--white, #fff)",
+                  color: "var(--text-dark, #1e293b)",
+                  cursor: "pointer"
+                }}
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            )}
+            <span>
+              {isHistoricalYear
+                ? "Green = recorded, Gray = no record entered"
+                : "Green = contributed, Red = missed, Gray = scheduled"}
+            </span>
           </div>
 
           <div className="heatmap-months">
@@ -442,6 +496,9 @@ export default function CalendarHeatMap({ memberId }) {
                       } else {
                         levelClass = "level-4"; // 9-10+ shares
                       }
+                    } else if (isHistoricalYear) {
+                      // No record entered for that meeting -- not a missed payment.
+                      inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
                     } else if (idx < startMeetingIndex) {
                       inlineStyle = { backgroundColor: "#f8fafc", border: "0.1rem dashed #cbd5e1", opacity: 0.6 };
                     } else if (isUpcoming) {
