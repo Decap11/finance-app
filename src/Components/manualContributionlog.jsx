@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
 import "../styles/featureArea.css";
@@ -84,6 +84,9 @@ export default function ManualContributionLog({ allMembers }) {
   // so this flag is here to explain the rule, not to be the rule.
   const [historicalEnabled, setHistoricalEnabled] = useState(false);
   const [loggingMode, setLoggingMode] = useState("current"); // "current" | "historical"
+  // Last value of the setting this form has seen, so the tab can follow the switch being
+  // flipped without also fighting the admin. `null` means settings have not loaded yet.
+  const lastHistoricalSetting = useRef(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text }
   const [recentlyLogged, setRecentlyLogged] = useState([]);
@@ -156,7 +159,26 @@ export default function ManualContributionLog({ allMembers }) {
         const settingsObj = data.settings || data;
         setCurrentWeek(Number(settingsObj.currentWeek) || 1);
         if (settingsObj.meetingDay) setMeetingDay(settingsObj.meetingDay);
-        setHistoricalEnabled(Boolean(settingsObj.isHistoricalMode));
+        const historicalOn = Boolean(settingsObj.isHistoricalMode);
+        setHistoricalEnabled(historicalOn);
+
+        // Open the tab the setting implies. Someone who has just switched Historical
+        // Onboarding on came here to backfill, so landing on Current Week means a
+        // deliberate extra click every time -- and the mistake it invites (typing a
+        // past meeting's figures into a form dated today) is silent and lands in the
+        // ledger.
+        //
+        // Keyed on the setting *changing*, not on its value, which is what lets an
+        // admin switch back to Current Week for a one-off entry and stay there: this
+        // runs again on every realtime settings event, and comparing against the value
+        // alone would drag them back to Historical each time.
+        if (lastHistoricalSetting.current !== historicalOn) {
+          setLoggingMode(historicalOn ? "historical" : "current");
+          // Switched off with a backdated date still in the box: that date can no longer
+          // be submitted, so put it back to today rather than leave it there looking live.
+          if (!historicalOn) setOccurredOn(todayISO());
+          lastHistoricalSetting.current = historicalOn;
+        }
       } catch (err) {
         console.warn("Failed to load settings in manual contribution:", err);
       }
