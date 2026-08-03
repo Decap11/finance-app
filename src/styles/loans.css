@@ -192,6 +192,15 @@ html {
   text-align: right;
 }
 
+/* The loan number, wherever it sits next to a label. Monospaced so the three groups
+   line up and read back cleanly over the phone. */
+.loan-reference {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 0.92em;
+  color: var(--primary, #253b8e);
+  white-space: nowrap;
+}
+
 .loan-overdue-note {
   display: flex;
   align-items: flex-start;

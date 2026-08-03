@@ -44,7 +44,7 @@ export default function LoanApplicationsManager() {
 
       const { data, error } = await supabase
         .from("loans")
-        .select("id, profile_id, amount_requested, total_repayable, term_months, purpose, status, application_fee, due_date, outstanding_balance, late_fee_months_charged, requested_at, borrower:profiles!profile_id(full_name, member_number)")
+        .select("id, loan_number, profile_id, amount_requested, total_repayable, term_months, purpose, status, application_fee, due_date, outstanding_balance, late_fee_months_charged, requested_at, borrower:profiles!profile_id(full_name, member_number)")
         .eq("sacco_id", sacco.id)
         .in("status", ["pending_fee", "pending_guarantors", "overdue"])
         .order("requested_at", { ascending: false });
@@ -184,6 +184,7 @@ export default function LoanApplicationsManager() {
         <table className="loan-admin-table">
           <thead>
             <tr>
+              <th>Loan No.</th>
               <th>Member</th>
               <th>Requested</th>
               <th>Term</th>
@@ -194,12 +195,13 @@ export default function LoanApplicationsManager() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="loan-admin-empty">Loading applications…</td></tr>
+              <tr><td colSpan={7} className="loan-admin-empty">Loading applications…</td></tr>
             ) : loans.length === 0 ? (
-              <tr><td colSpan={6} className="loan-admin-empty">No applications need attention.</td></tr>
+              <tr><td colSpan={7} className="loan-admin-empty">No applications need attention.</td></tr>
             ) : (
               loans.map((loan) => (
                 <tr key={loan.id}>
+                  <td className="loan-admin-number">{loan.loan_number || "—"}</td>
                   <td>
                     <strong>{loan.borrower?.full_name || "Member"}</strong>
                     <div className="loan-admin-sub">{loan.borrower?.member_number || "—"}</div>

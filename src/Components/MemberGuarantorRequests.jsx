@@ -138,10 +138,22 @@ export default function MemberGuarantorRequests() {
                 </div>
 
                 <h4 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#0f172a", margin: "0 0 0.6rem" }}>{borrowerName}</h4>
-                
+
                 <div style={{ fontSize: "1.3rem", color: "#475569", marginBottom: "1.2rem" }}>
                   Requesting <strong>UGX {loanAmount.toLocaleString()}</strong> over <strong>{term} Months</strong>
                 </div>
+
+                {/* Named, because this is a signature against one specific loan and the
+                    guarantor may be asked about it later. */}
+                {req.loan?.loan_number && (
+                  <div style={{ fontSize: "1.15rem", color: "#64748b", marginBottom: "1.2rem" }}>
+                    Loan{" "}
+                    <span style={{ fontFamily: 'ui-monospace, "SFMono-Regular", Consolas, monospace', fontWeight: 700, color: "#253b8e" }}>
+                      {req.loan.loan_number}
+                    </span>
+                    {req.loan.loan_type === "social_fund" && " · Social Fund Emergency"}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>

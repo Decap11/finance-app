@@ -191,13 +191,16 @@ export async function POST(request) {
       }
 
       const fee = Number(result?.application_fee) || 0;
+      // The number the trigger just issued, so the member has a reference to quote from
+      // the moment they submit rather than having to go looking for one.
+      const ref = result?.loan_number ? ` Your reference is ${result.loan_number}.` : '';
 
       return Response.json({
         success: true,
         ...result,
         message: fee > 0
-          ? `Request submitted. An application fee of UGX ${fee.toLocaleString()} is due — once an admin confirms it, your ${chosen.length} guarantors are asked to approve.`
-          : `Request submitted. Your ${chosen.length} guarantors have been asked to approve.`
+          ? `Request submitted.${ref} An application fee of UGX ${fee.toLocaleString()} is due — once an admin confirms it, your ${chosen.length} guarantors are asked to approve.`
+          : `Request submitted.${ref} Your ${chosen.length} guarantors have been asked to approve.`
       });
     }
 

@@ -64,7 +64,9 @@ export default function LoanRepaymentWidget() {
 
   const loanOptions = loans.map((loan) => ({
     value: loan.id,
-    label: `${loanLabel(loan)} — Shs ${Number(
+    // The number leads: it is what an admin will ask for, and what distinguishes two
+    // loans of the same type more precisely than the type name can.
+    label: `${loan.loan_number ? loan.loan_number + " · " : ""}${loanLabel(loan)} — Shs ${Number(
       loan.outstanding_balance ?? loan.total_repayable ?? loan.amount_approved ?? 0
     ).toLocaleString()} left`
   }));
@@ -213,7 +215,12 @@ export default function LoanRepaymentWidget() {
           <div className="loan-schedule">
             <div className="loan-schedule-row">
               <span>Loan</span>
-              <strong>{loanLabel(activeLoan)}</strong>
+              <strong>
+                {loanLabel(activeLoan)}
+                {activeLoan.loan_number && (
+                  <span className="loan-reference"> {activeLoan.loan_number}</span>
+                )}
+              </strong>
             </div>
             <div className="loan-schedule-row">
               <span>Installment</span>

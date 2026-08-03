@@ -155,6 +155,16 @@
   margin-top: 0.2rem;
 }
 
+/* A reference a member reads out over the phone. Monospaced so the three groups stay
+   aligned down the column and a digit is never mistaken for its neighbour. */
+.loan-admin-number {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #253b8e;
+  white-space: nowrap;
+}
+
 .loan-admin-empty {
   text-align: center;
   padding: 2.4rem 1.4rem !important;
