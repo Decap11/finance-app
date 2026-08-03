@@ -102,7 +102,7 @@ export default function SavingsSummaryCards() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">My Shares Total</span>
+          <span className="card-title">Total SACCO Shares</span>
           <div
             className="card-icon"
             style={{
@@ -125,7 +125,7 @@ export default function SavingsSummaryCards() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">My Development Fund</span>
+          <span className="card-title">Total SACCO Development Fund</span>
           <div
             className="card-icon"
             style={{
@@ -146,7 +146,7 @@ export default function SavingsSummaryCards() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">My Social Fund</span>
+          <span className="card-title">Total SACCO Social Fund</span>
           <div
             className="card-icon"
             style={{

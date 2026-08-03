@@ -260,6 +260,12 @@ body {
   /* px floor: responsive.css drops the root font size to 53%/48% on small screens, which
      would otherwise shrink this gutter to roughly half the width the icon needs. */
   width: max(4.4rem, 40px);
+  /* Font Awesome is loaded from the CDN after our own stylesheets, and its `.fa-regular`
+     rule sets `display: var(--fa-display, inline-block)` at the same specificity as this
+     one, so it wins on source order. Feeding it the variable is what actually makes this
+     box a flex container -- without it the glyph falls back to inline-block and sits on
+     the top line of a stretched item instead of in the middle of the field. */
+  --fa-display: flex;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -306,6 +312,8 @@ body {
 .pwd-toggle {
   flex: 0 0 auto;
   width: max(4.4rem, 44px);
+  /* Same Font Awesome display override as .form-icon above. */
+  --fa-display: flex;
   display: flex;
   align-items: center;
   justify-content: center;
