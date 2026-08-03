@@ -152,7 +152,7 @@ export default function LoanRepaymentWidget() {
         <form className="loan-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="repay-amount">Amount to Repay (Shs)</label>
-            <div className="input-wrapper">
+            <div className="input-wrapper input-wrapper-icon">
               <i className="fa-solid fa-money-bill-wave"></i>
               <input
                 type="number"

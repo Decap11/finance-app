@@ -89,36 +89,46 @@
   color: #cbd5e1;
 }
 
+/* The wrapper is the bordered field and the icon sits beside the input rather than on
+   top of its padding -- an input clips its value at its border box, so a value long
+   enough to scroll would otherwise paint over the icon. */
 .dev-auth-input-wrapper {
-  position: relative;
   display: flex;
-  align-items: center;
-}
-
-.dev-auth-input-wrapper i {
-  position: absolute;
-  left: 1.6rem;
-  color: #64748b;
-  font-size: 1.6rem;
-}
-
-.dev-auth-input-wrapper input {
-  width: 100%;
-  padding: 1.4rem 1.6rem 1.4rem 4.4rem;
+  align-items: stretch;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.2rem;
+  transition: all 0.2s ease;
+}
+
+.dev-auth-input-wrapper:focus-within {
+  border-color: #3b82f6;
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.dev-auth-input-wrapper i {
+  flex: 0 0 auto;
+  width: max(4.4rem, 40px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 1.6rem;
+  pointer-events: none;
+}
+
+.dev-auth-input-wrapper input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 1.4rem 1.6rem 1.4rem 0;
+  background: transparent;
+  border: none;
+  border-radius: inherit;
   color: #ffffff;
   font-family: inherit;
   font-size: 1.4rem;
   outline: none;
-  transition: all 0.2s ease;
-}
-
-.dev-auth-input-wrapper input:focus {
-  border-color: #3b82f6;
-  background: rgba(15, 23, 42, 0.8);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .btn-dev-login {
@@ -817,5 +827,25 @@
   .dev-table th:nth-child(5),
   .dev-table td:nth-child(5) {
     display: none; /* Hide plan type to save space */
+  }
+}
+
+/* Sized in px: responsive.css takes the root font size to 53%/48% at these widths, so rem
+   values here leave a field around 20px tall with 7px text. 16px also stops iOS zooming
+   the page when the field takes focus. */
+@media (max-width: 480px) {
+  .dev-auth-input-wrapper {
+    min-height: 46px;
+    border-radius: 10px;
+  }
+
+  .dev-auth-input-wrapper i {
+    width: 40px;
+    font-size: 16px;
+  }
+
+  .dev-auth-input-wrapper input {
+    padding: 10px 12px 10px 0;
+    font-size: 16px;
   }
 }

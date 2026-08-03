@@ -44,8 +44,54 @@ html {
   width: 100%;
 }
 
-/* Left Icon inside Input Wrapper (e.g. money-bill icon) */
-.input-wrapper > i:not(.custom-select-arrow) {
+/* Left Icon inside Input Wrapper (e.g. money-bill icon)
+   `.input-wrapper-icon` marks the wrappers that hold an icon + input rather than a
+   CustomSelect. On those the wrapper itself becomes the bordered field and the icon sits
+   beside the input instead of on top of its padding -- an input clips its value at its
+   border box, so a value long enough to scroll would otherwise paint over the icon. */
+.input-wrapper-icon {
+  border: 0.1rem solid #cbd5e1;
+  border-radius: 1rem;
+  background-color: var(--white);
+  align-items: stretch;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input-wrapper-icon:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.1);
+}
+
+.input-wrapper-icon > i:not(.custom-select-arrow) {
+  flex: 0 0 auto;
+  /* px floor: responsive.css drops the root font size to 53%/48% on small screens, which
+     would otherwise shrink this gutter to roughly half the width the icon needs. */
+  width: max(4.5rem, 40px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  font-size: 1.6rem;
+  pointer-events: none;
+}
+
+.input-wrapper-icon > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 0;
+  border: none;
+  background-color: transparent;
+}
+
+.input-wrapper-icon > input:focus {
+  box-shadow: none;
+}
+
+/* Icons in any wrapper that is still overlay-positioned (none ship today, but the rule
+   is what the markup falls back to without the modifier class). */
+.input-wrapper:not(.input-wrapper-icon) > i:not(.custom-select-arrow) {
   position: absolute;
   left: 1.5rem;
   top: 50%;
@@ -384,16 +430,27 @@ html {
     font-size: 1.3rem !important;
   }
 
-  .input-wrapper input,
   .input-wrapper select {
     padding: 1.2rem 1.2rem 1.2rem 3.8rem !important;
     font-size: 1.4rem !important;
     border-radius: 0.8rem !important;
   }
 
-  .input-wrapper i {
-    left: 1.2rem !important;
-    font-size: 1.4rem !important;
+  /* Sized in px: the root font size is 53%/48% at these widths, so rem values here leave
+     a field around 20px tall with 7px text. 16px also stops iOS zooming on focus. */
+  .input-wrapper-icon {
+    min-height: 46px;
+    border-radius: 10px !important;
+  }
+
+  .input-wrapper-icon > i:not(.custom-select-arrow) {
+    width: 40px;
+    font-size: 16px !important;
+  }
+
+  .input-wrapper-icon > input {
+    padding: 10px 12px 10px 0 !important;
+    font-size: 16px !important;
   }
 
   .loan-details {

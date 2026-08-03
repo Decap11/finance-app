@@ -296,7 +296,7 @@ export default function LoanRequestWidget() {
               (Max Limit: Shs {loadingBalance ? "..." : maxAllowedAmount.toLocaleString()})
             </span>
           </label>
-          <div className="input-wrapper">
+          <div className="input-wrapper input-wrapper-icon">
             <i className="fa-solid fa-money-bill-wave"></i>
             <input
               type="number"
