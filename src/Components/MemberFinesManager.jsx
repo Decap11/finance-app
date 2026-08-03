@@ -258,10 +258,13 @@ export default function MemberFinesManager({ allMembers = [] }) {
 
         <div className="fines-field">
           <label htmlFor="fine-amount">Amount (UGX)</label>
+          {/* min is the step base, so min="1" step="100" would make 1, 101, 201 ... the
+              only valid amounts and reject every round figure a fine is actually set at.
+              Both are multiples of 100 so the sequence runs 100, 200 ... 1000. */}
           <input
             id="fine-amount"
             type="number"
-            min="1"
+            min="100"
             step="100"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
