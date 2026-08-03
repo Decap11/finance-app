@@ -1,0 +1,496 @@
+/* Subscription checkout. Summary on the left, payment on the right, stacking under
+   900px so the total stays above the fold on a phone. */
+
+.checkout-section {
+  width: 100%;
+  padding: 2rem 0 4rem;
+  box-sizing: border-box;
+}
+
+.checkout-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-light, #64748b);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.checkout-breadcrumb:hover {
+  color: var(--primary-color, #253b8e);
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+/* ---------- Order summary ---------- */
+
+.checkout-summary,
+.checkout-payment {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 2rem;
+  padding: 3rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.checkout-summary-title,
+.checkout-payment-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-light, #64748b);
+  margin-bottom: 2rem;
+}
+
+.checkout-plan-badge {
+  display: inline-block;
+  padding: 0.5rem 1.1rem;
+  border-radius: 10rem;
+  background: #ebf0fe;
+  color: var(--primary-color, #253b8e);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 1rem;
+}
+
+.checkout-plan h4 {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--text-dark, #1e293b);
+  letter-spacing: -0.03rem;
+  margin-bottom: 0.6rem;
+}
+
+.checkout-plan p {
+  font-size: 1.35rem;
+  line-height: 1.55;
+  color: var(--text-light, #64748b);
+}
+
+.checkout-features {
+  list-style: none;
+  padding: 0;
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.checkout-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  font-size: 1.35rem;
+  color: var(--text-dark, #1e293b);
+  line-height: 1.45;
+}
+
+.checkout-features i {
+  color: #10b981;
+  font-size: 1.4rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.checkout-lines {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1.6rem;
+}
+
+.checkout-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.2rem;
+  font-size: 1.4rem;
+  color: var(--text-light, #64748b);
+  margin-bottom: 1rem;
+}
+
+.checkout-strike {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.checkout-line-discount {
+  color: #059669;
+  font-weight: 700;
+}
+
+.checkout-line-total {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1.4rem;
+  margin-top: 1.4rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-dark, #1e293b);
+}
+
+.checkout-line-total span:last-child {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--primary-color, #253b8e);
+  letter-spacing: -0.03rem;
+}
+
+.checkout-billing-note {
+  margin-top: 1rem;
+  font-size: 1.2rem;
+  color: var(--text-light, #64748b);
+  line-height: 1.5;
+}
+
+/* ---------- Payment ---------- */
+
+.checkout-payment-lead,
+.checkout-trial-note {
+  font-size: 1.35rem;
+  line-height: 1.6;
+  color: var(--text-light, #64748b);
+  margin-bottom: 2rem;
+}
+
+.checkout-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-bottom: 2.4rem;
+}
+
+.checkout-provider {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  width: 100%;
+  padding: 1.6rem;
+  border-radius: 1.4rem;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.checkout-provider:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.checkout-provider.selected {
+  border-color: var(--primary-color, #253b8e);
+  background: #f8fbff;
+  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.08);
+}
+
+/* Operator marks are set in type rather than shipped as logos: the brands are not ours
+   to redistribute, and a wordmark in the operator's colour reads unambiguously. */
+.checkout-provider-mark {
+  flex-shrink: 0;
+  width: 6rem;
+  height: 4.2rem;
+  border-radius: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.provider-mtn .checkout-provider-mark {
+  background: #ffcc00;
+  color: #1a1a1a;
+}
+
+.provider-airtel .checkout-provider-mark {
+  background: #e30613;
+  color: #ffffff;
+  text-transform: lowercase;
+}
+
+.checkout-provider-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.checkout-provider-text strong {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-dark, #1e293b);
+}
+
+.checkout-provider-text small {
+  font-size: 1.2rem;
+  color: var(--text-light, #64748b);
+}
+
+.checkout-provider-tick {
+  flex-shrink: 0;
+  font-size: 1.8rem;
+  color: #e2e8f0;
+  transition: color 0.2s ease;
+}
+
+.checkout-provider.selected .checkout-provider-tick {
+  color: var(--primary-color, #253b8e);
+}
+
+.checkout-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
+}
+
+.checkout-field label {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-dark, #1e293b);
+}
+
+.checkout-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 1.4rem 1.6rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 1.2rem;
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark, #1e293b);
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.checkout-field input:focus {
+  border-color: var(--primary-color, #253b8e);
+  box-shadow: 0 0 0 0.4rem rgba(37, 59, 142, 0.1);
+}
+
+.checkout-error {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 1rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 1.6rem;
+}
+
+.checkout-submit {
+  width: 100%;
+  border: none;
+  border-radius: 1.2rem;
+  padding: 1.6rem 2rem;
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #253b8e 0%, #1e293b 100%);
+  box-shadow: 0 0.4rem 1.2rem rgba(37, 59, 142, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.checkout-submit:hover:not(:disabled) {
+  transform: translateY(-0.2rem);
+  box-shadow: 0 0.6rem 1.6rem rgba(37, 59, 142, 0.3);
+}
+
+.checkout-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+}
+
+.checkout-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin-top: 1.6rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: var(--text-light, #64748b);
+}
+
+.checkout-disclaimer i {
+  color: var(--primary-color, #253b8e);
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+/* ---------- Result & empty ---------- */
+
+.checkout-done,
+.checkout-empty {
+  max-width: 56rem;
+  margin: 0 auto;
+  text-align: center;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 2rem;
+  padding: 4rem 3rem;
+  box-sizing: border-box;
+}
+
+.checkout-done-icon {
+  width: 7rem;
+  height: 7rem;
+  margin: 0 auto 2rem;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.4rem;
+}
+
+.checkout-done h2,
+.checkout-empty h2 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text-dark, #1e293b);
+  margin-bottom: 1rem;
+}
+
+.checkout-done-lead,
+.checkout-empty p {
+  font-size: 1.4rem;
+  line-height: 1.6;
+  color: var(--text-light, #64748b);
+  margin-bottom: 2.4rem;
+}
+
+.checkout-empty i {
+  font-size: 3.6rem;
+  color: #cbd5e1;
+  margin-bottom: 1.6rem;
+}
+
+.checkout-done-summary {
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.2rem;
+  padding: 1.6rem;
+  margin-bottom: 2.4rem;
+}
+
+.checkout-done-summary > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.2rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 1.35rem;
+}
+
+.checkout-done-summary > div:last-child {
+  border-bottom: none;
+}
+
+.checkout-done-summary span {
+  color: var(--text-light, #64748b);
+}
+
+.checkout-done-summary strong {
+  color: var(--text-dark, #1e293b);
+  text-align: right;
+}
+
+.checkout-ref {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.2rem;
+  word-break: break-all;
+}
+
+.checkout-back-btn {
+  display: inline-block;
+  padding: 1.3rem 2.4rem;
+  border-radius: 1.2rem;
+  background: var(--primary-color, #253b8e);
+  color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.checkout-back-btn:hover {
+  background: #1e317a;
+}
+
+@media (max-width: 900px) {
+  .checkout-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Payment first on a narrow screen: the summary is reference material, the form is
+     the job. */
+  .checkout-payment {
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .checkout-summary,
+  .checkout-payment,
+  .checkout-done,
+  .checkout-empty {
+    padding: 2.2rem 1.6rem;
+    border-radius: 1.6rem;
+  }
+}
+
+/* px below 480: responsive.css takes the root font size to 53%/48% at these widths, which
+   would leave the field a few pixels tall. 16px also stops iOS zooming on focus. */
+@media (max-width: 480px) {
+  .checkout-field input {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .checkout-submit {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .checkout-provider {
+    padding: 12px;
+    min-height: 62px;
+  }
+
+  .checkout-provider-mark {
+    width: 52px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .checkout-provider-text strong { font-size: 14px; }
+  .checkout-provider-text small { font-size: 12px; }
+}

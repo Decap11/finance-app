@@ -48,7 +48,7 @@ src/
   context/                Sidebar provider, toast provider.
   styles/                 One CSS file per component or page.
   types/                  sacco.ts — shared domain types.
-  utils/                  meetingDateUtils.js, pdfExportUtils.js
+  utils/                  meetingDateUtils.js, pdfExportUtils.js, subscriptionPlans.js
   supabaseClient.ts       Browser client, anon key only.
 supabase/migrations/      Hand-applied SQL. See its README.
 ```
@@ -104,6 +104,8 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/admin/dividends` | GET, POST | Admin of the target SACCO |
 | `/api/admin/manual-contribution` | POST | Admin — backfills historical contributions/loans |
 | `/api/admin/fines` | GET, POST, PATCH | Admin/loan officer — list, levy, collect, waive. The only write path for fines |
+| `/api/subscription-plans` | GET | Public — the price list, served from `utils/subscriptionPlans.js` |
+| `/api/subscription-checkout` | POST | SACCO admin — records a plan request; takes no payment and activates nothing |
 | `/api/register-sacco` | POST | Unauthenticated by design (signup entry point) |
 | `/api/platform` | GET, POST | Email must be in `PLATFORM_ADMIN_EMAILS` |
 
@@ -211,6 +213,18 @@ penalty through `/api/admin/fines`, which is the only write path for fines of an
 attendance engine posts to it too. Behind it are `levy_member_fine` and `waive_member_fine`;
 collecting reuses `approve_member_transaction`. Waiving marks the row `rejected` and records who
 and why, never deleting it.
+
+**Subscription.** The payments section (member `/payments`, admin `?tab=payments`) renders the
+three plans from `src/utils/subscriptionPlans.js` — Basic (free, onboarding month), Standard
+(UGX 60,000/month, discounted from 75,000) and Premium (UGX 200,000 per 3 months). A card links
+to `/payments/checkout?plan=<id>`, which collects MTN Mobile Money or Airtel Money plus a number.
+
+**No collection gateway is wired up.** Checkout records an `audit_events` row
+(`entity_type='subscription_payment_intent'`) with a reference and returns it; a platform
+operator confirms activation. It deliberately does not touch `saccos.subscription_plan` —
+migration `0016` revoked the tenant admin's UPDATE grant on every subscription column so a SACCO
+cannot promote itself, and `'standard'` is not in that column's CHECK constraint anyway. The
+amount is read from the catalogue by plan id and never from the request body.
 
 **Dividends.** Admin enters a profit pool → preview shows each member's share-proportional payout →
 executing writes a `dividend_cycles` row, per-member `dividend_allocations`, credits accounts, and

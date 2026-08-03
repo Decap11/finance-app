@@ -65,6 +65,50 @@
   color: var(--primary-color, #253b8e);
 }
 
+.plans-error {
+  color: #991b1b;
+}
+
+.plans-error i {
+  color: #dc2626;
+}
+
+/* The whole card is a link. Strip the anchor's default text styling so the card looks
+   exactly as it did when its contents were inert. */
+.plan-card-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.plan-card-link:focus-visible {
+  outline: 3px solid var(--primary-color, #253b8e);
+  outline-offset: 3px;
+}
+
+/* Struck-through original price, shown beside the discounted one. */
+.price-was {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-decoration: line-through;
+  margin-left: 0.2rem;
+}
+
+.plan-saving {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: -1rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.plan-saving i {
+  font-size: 1.2rem;
+}
+
 /* Grid Layout */
 .plans-grid {
   display: grid;
