@@ -130,12 +130,21 @@ export default function AdminDashboardPage() {
     async function loadMetrics() {
       if (!saccoId) return;
 
-      // 1. Fetch pending approvals count
-      const { count: pendingCount } = await supabase
+      // 1. Requests waiting for admin action. 'pending' is exactly the set the
+      // Contribution Approvals table offers Approve/Reject on -- approve_member_transaction
+      // moves the row to 'completed' and reject_member_transaction to 'rejected', so both
+      // drop out of this count the moment the admin acts on them.
+      const { count: pendingCount, error: pendingError } = await supabase
         .from("transactions")
         .select("*", { count: "exact", head: true })
         .eq("sacco_id", saccoId)
         .eq("status", "pending");
+
+      if (pendingError) {
+        // Leave the previous number in place rather than flashing 0, which reads as
+        // "nothing to do" and is the one wrong answer for this card.
+        console.error("Could not count pending approvals:", pendingError);
+      }
 
       // 2. Fetch Sacco Total Balances (capital)
       const { data: { session } } = await supabase.auth.getSession();
@@ -193,7 +202,7 @@ export default function AdminDashboardPage() {
 
       setMetrics((prev) => ({
         ...prev,
-        pendingApprovals: pendingCount || 0,
+        pendingApprovals: pendingError ? prev.pendingApprovals : (pendingCount || 0),
         totalCapital: calculatedCapital,
         activeLoansTotal: calculatedLoans,
         finesProfit: calculatedFinesProfit,
@@ -256,10 +265,21 @@ export default function AdminDashboardPage() {
       loadMetrics();
     };
 
+    // A member files a contribution from their own browser session, so nothing in this tab
+    // hears about it directly. The realtime channel above covers it only when the table is
+    // in the supabase_realtime publication (migration 0020) -- re-counting whenever the
+    // admin comes back to the tab is the fallback that holds regardless.
+    const handleTabRefocus = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      loadMetrics();
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_avatar_updated", handleAvatarBroadcast);
       window.addEventListener("sacco_transaction_updated", handleTransactionBroadcast);
       window.addEventListener("manual_contribution_logged", handleTransactionBroadcast);
+      window.addEventListener("focus", handleTabRefocus);
+      document.addEventListener("visibilitychange", handleTabRefocus);
     }
 
     return () => {
@@ -268,6 +288,8 @@ export default function AdminDashboardPage() {
         window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);
         window.removeEventListener("sacco_transaction_updated", handleTransactionBroadcast);
         window.removeEventListener("manual_contribution_logged", handleTransactionBroadcast);
+        window.removeEventListener("focus", handleTabRefocus);
+        document.removeEventListener("visibilitychange", handleTabRefocus);
       }
     };
   }, []);
@@ -435,15 +457,20 @@ export default function AdminDashboardPage() {
     });
   };
 
+  // The card is red only while there is something to act on. At zero it would otherwise
+  // read "0 Requests / Requires Immediate Action", which contradicts itself.
+  const waiting = metrics.pendingApprovals;
+  const hasWaiting = waiting > 0;
+
   const quickActionsCardsData = [
     {
       title: "Pending Approvals",
-      borderColor: "#ef4444",
-      bgColor: "#fef2f2",
-      iconColor: "#ef4444",
-      info: `${metrics.pendingApprovals} Requests`,
+      borderColor: hasWaiting ? "#ef4444" : "#10b981",
+      bgColor: hasWaiting ? "#fef2f2" : "#f0fdf4",
+      iconColor: hasWaiting ? "#ef4444" : "#10b981",
+      info: `${waiting} ${waiting === 1 ? "Request" : "Requests"}`,
       icon: "fa-solid fa-file-signature",
-      subInfo: "Requires Immediate Action",
+      subInfo: hasWaiting ? "Waiting for your approval" : "All caught up — nothing waiting",
     },
     {
       title: "Total SACCO Capital",

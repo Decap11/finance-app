@@ -222,6 +222,11 @@ An RLS policy on `sacco_memberships` may never query `sacco_memberships` — tha
 New migrations go in the same folder as `00NN_YYYYMMDD_description.sql` and must be safely
 re-runnable.
 
+Live counters across the app use `supabase.channel(...).on('postgres_changes', ...)`. Those only
+fire for tables in the `supabase_realtime` publication — `0020` is what puts them there. A
+subscription on an unpublished table reports `SUBSCRIBED` and then silently never delivers, so if
+a number stops updating without a reload, check the publication before the component.
+
 ## 12. Environment variables
 
 | Variable | Scope | Purpose |

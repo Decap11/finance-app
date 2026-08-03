@@ -27,9 +27,14 @@ export interface TransactionApprovalItem {
 interface ContributionApprovalsProps {
   limit?: number;
   showViewAll?: boolean;
+  // "pending"       -- only what still needs an admin decision (overview tab). Kept in step
+  //                    with the Pending Approvals summary card, which counts the same set.
+  // "verifications" -- the full history, including already approved and rejected requests.
+  mode?: "pending" | "verifications";
 }
 
-export default function ContributionApprovals({ limit, showViewAll }: ContributionApprovalsProps) {
+export default function ContributionApprovals({ limit, showViewAll, mode = "verifications" }: ContributionApprovalsProps) {
+  const pendingOnly = mode === "pending";
   const [requests, setRequests] = useState<TransactionApprovalItem[]>([]);
   const [saccoMeetingDay, setSaccoMeetingDay] = useState<string>("Wednesday");
   const [loading, setLoading] = useState<boolean>(true);
@@ -97,6 +102,10 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
         .eq('sacco_id', saccoId)
         .order('created_at', { ascending: false });
 
+      if (pendingOnly) {
+        query = query.eq('status', 'pending');
+      }
+
       if (limit) {
         query = query.limit(limit);
       }
@@ -152,7 +161,7 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
       }
     };
-  }, []);
+  }, [mode, limit]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -163,7 +172,11 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
       if (error) throw error;
       
       setMessage("Transaction approved successfully!");
-      setRequests(prev => prev.map(item => item.id === id ? { ...item, status: 'approved' } : item));
+      // In pending mode the row has just left the set this list represents, so drop it --
+      // that keeps the visible rows equal to the number on the summary card.
+      setRequests(prev => pendingOnly
+        ? prev.filter(item => item.id !== id)
+        : prev.map(item => item.id === id ? { ...item, status: 'completed' } : item));
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
@@ -182,7 +195,9 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
       if (error) throw error;
 
       setMessage("Transaction rejected.");
-      setRequests(prev => prev.map(item => item.id === id ? { ...item, status: 'rejected' } : item));
+      setRequests(prev => pendingOnly
+        ? prev.filter(item => item.id !== id)
+        : prev.map(item => item.id === id ? { ...item, status: 'rejected' } : item));
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
@@ -198,7 +213,9 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
         <div>
           <h3 className="card-title">Contribution Approvals</h3>
           <p style={{ margin: "0.2rem 0 0", fontSize: "1.2rem", color: "#64748b" }}>
-            Review and approve pending member shares, development, and social fund contributions.
+            {pendingOnly
+              ? "Member shares, development and social fund contributions waiting for your decision."
+              : "Review and approve pending member shares, development, and social fund contributions."}
           </p>
         </div>
         {showViewAll && (
@@ -244,7 +261,9 @@ export default function ContributionApprovals({ limit, showViewAll }: Contributi
             ) : requests.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
-                  No transaction approval requests found.
+                  {pendingOnly
+                    ? "No requests are waiting for your approval."
+                    : "No transaction approval requests found."}
                 </td>
               </tr>
             ) : (
