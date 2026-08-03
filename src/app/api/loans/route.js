@@ -68,40 +68,52 @@ export async function GET(request) {
     const { supabase, user, error } = await authenticate(request);
     if (error) return error;
 
+    // No limit(1). A member may hold a normal loan and a Social Fund emergency loan at
+    // the same time, so returning only the newest would hide the other one entirely --
+    // including from the repayment form.
     const { data: loans, error: loanErr } = await supabase
       .from('loans')
       .select('*')
       .eq('profile_id', user.id)
       .in('status', OPEN_LOAN_STATUSES)
-      .order(LOAN_ORDER_COLUMN, { ascending: false })
-      .limit(1);
+      .order(LOAN_ORDER_COLUMN, { ascending: false });
 
     if (loanErr) {
       return Response.json({ error: loanErr.message }, { status: 500 });
     }
 
-    const activeLoan = loans && loans.length > 0 ? loans[0] : null;
+    const activeLoans = loans || [];
+    const activeLoan = activeLoans.length > 0 ? activeLoans[0] : null;
 
     // Who has signed and who has not, so a member waiting on approval can see which of
     // their guarantors is holding it up rather than staring at "pending".
     let guarantors = [];
     let repayments = [];
 
-    if (activeLoan) {
+    if (activeLoans.length > 0) {
+      const loanIds = activeLoans.map((l) => l.id);
+
       const [{ data: gRows }, { data: rRows }] = await Promise.all([
         supabase
           .from('loan_guarantors')
-          .select('id, status, guaranteed_amount, responded_at, guarantor:profiles!guarantor_profile_id(full_name, member_number)')
-          .eq('loan_id', activeLoan.id),
+          .select('id, loan_id, status, guaranteed_amount, responded_at, guarantor:profiles!guarantor_profile_id(full_name, member_number)')
+          .in('loan_id', loanIds),
         supabase
           .from('loan_repayments')
-          .select('id, amount, paid_at')
-          .eq('loan_id', activeLoan.id)
+          .select('id, loan_id, amount, paid_at')
+          .in('loan_id', loanIds)
           .order('paid_at', { ascending: false })
       ]);
 
-      guarantors = gRows || [];
-      repayments = rRows || [];
+      // Each loan carries its own, so a caller showing two loans side by side cannot
+      // credit one loan's installments to the other.
+      for (const loan of activeLoans) {
+        loan.guarantors = (gRows || []).filter((g) => g.loan_id === loan.id);
+        loan.repayments = (rRows || []).filter((r) => r.loan_id === loan.id);
+      }
+
+      guarantors = activeLoan.guarantors;
+      repayments = activeLoan.repayments;
     }
 
     const { data: transactions } = await supabase
@@ -115,6 +127,9 @@ export async function GET(request) {
     const { sacco } = await resolveSacco(supabase, user.id);
 
     return Response.json({
+      activeLoans,
+      // The newest of them. Kept because a caller that only ever shows one loan is still
+      // correct for the common case of a member holding exactly one.
       activeLoan,
       guarantors,
       repayments,
@@ -192,17 +207,25 @@ export async function POST(request) {
       if (!targetLoanId) {
         const { data: loans } = await supabase
           .from('loans')
-          .select('id')
+          .select('id, loan_type')
           .eq('profile_id', user.id)
           .in('status', REPAYABLE_STATUSES)
-          .order(LOAN_ORDER_COLUMN, { ascending: false })
-          .limit(1);
+          .order(LOAN_ORDER_COLUMN, { ascending: false });
 
-        targetLoanId = loans?.[0]?.id;
-      }
+        if (!loans || loans.length === 0) {
+          return Response.json({ error: 'You have no loan open for repayment.' }, { status: 400 });
+        }
 
-      if (!targetLoanId) {
-        return Response.json({ error: 'You have no loan open for repayment.' }, { status: 400 });
+        // A member may be repaying a normal loan and a Social Fund emergency loan at the
+        // same time. Guessing the newest would credit money to the wrong debt, so an
+        // unspecified repayment is refused rather than misapplied.
+        if (loans.length > 1) {
+          return Response.json({
+            error: 'You have more than one loan open. Choose which one this installment is for.'
+          }, { status: 400 });
+        }
+
+        targetLoanId = loans[0].id;
       }
 
       const { data: result, error: rpcError } = await supabase.rpc('record_loan_repayment', {

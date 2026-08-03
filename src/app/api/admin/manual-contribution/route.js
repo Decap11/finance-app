@@ -91,16 +91,25 @@ export async function POST(request) {
 
     // 5. Check if we are logging a loan disbursement
     if (category === 'loan_disbursement') {
-      // Ensure member does not have an active or issued loan
-      const { data: activeLoan, error: activeLoanErr } = await supabase
+      const parsedLoanType = loanType || 'normal';
+
+      // Scoped to the type being logged. A normal loan and a Social Fund emergency
+      // advance run alongside each other by design -- only a second loan of the same
+      // kind is the double-borrowing this is here to stop.
+      const { data: activeLoan } = await supabase
         .from('loans')
         .select('id')
         .eq('profile_id', memberId)
+        .eq('loan_type', parsedLoanType)
         .in('status', ['issued', 'active'])
         .limit(1);
 
       if (activeLoan && activeLoan.length > 0) {
-        return Response.json({ error: 'Member already has an active or issued loan.' }, { status: 400 });
+        return Response.json({
+          error: parsedLoanType === 'social_fund'
+            ? 'Member already has an open Social Fund emergency loan.'
+            : 'Member already has an active or issued normal loan.'
+        }, { status: 400 });
       }
 
       // Get member's loan account
@@ -119,7 +128,6 @@ export async function POST(request) {
       // Calculate parameters
       const parsedTerm = Number(termMonths) || 1;
       const parsedPurpose = purpose || 'Onboarded historical loan';
-      const parsedLoanType = loanType || 'normal';
       const interestRate = parsedLoanType === 'social_fund' ? 0.00 : 5.00;
 
       // Insert Loan record

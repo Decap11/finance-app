@@ -51,6 +51,11 @@ export default function LoanRequestWidget() {
   // only apply until the fetch lands.
   const [rules, setRules] = useState({ applicationFee: 0, minGuarantors: 3, lateFeeAmount: 0 });
 
+  // A member may run one normal loan and one Social Fund emergency loan side by side,
+  // but not two of either. Knowing which they already hold lets the form say so before
+  // they have picked three guarantors and pressed submit.
+  const [openLoans, setOpenLoans] = useState([]);
+
   const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
   async function loadSharesBalance() {
@@ -144,6 +149,7 @@ export default function LoanRequestWidget() {
         });
         const data = await res.json();
         if (res.ok && data.rules) setRules(data.rules);
+        if (res.ok) setOpenLoans(data.activeLoans || (data.activeLoan ? [data.activeLoan] : []));
       } catch (err) {
         console.warn("Failed to load loan rules:", err);
       }
@@ -221,8 +227,22 @@ export default function LoanRequestWidget() {
 
   const maxAllowedAmount = loanType === "social_fund" ? 50000 : sharesBalance * 2;
 
+  const existingOfThisType = openLoans.find((l) => (l.loan_type || "normal") === loanType);
+  const otherOpenLoan = openLoans.find((l) => (l.loan_type || "normal") !== loanType);
+  const typeLabel = loanType === "social_fund" ? "Social Fund emergency" : "normal";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // request_loan refuses this too. Repeated here so the member is told before they
+    // have filled the form out.
+    if (existingOfThisType) {
+      setMessage(
+        `You already have a ${typeLabel} loan in progress. Settle it before requesting another.`
+      );
+      return;
+    }
+
     if (!loanAmount || !loanReason) {
       setMessage("Please fill in all fields.");
       return;
@@ -332,6 +352,26 @@ export default function LoanRequestWidget() {
               onChange={handleTypeChange}
             />
           </div>
+
+          {existingOfThisType ? (
+            <p style={{ fontSize: "1.2rem", color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: "0.6rem", padding: "0.9rem 1.1rem", margin: "0.8rem 0 0", lineHeight: 1.5 }}>
+              You already have a {typeLabel} loan in progress. Settle it before requesting
+              another
+              {loanType === "normal"
+                ? " — though a Social Fund emergency loan is still open to you."
+                : "."}
+            </p>
+          ) : otherOpenLoan ? (
+            /* Reassurance rather than a warning: a member repaying one loan has every
+               reason to assume the other type is barred to them too. */
+            <p style={{ fontSize: "1.2rem", color: "#475569", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.6rem", padding: "0.9rem 1.1rem", margin: "0.8rem 0 0", lineHeight: 1.5 }}>
+              Your open{" "}
+              {(otherOpenLoan.loan_type || "normal") === "social_fund"
+                ? "Social Fund emergency"
+                : "normal"}{" "}
+              loan does not block this request — the two run alongside each other.
+            </p>
+          ) : null}
         </div>
 
         <div className="form-group">
@@ -459,8 +499,16 @@ export default function LoanRequestWidget() {
           </div>
         </div>
 
-        <button type="submit" className="btn-submit-loan" disabled={isLoading}>
-          {isLoading ? "Submitting..." : "Submit Request"}
+        <button
+          type="submit"
+          className="btn-submit-loan"
+          disabled={isLoading || Boolean(existingOfThisType)}
+        >
+          {isLoading
+            ? "Submitting..."
+            : existingOfThisType
+              ? `${loanType === "social_fund" ? "Social Fund" : "Normal"} loan already open`
+              : "Submit Request"}
         </button>
       </form>
     </div>

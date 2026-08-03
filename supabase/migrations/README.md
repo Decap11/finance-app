@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0023 in numeric order, without stopping.**
+Run **0001 through 0025 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -76,6 +76,8 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0021 | `repair-fines-category` | ✅ Makes a fine storable. Replaces the `transactions.category` check so it lists `'fines'` instead of `'fine'` (migrating any existing rows), adds `'fines'` to `accounts.account_type` and backfills the account for every member, and adds the `transactions.week_number` column the attendance manager has always tried to write. |
 | 0022 | `fines-fund-pool` | ✅ Makes fines the fourth fund pool. Adds `transactions.fine_type` — `'absenteeism'` belongs to the attendance engine, everything else to the fines manager — plus `late_fine_amount` on `saccos`/`sacco_settings`. Rewrites `get_sacco_total_balances` to sum `'fines'` too, adds `levy_member_fine` / `waive_member_fine`, and drops 0015's `transactions_insert_staff_fines` policy now that no browser writes fines directly. |
 | 0023 | `loan-lifecycle` | ✅ Application fee, guarantor minimum, installment repayment and late charges. Adds the three loan settings to `saccos`/`sacco_settings`, widens the `loans.status` check (`pending_fee`, `pending_guarantors`, `overdue`), adds `closed_at`/`total_repayable`/`installment_amount`/`late_fee_months_charged`, replaces `request_loan` (takes the guarantor array, enforces the minimum, raises the fee), and adds `confirm_loan_application_fee`, `record_loan_repayment` and `apply_loan_late_fees`. Extends `sync_loan_on_transaction_approval` so an approved repayment finally reduces `outstanding_balance` and writes a `loan_repayments` row. Depends on 0022 for `fine_type`. |
+| 0024 | `fix-approval-account-mapping` | ✅ Stops `approve_member_transaction` inventing an account type from the category. Adds `account_type_for_category`; a category with no account behind it (`fee`, `dividend`, `adjustment`) now completes without touching `accounts` instead of failing the account_type CHECK. Also refuses to disburse a loan whose fee is unconfirmed or whose guarantors have not signed, and makes approving a loan fee advance the loan exactly as the dedicated button does. |
+| 0025 | `concurrent-loan-types` | ✅ One open loan **per type**, not one open loan. A member repaying a normal loan may still take a Social Fund emergency advance; what they cannot do is stack two of the same kind. Replaces `request_loan` with the check scoped to `loan_type`, adds `loan_is_open(status)`, and adds a partial unique index on `(profile_id, loan_type)` over the open statuses — **the index is skipped with a warning if the data already has duplicates** (this database has several members holding multiple open normal loans from before the rule). Re-run the file once those are settled and the index appears. Depends on 0023. |
 
 ## Which definition is live
 
@@ -91,10 +93,11 @@ everything the security audit touched, 0017 for the two member-management functi
 | `transactions` / `loans` SELECT policies | 0002 | 0019 |
 | `handle_new_user` (signup trigger) | 0001, 0004, 0010 | 0015 |
 | `register_new_sacco` | 0003, 0009, 0010 | 0015 |
-| `approve_transaction` / `reject_transaction` | 0002, 0011 | 0015 |
+| `approve_transaction` / `reject_transaction` | 0002, 0011 | 0024 (approve) / 0015 (reject) |
 | `calculate_dividend_preview`, `execute_dividend_payout` | 0013 | 0015 |
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002, 0015 | 0022 |
+| `request_loan` | 0002, 0023 | 0025 |
 | `initialize_member_accounts` | 0001 | 0021 |
 | `make_member_admin` | 0002 | 0017 |
 | `set_member_approval` | 0017 | 0018 |

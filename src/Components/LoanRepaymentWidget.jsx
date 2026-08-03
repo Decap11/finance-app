@@ -7,8 +7,10 @@ export default function LoanRepaymentWidget() {
   const [repayAmount, setRepayAmount] = useState("");
   const [paymentSource, setPaymentSource] = useState("");
   
-  const [activeLoan, setActiveLoan] = useState(null);
-  const [repayments, setRepayments] = useState([]);
+  // A member can hold a normal loan and a Social Fund emergency loan at once, so this
+  // tracks the whole set and which of them the form is currently pointed at.
+  const [loans, setLoans] = useState([]);
+  const [selectedLoanId, setSelectedLoanId] = useState("");
   const [savingsBalance, setSavingsBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -27,10 +29,13 @@ export default function LoanRepaymentWidget() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        if (data.activeLoan) {
-          setActiveLoan(data.activeLoan);
-        }
-        setRepayments(data.repayments || []);
+        const open = data.activeLoans || (data.activeLoan ? [data.activeLoan] : []);
+        setLoans(open);
+        // Keep whatever the member was looking at across a refresh; fall back to the
+        // first loan, and to nothing once they have none.
+        setSelectedLoanId((current) =>
+          open.some((l) => l.id === current) ? current : (open[0]?.id || "")
+        );
         setSavingsBalance(data.savingsBalance || 0);
       } catch (err) {
         console.warn("Error loading loan data:", err);
@@ -51,15 +56,28 @@ export default function LoanRepaymentWidget() {
     };
   }, []);
 
+  const activeLoan = loans.find((l) => l.id === selectedLoanId) || null;
+  const repayments = activeLoan?.repayments || [];
+
+  const loanLabel = (loan) =>
+    loan.loan_type === "social_fund" ? "Social Fund Emergency" : "Normal Loan";
+
+  const loanOptions = loans.map((loan) => ({
+    value: loan.id,
+    label: `${loanLabel(loan)} — Shs ${Number(
+      loan.outstanding_balance ?? loan.total_repayable ?? loan.amount_approved ?? 0
+    ).toLocaleString()} left`
+  }));
+
   // What is actually owed, interest included, is total_repayable. amount_approved is only
   // the principal, so paying that off would leave the interest unaccounted for.
   const totalLoan = activeLoan
     ? (Number(activeLoan.total_repayable) || Number(activeLoan.amount_approved) || 0)
     : 0;
-  const remainingAmount = activeLoan 
-    ? (activeLoan.outstanding_balance !== null && activeLoan.outstanding_balance !== undefined 
-        ? Number(activeLoan.outstanding_balance) 
-        : totalLoan) 
+  const remainingAmount = activeLoan
+    ? (activeLoan.outstanding_balance !== null && activeLoan.outstanding_balance !== undefined
+        ? Number(activeLoan.outstanding_balance)
+        : totalLoan)
     : 0;
   const paidAmount = Math.max(0, totalLoan - remainingAmount);
   const isOverdue = Boolean(
@@ -114,6 +132,10 @@ export default function LoanRepaymentWidget() {
         },
         body: JSON.stringify({
           action: "repay_loan",
+          // Named explicitly. With two loans open the server refuses to guess, and it
+          // is right to -- an installment credited to the wrong debt is real money in
+          // the wrong place.
+          loanId: selectedLoanId,
           amount: amount,
           paymentSource: paymentSource
         })
@@ -145,6 +167,25 @@ export default function LoanRepaymentWidget() {
         </div>
       )}
 
+      {/* Only when there is a choice to make. A member with one loan should not have to
+          pick it out of a list of one. */}
+      {!loading && loans.length > 1 && (
+        <div className="form-group">
+          <label htmlFor="repay-loan">Which loan are you repaying?</label>
+          <div className="input-wrapper">
+            <CustomSelect
+              value={selectedLoanId}
+              options={loanOptions}
+              onChange={(val) => {
+                setSelectedLoanId(val);
+                setRepayAmount("");
+                setMessage("");
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign: "center", padding: "2rem" }}>Loading your loan details...</div>
       ) : !activeLoan ? (
@@ -155,7 +196,9 @@ export default function LoanRepaymentWidget() {
       ) : ["pending", "pending_guarantors", "pending_fee", "approved"].includes(activeLoan.status) ? (
         <div style={{ textAlign: "center", padding: "2rem", color: "#334155" }}>
           <i className="fa-solid fa-clock" style={{ fontSize: "3rem", color: "#eab308", marginBottom: "1rem" }}></i>
-          <h4 style={{ fontSize: "1.6rem", fontWeight: 700, margin: "0 0 0.6rem" }}>Loan Application Pending</h4>
+          <h4 style={{ fontSize: "1.6rem", fontWeight: 700, margin: "0 0 0.6rem" }}>
+            {loanLabel(activeLoan)} Application Pending
+          </h4>
           <p style={{ fontSize: "1.2rem", color: "#64748b", margin: 0 }}>
             Your loan request of <strong>UGX {totalLoan.toLocaleString()}</strong> is waiting on{" "}
             {activeLoan.status === "pending_fee"
@@ -168,6 +211,10 @@ export default function LoanRepaymentWidget() {
       ) : (
         <form className="loan-form" onSubmit={handleSubmit}>
           <div className="loan-schedule">
+            <div className="loan-schedule-row">
+              <span>Loan</span>
+              <strong>{loanLabel(activeLoan)}</strong>
+            </div>
             <div className="loan-schedule-row">
               <span>Installment</span>
               <strong>
