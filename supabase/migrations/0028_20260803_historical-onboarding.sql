@@ -252,7 +252,14 @@ BEGIN
     END IF;
   END IF;
 
+  -- ---------------------------------------------------------------------------------
   -- Meeting week for the date's own year.
+  -- ---------------------------------------------------------------------------------
+  SELECT ss.meeting_day INTO v_meeting_day
+  FROM public.sacco_settings ss
+  WHERE ss.sacco_id = v_sacco_id
+  LIMIT 1;
+
   v_week_number := public.meeting_week_of(p_occurred_on, COALESCE(v_meeting_day, 'Wednesday'));
 
   -- ---------------------------------------------------------------------------------
