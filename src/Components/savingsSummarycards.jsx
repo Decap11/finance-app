@@ -10,6 +10,9 @@ export default function SavingsSummaryCards() {
     social_fund: 0,
     fines: 0,
   });
+  // Null until the first successful fetch, and null forever on a database that has not
+  // had migration 0027 applied -- see the fallback in /api/sacco-balances.
+  const [trend, setTrend] = useState(null);
 
   async function fetchBalances() {
     try {
@@ -38,6 +41,8 @@ export default function SavingsSummaryCards() {
         });
         setBalances(newBalances);
       }
+
+      setTrend(data.trend ?? null);
     } catch (err) {
       console.warn("Error loading SACCO group balances:", err);
     } finally {
@@ -78,6 +83,57 @@ export default function SavingsSummaryCards() {
   const totalCapital =
     balances.shares + balances.development_fund + balances.social_fund + balances.fines;
 
+  // How the pot moved this week against what it was worth on Monday. Everything visible
+  // -- arrow, colour and sign -- is decided from the *rounded* figure, so a week that
+  // came in at -0.04% can never paint a red downward arrow beside the text "0.0%".
+  function renderCapitalTrend() {
+    // Hold the line's height while the figures load, so the card doesn't resize under
+    // the reader once they arrive.
+    if (loading) {
+      return (
+        <div className="card-change">
+          <span>&nbsp;</span>
+        </div>
+      );
+    }
+
+    // The trend RPC is missing or errored. The rest of the card is still correct, so it
+    // stays -- silently, rather than asserting a change nobody measured.
+    if (!trend) return null;
+
+    // A SACCO in its first week has no opening balance to grow from, so the API sends
+    // null. Checked as "not a usable number" rather than "=== null" because this value
+    // came off the network and the next line calls .toFixed() on it.
+    if (!Number.isFinite(trend.percentChange)) {
+      return (
+        <div className="card-change">
+          <span>No prior week to compare</span>
+        </div>
+      );
+    }
+
+    const pct = Number(trend.percentChange.toFixed(1));
+    const tone = pct > 0 ? "positive" : pct < 0 ? "negative" : "neutral";
+    const icon =
+      pct > 0
+        ? "fa-arrow-trend-up"
+        : pct < 0
+          ? "fa-arrow-trend-down"
+          : "fa-minus";
+    const sign = pct > 0 ? "+" : pct < 0 ? "-" : "";
+
+    return (
+      <div className="card-change">
+        <i className={`fa-solid ${icon} change-${tone}`}></i>
+        <span className={`change-${tone}`}>
+          {sign}
+          {Math.abs(pct).toFixed(1)}%
+        </span>
+        <span>this week</span>
+      </div>
+    );
+  }
+
   return (
     <section className="summary-cards">
       <div className="card">
@@ -93,11 +149,7 @@ export default function SavingsSummaryCards() {
         <div className="card-amount">
           <span>Ugx</span> {loading ? "..." : totalCapital.toLocaleString()}
         </div>
-        <div className="card-change">
-          <i className="fa-solid fa-arrow-trend-up change-positive"></i>
-          <span className="change-positive">+0.0%</span>
-          <span>this week</span>
-        </div>
+        {renderCapitalTrend()}
       </div>
 
       <div className="card">

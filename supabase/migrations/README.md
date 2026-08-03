@@ -10,7 +10,7 @@ sequence as "best known good order", not as a log of what actually ran against p
 
 ## Applying these to a fresh database
 
-Run **0001 through 0026 in numeric order, without stopping.**
+Run **0001 through 0027 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +20,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -79,6 +79,7 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0024 | `fix-approval-account-mapping` | ✅ Stops `approve_member_transaction` inventing an account type from the category. Adds `account_type_for_category`; a category with no account behind it (`fee`, `dividend`, `adjustment`) now completes without touching `accounts` instead of failing the account_type CHECK. Also refuses to disburse a loan whose fee is unconfirmed or whose guarantors have not signed, and makes approving a loan fee advance the loan exactly as the dedicated button does. |
 | 0025 | `concurrent-loan-types` | ✅ One open loan **per type**, not one open loan. A member repaying a normal loan may still take a Social Fund emergency advance; what they cannot do is stack two of the same kind. Replaces `request_loan` with the check scoped to `loan_type`, adds `loan_is_open(status)`, and adds a partial unique index on `(profile_id, loan_type)` over the open statuses — **the index is skipped with a warning if the data already has duplicates** (this database has several members holding multiple open normal loans from before the rule). Re-run the file once those are settled and the index appears. Depends on 0023. |
 | 0026 | `loan-numbers` | ✅ Human-readable loan references — `BYS-022-001`: SACCO acronym from `saccos.group_code`, the borrower's `member_number` digits, and which loan this is for that member. Adds `loans.loan_number` (unique) alongside the UUID primary key, which is untouched. Stamped by a `BEFORE INSERT` trigger rather than inside `request_loan`, so the admin manual-contribution path gets one too; the `UPDATE` branch holds an issued number still. Numbering runs per prefix, not per member, because two HTS-5050 members share `MEM-022` and would otherwise both be handed `-001`. Backfills existing loans oldest-first. Depends on 0025. |
+| 0027 | `capital-weekly-trend` | ✅ Puts a real number behind the "Total SACCO Assets" card's trend line, which was a hardcoded `+0.0%` and a hardcoded upward arrow. Adds `get_sacco_capital_trend`, returning the pot at Monday 00:00 plus the signed movement in this week and last. The card shows this week's growth against the opening balance, and turns the arrow down and the figure red when it is negative. Sums the same four categories the card totals (`shares`, `development_fund`, `social_fund`, `fines`) and deliberately **not** `savings`, which `/api/sacco-balances` drops from its response — a percentage over a wider set than the figure above it would not reconcile. Weeks are ISO (Monday), not the SACCO's `meeting_day`. The API treats a missing definition as non-fatal, so the other cards survive an unapplied 0027. Depends on nothing. |
 
 ## Which definition is live
 
@@ -98,6 +99,7 @@ everything the security audit touched, 0017 for the two member-management functi
 | `calculate_dividend_preview`, `execute_dividend_payout` | 0013 | 0015 |
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002, 0015 | 0022 |
+| `get_sacco_capital_trend` | — | 0027 |
 | `request_loan` | 0002, 0023, 0025 | 0026 |
 | `initialize_member_accounts` | 0001 | 0021 |
 | `make_member_admin` | 0002 | 0017 |

@@ -104,11 +104,30 @@ body {
 .change-negative {
   color: var(--danger);
 }
+.change-neutral {
+  color: var(--text-light);
+}
 
 .card-change span {
   color: var(--text-light);
   margin-left: 0.8rem;
   font-weight: 500;
+}
+
+/* The trailing "this week" is meant to be muted, which is what the rule above does -- but
+   it also outranks the .change-* classes (0-1-1 against 0-1-0, and it comes later), so
+   the figure those classes are meant to colour was being greyed out along with it, and
+   only the arrow ever carried the signal. These put the colour back on the number, which
+   is the part a reader actually looks at. Colour only -- spacing and weight stay as they
+   were. */
+.card-change span.change-positive {
+  color: var(--success);
+}
+.card-change span.change-negative {
+  color: var(--danger);
+}
+.card-change span.change-neutral {
+  color: var(--text-light);
 }
 
 .card-members-max {

@@ -25,12 +25,42 @@ export async function GET(request) {
       return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
     }
 
-    // Call the SECURITY DEFINER RPC to bypass RLS and sum balances securely for all members
-    const { data: accounts, error: rpcErr } = await supabase
-      .rpc('get_sacco_total_balances', { p_profile_id: user.id });
+    // Call the SECURITY DEFINER RPCs to bypass RLS and aggregate securely across all
+    // members. Both read the same ledger, so they are issued together.
+    const [
+      { data: accounts, error: rpcErr },
+      { data: trendRows, error: trendErr }
+    ] = await Promise.all([
+      supabase.rpc('get_sacco_total_balances', { p_profile_id: user.id }),
+      supabase.rpc('get_sacco_capital_trend', { p_profile_id: user.id })
+    ]);
 
     if (rpcErr) {
       return Response.json({ error: rpcErr.message }, { status: 500 });
+    }
+
+    // The trend is the small print under one card; the balances are the page. A database
+    // that has not had 0027 applied yet fails this RPC with "function does not exist",
+    // and blanking every fund total over a missing percentage would be the wrong trade.
+    // The card falls back to showing no change indicator at all.
+    let trend = null;
+    if (trendErr) {
+      console.warn('Capital trend unavailable (is migration 0027 applied?):', trendErr.message);
+    } else if (trendRows?.length) {
+      const row = trendRows[0];
+      const opening = Number(row.opening_capital) || 0;
+      const currentNet = Number(row.current_week_net) || 0;
+
+      trend = {
+        openingCapital: opening,
+        currentWeekNet: currentNet,
+        previousWeekNet: Number(row.previous_week_net) || 0,
+        weekStart: row.week_start,
+        // A SACCO in its first week has nothing to grow from. Dividing by zero would
+        // report an infinite rise off a zero base, so the percentage is withheld and
+        // the card says so rather than inventing a figure.
+        percentChange: opening > 0 ? (currentNet / opening) * 100 : null
+      };
     }
 
     // Fallback/Format output to match frontend expectations
@@ -53,7 +83,7 @@ export async function GET(request) {
       });
     }
 
-    return Response.json({ accounts: formattedAccounts });
+    return Response.json({ accounts: formattedAccounts, trend });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
