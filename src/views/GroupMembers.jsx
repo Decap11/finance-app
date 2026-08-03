@@ -146,9 +146,7 @@ export default function GroupMembers() {
           </div>
 
           {loading ? (
-            <div style={{ padding: "5rem 0", display: "flex", justifyContent: "center" }}>
-              <Loader />
-            </div>
+            <Loader />
           ) : errorMsg ? (
             <div
               style={{

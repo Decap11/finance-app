@@ -1,4 +1,23 @@
-/* HTML: <div class="loader"></div> */
+/* HTML: <div class="loader-screen"><div class="loader"></div></div> */
+
+/* The spinner is only 40px wide, so on its own it renders wherever it happens to land in
+   the flow -- which, for a route that returns nothing but a loader, is the top-left
+   corner. This wrapper pins it to the middle of the viewport instead. `fixed` rather than
+   `absolute` so it stays centred on the screen regardless of whether some ancestor
+   happens to be a positioned element. */
+.loader-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Above the sidebar (100) and the user header (1020), below modals (10000) and toasts. */
+  z-index: 9000;
+  /* Some callers show this while the page behind is still rendered and interactive. An
+     invisible box covering the whole viewport would otherwise swallow every click. */
+  pointer-events: none;
+}
+
 .loader {
   width: 40px;
   aspect-ratio: 1;

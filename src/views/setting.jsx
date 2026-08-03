@@ -292,19 +292,13 @@ export default function Settings({ isAdminView = false }) {
 
   if (loading) {
     if (isAdminView) {
-      return (
-        <div style={{ padding: "8rem 0", display: "flex", justifyContent: "center" }}>
-          <Loader />
-        </div>
-      );
+      return <Loader />;
     }
     return (
       <MemberLayout>
         <div className="dashboard-body">
           <UserHeader />
-          <div style={{ padding: "8rem 0", display: "flex", justifyContent: "center" }}>
-            <Loader />
-          </div>
+          <Loader />
         </div>
       </MemberLayout>
     );
