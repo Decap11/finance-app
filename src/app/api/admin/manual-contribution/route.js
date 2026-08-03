@@ -104,12 +104,26 @@ export async function POST(request) {
       // Every RAISE EXCEPTION in the function is written to be shown to the admin as-is,
       // so the message is passed straight through. 400 rather than 500: these are
       // rejections of what was typed, not server faults.
-      const missing = /does not exist/i.test(rpcErr.message || '');
+      // Only claim the migration is missing when the function itself cannot be found.
+      // This used to test the message for "does not exist" alone, which also matches
+      // every undefined column or relation raised from *inside* a function that is
+      // present -- so a missing transactions.reference column (see 0029) was reported
+      // for days as an unapplied 0028, sending everyone to re-run a migration that had
+      // already been applied. PGRST202 is PostgREST failing to resolve the function;
+      // 42883 is Postgres's undefined_function, which needs the name checked too.
+      const message = rpcErr.message || '';
+      const missing =
+        rpcErr.code === 'PGRST202' ||
+        (rpcErr.code === '42883' && /log_historical_record/i.test(message));
+
       return Response.json(
         {
           error: missing
             ? 'Historical onboarding is not available yet: migration 0028 has not been applied to this database.'
-            : rpcErr.message
+            : message,
+          // Surfaced so the next schema gap names itself instead of hiding behind a
+          // generic failure. Postgres puts the offending column in `details`/`hint`.
+          ...(missing ? {} : { code: rpcErr.code, details: rpcErr.details, hint: rpcErr.hint })
         },
         { status: missing ? 503 : 400 }
       );
