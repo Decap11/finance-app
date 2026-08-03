@@ -55,14 +55,19 @@ export async function GET(request) {
       .eq('status', status)
       .order('created_at', { ascending: false });
 
+    // Reporting a query failure as an empty success is what hid the broken column
+    // selection here for as long as it lasted: a guarantor with requests waiting saw the
+    // same blank panel as a guarantor with none, and nothing said which it was.
     if (error) {
-      console.warn('loan_guarantors table query warning:', error.message);
-      return NextResponse.json({ success: true, requests: [] });
+      return NextResponse.json(
+        { error: 'Could not load your guarantee requests: ' + error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, requests: requests || [] });
   } catch (err) {
-    return NextResponse.json({ success: true, requests: [] });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 

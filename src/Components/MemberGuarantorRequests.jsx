@@ -34,14 +34,18 @@ export default function MemberGuarantorRequests() {
       if (!session) return;
 
       const res = await fetch(`/api/loans/guarantors?profile_id=${pId}&status=pending`, {
-        headers: { "Authorization": `Bearer ${session.access_token}` }
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+        cache: "no-store"
       });
       const result = await res.json();
-      if (result.success) {
-        setRequests(result.requests || []);
-      }
+
+      if (!res.ok) throw new Error(result.error || "Could not load your guarantee requests");
+
+      setRequests(result.requests || []);
     } catch (err) {
-      console.warn("Failed to fetch guarantor requests:", err);
+      // Surfaced rather than logged: a guarantor who cannot see a request they were
+      // asked to sign needs to know the list failed, not assume nobody asked.
+      setStatusMessage({ type: "error", text: err.message });
     }
   };
 
@@ -86,7 +90,11 @@ export default function MemberGuarantorRequests() {
     }
   };
 
-  if (loading || requests.length === 0) return null;
+  // A member with genuinely nothing to sign should not see an empty card, but a failed
+  // load or a just-recorded decision must still be able to say so -- returning null on
+  // an empty list alone swallowed both.
+  if (loading) return null;
+  if (requests.length === 0 && !statusMessage) return null;
 
   return (
     <div style={{ background: "#ffffff", borderRadius: "1.6rem", padding: "2.5rem", boxShadow: "0 0.4rem 2rem rgba(0,0,0,0.02)", border: "1px solid #f1f5f9", marginBottom: "2rem" }}>
