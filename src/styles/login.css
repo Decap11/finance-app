@@ -20,7 +20,15 @@ html {
   box-sizing: border-box;
 }
 
-body {
+/* Centring lives on this page's own wrapper, never on `body`.
+ *
+ * Route stylesheets are appended to the document on client-side navigation and are never
+ * removed again, so anything this file says about `body` outlives the login screen. When
+ * this rule was `body { display: flex; align-items: center; padding: 2rem }`, signing in
+ * left the dashboard laid out as a centred flex item -- it rendered oversized and inset,
+ * and only a full reload (which drops this stylesheet) put it right. Scoped to a class,
+ * the rule simply stops matching once the auth screen unmounts. */
+.auth-page {
   font-family:
     "Inter",
     system-ui,
@@ -305,7 +313,7 @@ body {
 
 /* Mobile Responsive Styling (440px and below) */
 @media (max-width: 440px) {
-  body {
+  .auth-page {
     padding: 1.6rem 1.2rem;
   }
 

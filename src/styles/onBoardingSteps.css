@@ -19,7 +19,10 @@ html {
   box-sizing: border-box;
 }
 
-body {
+/* Scoped to this page's shell rather than `body` -- see the note in login.css. A route
+ * stylesheet is appended on client-side navigation and never removed, so a `body` rule
+ * here would keep centring every screen the member reaches afterwards. */
+.onboarding-shell {
   font-family:
     "Inter",
     -apple-system,

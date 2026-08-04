@@ -26,12 +26,18 @@ html {
   box-sizing: border-box;
 }
 
-body {
+/* Scoped to the page wrapper rather than `body` -- see the note in login.css. A route
+ * stylesheet stays in the document after the route is left, so a `body` rule here would
+ * follow the member onto the dashboard they are signing up to reach.
+ *
+ * width is 100% rather than 100vw: 100vw counts the scrollbar gutter, which on desktop
+ * makes this block wider than the space it is in and produces a horizontal scrollbar. */
+.auth-page {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-dark);
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -422,7 +428,7 @@ body {
    ========================================================================== */
 
 @media (max-width: 440px) {
-  body {
+  .auth-page {
     padding: 1.2rem 0.8rem;
     align-items: flex-start;
   }

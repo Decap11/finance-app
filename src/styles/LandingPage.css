@@ -42,15 +42,16 @@ html {
   box-sizing: border-box;
 }
 
-body {
+/* Folded into the page's own wrapper rather than left on `body` -- see the note in
+ * login.css. This file stays in the document after a member navigates on to the app, so
+ * a `body` rule here (line-height: 1.6 in particular) silently restyled every dashboard
+ * reached without a reload. `overflow-x: hidden` is unchanged in effect: layout.css sets
+ * it on html and body for every page anyway. */
+.landing-page {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-dark);
   line-height: 1.6;
-  overflow-x: hidden;
-}
-
-.landing-page {
   overflow-x: hidden;
   width: 100%;
 }
