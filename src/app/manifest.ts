@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "PEWOSA",
     description: siteDescription,
 
-    start_url: "/",
+    start_url: "/dashboard",
     // Members reach the app from an icon, not a URL bar, so `standalone` is what makes it
     // feel like an app. `id` pins the install identity: without it the browser derives one
     // from start_url, and later changing start_url would register as a second, separate app
