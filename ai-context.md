@@ -101,6 +101,8 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/loans/guarantors` | GET, POST | Nominate only for own loan; respond only if you are the nominated guarantor |
 | `/api/user-vaults` | GET, POST | Own vaults; client-supplied `profile_id` is ignored |
 | `/api/sacco-settings` | GET, POST | GET is public; POST requires SACCO admin |
+| `/api/dues` | GET | Outstanding weekly mandatory funds. Scoped by RLS — a member gets their own row, staff get one per member |
+| `/api/admin/join-dates` | POST | Admin — sets `profiles.joined_on` for one member, or fills every blank at once |
 | `/api/admin/dividends` | GET, POST | Admin of the target SACCO |
 | `/api/admin/manual-contribution` | POST | Admin — backfills historical contributions/loans |
 | `/api/admin/fines` | GET, POST, PATCH | Admin/loan officer — list, levy, collect, waive. The only write path for fines |
@@ -110,14 +112,14 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/platform` | GET, POST | Email must be in `PLATFORM_ADMIN_EMAILS` |
 
 `sacco-settings/route.js` also exports `getActiveSaccoSettings()`, imported directly by
-`contribution-habits`. It falls back to a local `settings.json` file when no database row exists —
-that fallback is a development convenience and is not reliable on serverless.
+`contribution-habits` and `dues`. It falls back to a local `settings.json` file when no database row
+exists — that fallback is a development convenience and is not reliable on serverless.
 
 ## 7. Data model
 
 | Table | Purpose |
 |-------|---------|
-| `profiles` | One row per auth user. Holds `role` (`member`/`loan_officer`/`admin`), `group_id` (the SACCO's group code), `member_number`. |
+| `profiles` | One row per auth user. Holds `role` (`member`/`loan_officer`/`admin`), `group_id` (the SACCO's group code), `member_number`, and `joined_on` — the date an admin states the member joined the SACCO, which is what arrears are counted from. NULL means not stated. Distinct from `sacco_memberships.joined_at` and from `created_at`, both of which record when the row/account was made — for a backfilled SACCO that is the day everyone was typed in, not the day they joined. |
 | `saccos` | Tenants. `group_code` unique, `admin_profile_id`, fund defaults, `week_anchor_date`, `current_week`. |
 | `sacco_memberships` | Join table, and **the authoritative source for role checks**. |
 | `accounts` | One row per member per `account_type`: savings, shares, development_fund, social_fund, fines, loan. Holds the balance. |
@@ -158,6 +160,38 @@ The first three are contributions. **Fines are not**, and the distinction is loa
   to sit somewhere; every column, banner and total a human reads keeps them apart. The
   weekly report and the PDF each carry an **Absent** column and a separate **Fines** one.
 
+### Weekly mandatory funds and arrears
+
+Development fund and social fund are owed **every meeting week**, by every member, at the fixed
+`sacco_settings.devt_fund` / `social_fund` amount. Shares are not (1–10, the member's choice) and
+fines are not (levied for a reason, not on a schedule) — those two funds are the only ones that can
+fall into arrears.
+
+Arrears are **derived on every read, never stored** — `src/utils/duesEngine.js` is the single
+definition, served by `/api/dues` and rendered by `MemberDuesCard` (admin) and
+`MemberDuesAlertBanner` (member). There is no scheduler in this app to write a "week passed" row
+each meeting day, and a derived number self-heals: backfill a record that was missing and the
+shortfall corrects itself on the next load. Three rules decide the figures:
+
+- Counting starts at `profiles.joined_on` — the date an admin **states** the member joined (migration
+  0031). Without one it falls back to the member's **own earliest record**, so a late joiner is not
+  charged for weeks before they existed in the group; and with neither, to the SACCO's Week 1. The
+  row carries `startSource` (`stated` / `first_record` / `assumed`) and every surface labels the last
+  two as inference. The first-record rule exists because it never falsely accuses, but it cannot tell
+  *"joined in week 20"* from *"was here since week 1 and paid nothing until week 20"* — stating the
+  join date is what closes that, and the Members tab has a one-click bulk setter for cohort SACCOs.
+- Payments are a **running total**, not judged week by week, so a lump-sum catch-up clears the weeks
+  it covers.
+- The **current, in-progress week is excluded** from what is expected but included in what was paid.
+
+The arithmetic works in date differences, never in `week_number`: cycle week numbers wrap at 52, so
+a SACCO with three years of history has three separate rows numbered "week 7". It therefore does not
+depend on migration 0030 — the anchor is only the fallback start.
+
+`devt_fund` / `social_fund` are **current-rate only**; there is no history of past rates, so changing
+the weekly amount re-prices the whole backlog. There is also no way to waive a due — the only way to
+clear one is to record a payment.
+
 ## 8. Database functions
 
 All are `SECURITY DEFINER`, meaning **they bypass RLS** and must therefore check `auth.uid()`
@@ -173,6 +207,7 @@ themselves. Migration `0015` added those checks; do not remove them.
 - `get_sacco_total_balances` — self, or staff of that member's SACCO. Sums the four pools.
 - `levy_member_fine` / `waive_member_fine` — staff of the target member's SACCO, via `is_sacco_staff`. `0022` retired the browser-side fine INSERT policy in favour of these.
 - `set_member_approval`, `make_member_admin`, `delete_member_entirely`, `demote_sacco_admin` — existing admin of the same SACCO, resolved by the shared `admin_sacco_for_member` helper. These four back the buttons on the admin Members tab. You cannot unapprove, delete or demote yourself.
+- `set_member_join_date` / `set_all_member_join_dates` — write `profiles.joined_on`. The first is guarded by `admin_sacco_for_member`; the second is admin-only (not staff — it re-bases every member's arrears at once) and fills blanks only, so re-running it never undoes a correction.
 
 **The SACCO owner** is `saccos.admin_profile_id`, the account that created the group. Any admin may
 promote a member, but only the owner may `demote_sacco_admin`, and the owner cannot themselves be

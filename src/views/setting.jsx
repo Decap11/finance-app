@@ -280,9 +280,11 @@ export default function Settings({ isAdminView = false }) {
   const firstName = names[0] || "";
   const lastName = names.slice(1).join(" ") || "";
 
-  // Helper to format date
-  const joinedDate = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString("en-US", {
+  // Helper to format date. joined_on (0031) is the date an admin has stated this member
+  // joined the SACCO; created_at is only when their account was made, which for a backfilled
+  // SACCO is the day they were typed in rather than the day they joined.
+  const joinedDate = (profile?.joined_on || profile?.created_at)
+    ? new Date(profile.joined_on || profile.created_at).toLocaleDateString("en-US", {
         month: "short",
         year: "numeric",
       })

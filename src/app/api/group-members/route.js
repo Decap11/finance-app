@@ -59,16 +59,36 @@ export async function GET(request) {
     }
 
     // 3. Fetch all profiles matching the group_id (case-insensitive)
+    //
+    // joined_on -- the date an admin has stated the member joined the SACCO -- arrives with
+    // migration 0031, and asking for a column that does not exist fails the entire query.
+    // Retrying without it on the one error code that means "not there yet" keeps this route
+    // working on a database still on 0030, where the directory simply falls back to showing
+    // created_at as it always did. The existing ilike/eq fallback below must reuse whichever
+    // list succeeded, or it would just repeat the same failure.
+    const BASE_COLUMNS = 'id, member_number, full_name, phone, email, role, status, created_at, group_id, avatar_url';
+    let columns = `${BASE_COLUMNS}, joined_on`;
+
     let { data: profiles, error: listErr } = await supabase
       .from('profiles')
-      .select('id, member_number, full_name, phone, email, role, status, created_at, group_id, avatar_url')
+      .select(columns)
       .ilike('group_id', groupId.trim());
+
+    // 42703 is Postgres's undefined_column; PGRST204 is PostgREST not finding it in the
+    // schema cache.
+    if (listErr && (listErr.code === '42703' || listErr.code === 'PGRST204')) {
+      columns = BASE_COLUMNS;
+      ({ data: profiles, error: listErr } = await supabase
+        .from('profiles')
+        .select(columns)
+        .ilike('group_id', groupId.trim()));
+    }
 
     if (listErr) {
       console.warn("ilike group_id query failed, falling back to eq:", listErr.message);
       const { data: fallbackProfiles } = await supabase
         .from('profiles')
-        .select('id, member_number, full_name, phone, email, role, status, created_at, group_id, avatar_url')
+        .select(columns)
         .eq('group_id', groupId.trim());
       profiles = fallbackProfiles || [];
     }

@@ -6,6 +6,8 @@ import ActionCards from "../Components/ActionCard";
 import ContributionApprovals from "../Components/ContributionApprovals";
 import WeeklyAttendanceManager from "../Components/WeeklyAttendanceManager";
 import MemberFinesManager from "../Components/MemberFinesManager";
+import MemberDuesCard from "../Components/MemberDuesCard";
+import MemberJoinDate from "../Components/MemberJoinDate";
 import LoanApplicationsManager from "../Components/LoanApplicationsManager";
 import ManualContributionLog from "../Components/manualContributionlog";
 import BroadcastMessageWidget from "../Components/BroadcastMessageWidget";
@@ -21,6 +23,12 @@ export default function AdminDashboardPage() {
 
   const [allMembers, setAllMembers] = useState([]);
   const [viewerCanDemote, setViewerCanDemote] = useState(false);
+  // Bumped to re-read the member list after something changes it from outside the realtime
+  // channel -- a saved join date, for one, which the profiles subscription only catches when
+  // the table is in the supabase_realtime publication.
+  const [membersRefreshKey, setMembersRefreshKey] = useState(0);
+  const [joinDatesBusy, setJoinDatesBusy] = useState(false);
+  const [joinDatesMessage, setJoinDatesMessage] = useState(null);
   // Single dialog reused by every member-card action; null when nothing is open.
   const [modal, setModal] = useState(null);
   const [modalBusy, setModalBusy] = useState(false);
@@ -107,7 +115,14 @@ export default function AdminDashboardPage() {
             memberId: p.member_number || "MEM-000",
             phone: p.phone || "N/A",
             email: p.email || "N/A",
-            joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short" }) : "N/A",
+            // When the member joined the SACCO in real life, as stated by an admin (0031).
+            // NULL until somebody says, and the card renders it as an editable field rather
+            // than a label -- this date is what every arrears figure for them is counted
+            // from. profiles.created_at is deliberately NOT used as a fallback here: it is
+            // when the ACCOUNT was made, which for a SACCO that backfilled a year of paper
+            // records is the day the admin typed everyone in, and showing that as a join date
+            // is what made the field worth adding.
+            joinedOn: p.joined_on || null,
             role: roleVal,
             status: statusVal,
             avatarUrl: p.avatar_url,
@@ -298,7 +313,67 @@ export default function AdminDashboardPage() {
         document.removeEventListener("visibilitychange", handleTabRefocus);
       }
     };
-  }, []);
+  }, [membersRefreshKey]);
+
+  const refreshMembers = () => setMembersRefreshKey((k) => k + 1);
+
+  /**
+   * "All members joined at Week 1" -- the one action that makes stating join dates practical.
+   *
+   * No admin types thirty dates, so without this the field stays empty and the dues engine
+   * keeps inferring each member's start from their earliest record -- which silently forgives
+   * anyone who was present from the start but paid nothing for their first several weeks.
+   *
+   * Fills BLANKS ONLY, so pressing it again after correcting a genuine late joiner does not
+   * undo that correction. That is what makes it safe to re-click.
+   */
+  async function handleSetAllJoinDates() {
+    const ok = typeof window === "undefined" || window.confirm(
+      "Set every member who has no join date to the SACCO's Week 1?\n\n" +
+      "Use this when the whole group started together. Members whose date you have already " +
+      "set are left alone, and you can correct any individual afterwards."
+    );
+    if (!ok) return;
+
+    setJoinDatesBusy(true);
+    setJoinDatesMessage(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session expired. Sign in again.");
+
+      const res = await fetch("/api/admin/join-dates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ scope: "all" })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not set join dates.");
+
+      const when = data.joined_on
+        ? new Date(data.joined_on).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+        : "Week 1";
+
+      setJoinDatesMessage({
+        type: "success",
+        text: data.members_set > 0
+          ? `${data.members_set} member(s) set to ${when}. Their dues now count from that date.`
+          : "Every member already has a join date. Nothing was changed."
+      });
+
+      refreshMembers();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
+      }
+    } catch (err) {
+      setJoinDatesMessage({ type: "error", text: err.message });
+    } finally {
+      setJoinDatesBusy(false);
+    }
+  }
 
   // ---- Member card actions ------------------------------------------------------------
   // Each one opens a confirm dialog, and confirming replaces that dialog's contents with
@@ -557,6 +632,12 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </div>
+
+              {/* What members still owe in weekly mandatory funds. Fetches its own data
+                  rather than joining loadMetrics: the figures are derived per member from the
+                  whole ledger, which is a different shape of query from every other metric
+                  here. Expands in place to name who is behind. */}
+              <MemberDuesCard />
             </div>
 
             <div className="main-content-row">
@@ -582,9 +663,71 @@ export default function AdminDashboardPage() {
 
         {currentTab === "members" && (
           <div style={{ marginTop: "2.5rem" }}>
-            <h2 style={{ fontSize: "2rem", fontWeight: 700, color: "var(--text-dark)", marginBottom: "2rem" }}>
+            <h2 style={{ fontSize: "2rem", fontWeight: 700, color: "var(--text-dark)", marginBottom: "1.2rem" }}>
               SACCO Members Directory
             </h2>
+
+            {/* Join dates decide what every member is shown as owing in weekly development
+                and social fund. Explained here rather than left as a bare button, because
+                pressing it asserts something about the whole group. */}
+            <div style={{
+              background: "#f8fafc",
+              border: "0.1rem solid #e2e8f0",
+              borderRadius: "1rem",
+              padding: "1.4rem 1.6rem",
+              marginBottom: "2rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1.6rem",
+              flexWrap: "wrap"
+            }}>
+              <div style={{ fontSize: "1.25rem", color: "#475569", lineHeight: 1.5, maxWidth: "60rem" }}>
+                <strong style={{ color: "var(--text-dark)" }}>Join dates</strong> decide the week each
+                member starts owing development and social fund. Where none is set, it is inferred
+                from their first record — which cannot tell a late joiner from someone who was here
+                all along and simply did not pay.
+                <span style={{ display: "block", marginTop: "0.3rem", color: "#64748b" }}>
+                  If your group started together, set them all at once. Members you have already
+                  dated are left untouched.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSetAllJoinDates}
+                disabled={joinDatesBusy}
+                style={{
+                  background: "var(--primary-color)",
+                  border: "none",
+                  color: "white",
+                  fontSize: "1.3rem",
+                  fontWeight: 700,
+                  padding: "0.9rem 1.6rem",
+                  borderRadius: "0.8rem",
+                  cursor: joinDatesBusy ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <i className="fa-solid fa-calendar-check" style={{ marginRight: "0.6rem" }}></i>
+                {joinDatesBusy ? "Setting…" : "All members joined at Week 1"}
+              </button>
+            </div>
+
+            {joinDatesMessage && (
+              <div style={{
+                padding: "1rem 1.4rem",
+                borderRadius: "0.8rem",
+                marginBottom: "2rem",
+                fontSize: "1.25rem",
+                fontWeight: 600,
+                background: joinDatesMessage.type === "error" ? "#fef2f2" : "#f0fdf4",
+                color: joinDatesMessage.type === "error" ? "#b91c1c" : "#15803d",
+                border: `0.1rem solid ${joinDatesMessage.type === "error" ? "#fecaca" : "#bbf7d0"}`
+              }}>
+                {joinDatesMessage.text}
+              </div>
+            )}
             <div className="members-grid" style={{ 
               display: "grid", 
               gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", 
@@ -668,10 +811,9 @@ export default function AdminDashboardPage() {
                         {member.email}
                       </span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Joined</span>
-                      <span style={{ fontSize: "1.3rem", color: "var(--text-dark)", fontWeight: 600 }}>{member.joinedDate}</span>
-                    </div>
+                    {/* Editable, because this date is what every arrears figure for this
+                        member is counted from -- see MemberJoinDate. */}
+                    <MemberJoinDate member={member} onSaved={refreshMembers} />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Role</span>
                       <span style={{ 

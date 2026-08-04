@@ -1,5 +1,6 @@
 import UserHeader from "../Components/userHeader";
 import MemberFineAlertBanner from "../Components/MemberFineAlertBanner";
+import MemberDuesAlertBanner from "../Components/MemberDuesAlertBanner";
 import UserSummaryCards from "../Components/userSummaryCards";
 import WeeklyContributions from "../Components/userweeklycontributions";
 import UserRecentTransactions from "../Components/UserRecentTransactions";
@@ -13,7 +14,10 @@ export default function MemberDashboardPage() {
     <MemberLayout>
       <div className="dashboard-body">
         <UserHeader />
+        {/* Fines first, then dues. A penalty already incurred outranks an obligation not yet
+            met, and each banner hides itself when there is nothing to say. */}
         <MemberFineAlertBanner />
+        <MemberDuesAlertBanner />
         <UserSummaryCards />
 
         <WeeklyContributions />

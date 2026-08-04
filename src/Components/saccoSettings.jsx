@@ -474,11 +474,33 @@ export default function SaccoSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update the week cycle.");
 
-      setMessage(
-        action === "start_new_cycle"
-          ? `New cycle started. Week 1 is ${formatAnchor(data.anchor_date)}.`
-          : `Historical onboarding complete. Week 1 is ${formatAnchor(data.anchor_date)}; this is now Week ${data.active_week}. ${data.transactions_restamped} record(s) and ${data.attendance_restamped} attendance register(s) renumbered.`
-      );
+      let summary = action === "start_new_cycle"
+        ? `New cycle started. Week 1 is ${formatAnchor(data.anchor_date)}.`
+        : `Historical onboarding complete. Week 1 is ${formatAnchor(data.anchor_date)}; this is now Week ${data.active_week}. ${data.transactions_restamped} record(s) and ${data.attendance_restamped} attendance register(s) renumbered.`;
+
+      // Finishing the backfill is the moment the arrears become knowable: the anchor is set,
+      // so every member's weekly development and social fund obligation can finally be
+      // counted from a real Week 1. Reporting it here means the gaps are named while the
+      // admin is still on the screen that created them, rather than being noticed later.
+      if (action !== "start_new_cycle") {
+        try {
+          const duesRes = await fetch("/api/dues", {
+            headers: { "Authorization": `Bearer ${session.access_token}` },
+            cache: "no-store"
+          });
+          if (duesRes.ok) {
+            const dues = await duesRes.json();
+            const behind = dues?.totals?.membersBehind || 0;
+            summary += behind > 0
+              ? ` ${behind} member(s) are behind on mandatory weekly funds — Shs ${(dues.totals.totalOwed || 0).toLocaleString()} outstanding.`
+              : " All members are current on mandatory weekly funds.";
+          }
+        } catch {
+          // A missing summary line is not a failed finalize. The renumbering already happened.
+        }
+      }
+
+      setMessage(summary);
 
       // The anchor changed, so every derived number on this screen is stale. Re-read rather
       // than patching state, and tell the rest of the app to do the same.

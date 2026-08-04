@@ -93,6 +93,13 @@ export default function ManualContributionLog({ allMembers }) {
   // so this flag is here to explain the rule, not to be the rule.
   const [historicalEnabled, setHistoricalEnabled] = useState(false);
   const [loggingMode, setLoggingMode] = useState("current"); // "current" | "historical"
+  // Every member's outstanding weekly mandatory funds, keyed by profile id. Held for the
+  // whole SACCO rather than fetched per selection so switching members is instant and a
+  // backfill session does not fire a request on every click.
+  const [duesByMember, setDuesByMember] = useState({});
+  // Bumped after each logged record to re-read the dues above. A counter rather than
+  // recentlyLogged.length, which is capped at 8 and would stop changing mid-session.
+  const [duesRefreshKey, setDuesRefreshKey] = useState(0);
   // Last value of the setting this form has seen, so the tab can follow the switch being
   // flipped without also fighting the admin. `null` means settings have not loaded yet.
   const lastHistoricalSetting = useRef(null);
@@ -143,6 +150,9 @@ export default function ManualContributionLog({ allMembers }) {
       : meetingWeekOf(effectiveDate, meetingDay)),
     [effectiveDate, meetingDay, weekAnchorDate]
   );
+
+  // The selected member's outstanding weekly funds, from the SACCO-wide map loaded below.
+  const selectedDues = addMember ? duesByMember[String(addMember)] || null : null;
 
   const loanOptions = useMemo(
     () => openLoans.map((l) => ({
@@ -231,6 +241,42 @@ export default function ManualContributionLog({ allMembers }) {
       }
     };
   }, []);
+
+  // Outstanding weekly mandatory funds for the whole SACCO.
+  //
+  // Loaded here because this form is where a backfill actually happens: seeing that a member
+  // is four weeks short of development fund WHILE typing their records is what stops the gap
+  // being discovered weeks later. Refreshed after every logged record, since logging one is
+  // the main way the number changes.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDues() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || cancelled) return;
+
+        const res = await fetch("/api/dues", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store"
+        });
+        if (!res.ok || cancelled) return;
+
+        const data = await res.json();
+        if (cancelled) return;
+
+        const map = {};
+        (data.rows || []).forEach((row) => { map[String(row.profileId)] = row; });
+        setDuesByMember(map);
+      } catch (err) {
+        // The hint is context, not a control. Losing it must not stop anyone backfilling.
+        console.warn("Failed to load member dues in manual contribution:", err);
+      }
+    }
+
+    loadDues();
+    return () => { cancelled = true; };
+  }, [duesRefreshKey]);
 
   // Only fetched when a repayment is actually being logged -- there is no reason to ask
   // for a member's loans while someone is typing in a shares contribution. Clearing the
@@ -371,6 +417,9 @@ export default function ManualContributionLog({ allMembers }) {
         ...prev
       ].slice(0, 8));
 
+      // The record just logged may have cleared part of what this member owed.
+      setDuesRefreshKey((k) => k + 1);
+
       // What makes every other component redraw. The realtime subscriptions cover the
       // database side; these cover the components that listen for an explicit signal.
       if (typeof window !== "undefined") {
@@ -478,6 +527,44 @@ export default function ManualContributionLog({ allMembers }) {
           onChange={handleMemberChange}
           placeholder="-- Select Member --"
         />
+
+        {/* What this member still owes in weekly mandatory funds, shown at the point the
+            records are being typed. Development and social fund are due every meeting week,
+            so a backfill that skips a week leaves a real debt -- and the only moment anyone
+            can act on that cheaply is while they still have the paper book open. */}
+        {addMember && selectedDues && (
+          selectedDues.totalOwed > 0 ? (
+            <div style={{
+              marginTop: "0.8rem",
+              padding: "0.8rem 1rem",
+              borderRadius: "0.8rem",
+              background: "#fffbeb",
+              border: "1px solid #fde68a",
+              fontSize: "1.15rem",
+              color: "#92400e",
+              lineHeight: 1.5
+            }}>
+              <i className="fa-solid fa-calendar-xmark" style={{ marginRight: "0.5rem" }}></i>
+              <strong>Behind on weekly funds:</strong>{" "}
+              {Object.entries(selectedDues.funds || {})
+                .filter(([, f]) => f.owed > 0)
+                .map(([fund, f]) =>
+                  `${fund === "development_fund" ? "Development" : "Social"} ${f.weeksBehind}w (Shs ${f.owed.toLocaleString()})`
+                )
+                .join(" · ")}
+              {selectedDues.startSource === "assumed" && (
+                <span style={{ display: "block", marginTop: "0.2rem", color: "#a16207" }}>
+                  No records and no join date — counted from the SACCO&apos;s Week 1.
+                </span>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginTop: "0.8rem", fontSize: "1.15rem", color: "#059669" }}>
+              <i className="fa-solid fa-check" style={{ marginRight: "0.5rem" }}></i>
+              Up to date on weekly development and social fund.
+            </div>
+          )
+        )}
       </div>
 
       <div className="admin-form-group admin-form-group-fund">

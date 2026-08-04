@@ -73,8 +73,11 @@ export default function GroupMembers() {
             name: p.full_name || "Unknown Member",
             phone: p.phone || "N/A",
             email: p.email || "N/A",
-            joinedDate: p.created_at
-              ? new Date(p.created_at).toLocaleDateString("en-US", {
+            // The stated SACCO join date (0031) wins over created_at, which is when the
+            // ACCOUNT was made. For a SACCO that backfilled a year of paper records those are
+            // very different dates, and only the first one is what "Joined" means here.
+            joinedDate: (p.joined_on || p.created_at)
+              ? new Date(p.joined_on || p.created_at).toLocaleDateString("en-US", {
                   month: "short",
                   year: "numeric",
                 })
