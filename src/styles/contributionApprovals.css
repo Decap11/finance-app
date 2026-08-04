@@ -56,14 +56,16 @@
   border: 1px solid #f1f5f9;
 }
 
-.section-header {
+.approvals-container .section-header,
+.contribution-approvals .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2.5rem;
 }
 
-.section-title {
+.approvals-container .section-title,
+.contribution-approvals .section-title {
   font-size: 1.8rem;
   font-weight: 700;
   color: #1e293b;

@@ -350,14 +350,16 @@ html {
   padding: 3rem;
   box-shadow: var(--card-shadow);
 }
-.section-header {
+.recent-transactions .section-header,
+.loans-page .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2.5rem;
 }
 
-.section-title {
+.recent-transactions .section-title,
+.loans-page .section-title {
   font-size: 1.8rem;
   font-weight: 700;
   color: var(--text-dark);

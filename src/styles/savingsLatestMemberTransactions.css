@@ -5,14 +5,16 @@
   box-shadow: var(--card-shadow);
   border: 0.1rem solid #f1f5f9;
 }
-.section-header {
+.latest-transactions-card .section-header,
+.transactions-container .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2.5rem;
 }
 
-.section-title {
+.latest-transactions-card .section-title,
+.transactions-container .section-title {
   font-size: 1.8rem;
   font-weight: 700;
   color: var(--text-dark);

@@ -19,13 +19,15 @@
   box-sizing: border-box;
 }
 
-.section-header {
+.features-area .section-header,
+.quick-actions .section-header {
   display: flex;
   align-items: center;
   margin-bottom: 0.5rem;
 }
 
-.section-title {
+.features-area .section-title,
+.quick-actions .section-title {
   display: flex;
   align-items: center;
   gap: 1rem;

@@ -40,13 +40,15 @@ body {
   padding: 3rem;
   box-shadow: var(--card-shadow);
 }
-.section-header {
+.weekly-contributions-card .section-header,
+.weekly-contributions .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2.5rem;
 }
-.section-title {
+.weekly-contributions-card .section-title,
+.weekly-contributions .section-title {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-dark);
