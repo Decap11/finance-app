@@ -1,0 +1,4 @@
+#!/bin/sh
+# Version-controlled hook. Activate it once per clone with `npm run setup:hooks`
+# (which points core.hooksPath here), or it silently does nothing.
+exec node scripts/check-secrets.mjs

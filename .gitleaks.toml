@@ -1,0 +1,31 @@
+# Extends the stock gitleaks rules rather than replacing them.
+title = "finance-app"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-service-role-key"
+description = "Supabase service-role key -- bypasses Row Level Security entirely"
+regex = '''sb_secret_[A-Za-z0-9_-]{16,}'''
+keywords = ["sb_secret_"]
+
+[allowlist]
+description = "Placeholders, the scanner's own pattern definitions, and dead history"
+paths = [
+  '''\.env\.example$''',
+  '''\.gitleaks\.toml$''',
+  '''scripts/check-secrets\.mjs$''',
+  '''package-lock\.json$''',
+
+  # scratch/ held a hardcoded developer password until it was untracked. That credential has
+  # been rotated, so the string left in history opens nothing -- but gitleaks would keep
+  # failing the build over it, and a permanently red gate is one nobody reads. History was
+  # deliberately not rewritten: force-pushing a public repo breaks every clone and still
+  # cannot un-publish what was already fetched, indexed, or forked.
+  #
+  # This exempts the path in gitleaks ONLY. scratch/ is gitignored, and
+  # scripts/check-secrets.mjs does not skip it -- so a `git add -f scratch/...` is still
+  # blocked at pre-commit and in CI. Nothing new can enter through this hole.
+  '''^scratch/''',
+]

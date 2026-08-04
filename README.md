@@ -31,10 +31,12 @@ Open <http://localhost:3001> (note: port 3001, not the Next.js default).
 | `npm run build` | Production build; also runs a full TypeScript check |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint over the `.js`/`.jsx` sources |
+| `npm run check:secrets` | Scan staged changes for credentials; add `-- --all` for every tracked file |
+| `npm run setup:hooks` | Enable the pre-commit secret guard — run once per clone |
 
 ## Environment
 
-Create a `.env` file in the project root:
+Copy [`.env.example`](.env.example) to `.env` and fill in real values:
 
 ```env
 # Public — safe to expose to the browser
@@ -52,6 +54,26 @@ allow-list controlling who can use the `/developer` platform console.
 
 `NEXT_PUBLIC_SITE_URL` is optional — it sets the canonical URL used for Open Graph tags. Vercel
 provides `VERCEL_URL` automatically, so this is only needed for a custom domain.
+
+### Handling secrets
+
+`.env` and every `.env.*` variant are gitignored; `.env.example` is the only one committed and it
+holds placeholders. `scratch/` is gitignored in full — throwaway scripts there must still read
+credentials from `process.env`, never from a literal, so that re-adding one can never leak.
+
+Two guards enforce this, because the first one is bypassable:
+
+```bash
+npm run setup:hooks   # once per clone — points core.hooksPath at .githooks/
+```
+
+That installs a pre-commit hook running [`scripts/check-secrets.mjs`](scripts/check-secrets.mjs)
+over staged content. CI runs the same scanner across every tracked file plus gitleaks across the
+full history, so a commit made with `--no-verify`, or in a clone where nobody ran `setup:hooks`,
+still fails the build.
+
+If a credential does reach a commit, **rotate it first** — it should be treated as public from
+that moment, and rewriting history does not un-publish what was already fetched or indexed.
 
 ## Database
 
