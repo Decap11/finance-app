@@ -72,9 +72,8 @@ export default function MemberFinesManager({ allMembers = [] }) {
   useEffect(() => {
     loadFines();
 
-    // Asked for BY GROUP CODE, always. /api/sacco-settings is public and, called without
-    // one, falls back to the most recently updated settings row in the table -- which on a
-    // multi-tenant database is somebody else's. Naming the group is what makes it safe.
+    // Sent with the session token: /api/sacco-settings refuses an unauthenticated read, and
+    // refuses a group code the caller does not belong to.
     //
     // This used to read saccos.current_week straight from the table. It cannot any more:
     // since migration 0030 the active week is derived from week_anchor_date so it advances
@@ -82,7 +81,8 @@ export default function MemberFinesManager({ allMembers = [] }) {
     // stale between meetings. A fine stamped from it would land on the wrong week.
     async function loadSaccoDefaults() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) return;
 
         const { data: profile } = await supabase
@@ -96,7 +96,12 @@ export default function MemberFinesManager({ allMembers = [] }) {
 
         const res = await fetch(
           `/api/sacco-settings?group_code=${encodeURIComponent(groupCode)}`,
-          { cache: "no-store" }
+          {
+            headers: session.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {},
+            cache: "no-store"
+          }
         );
         if (!res.ok) return;
 

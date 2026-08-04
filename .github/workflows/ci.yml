@@ -1,0 +1,78 @@
+# Runs on every push and pull request.
+#
+# Two gates, both of which have caught real breakage in this repo:
+#
+#   npm test   -- the money arithmetic and the multi-tenant authorization on the settings
+#                 route. Pure Node, no database, no network, no secrets.
+#   npm run build -- a Next build is what catches an import that only exists in one branch,
+#                 a server/client boundary violation, or a route that fails to prerender.
+#
+# A third gate, `secrets`, runs independently of those two. It is a separate job on purpose:
+# a credential landing in the tree has to fail loudly even when the build is already broken
+# for unrelated reasons.
+#
+# `npm run lint` is deliberately NOT a gate yet: the tree has pre-existing errors (unused
+# catch bindings and react-hooks findings) and turning it on today would fail every PR
+# regardless of its contents. Fix those and add it here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks needs the whole history, not just the tip: the point is to catch a
+          # credential that was committed and then "removed" in a later commit, which is
+          # exactly the shape the developer-password leak had.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # The same scanner the pre-commit hook runs, over every tracked file. Cheap, and it
+      # covers the case where someone commits with --no-verify or without running
+      # `npm run setup:hooks` at all.
+      - name: Scan tracked files for credentials
+        run: npm run check:secrets -- --all
+
+      # Broader net over full history. Pinned to a tag rather than a moving major so a
+      # rule change upstream cannot turn a green branch red without a visible bump here.
+      - name: Scan git history for credentials
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The test runner uses node:test with glob arguments, which needs Node 22 or newer.
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit and route tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Placeholders. Nothing in the build reaches Supabase -- but the client is
+          # constructed at module scope in several routes, and an empty URL throws during
+          # prerender. These are deliberately not secrets: no real key belongs in CI for a
+          # build that never makes a request.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key

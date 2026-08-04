@@ -100,7 +100,7 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/loans` | GET, POST, PATCH | Own loan; POST calls `request_loan` / `record_loan_repayment`; PATCH is staff-only (`confirm_fee`, `apply_late_fees`) |
 | `/api/loans/guarantors` | GET, POST | Nominate only for own loan; respond only if you are the nominated guarantor |
 | `/api/user-vaults` | GET, POST | Own vaults; client-supplied `profile_id` is ignored |
-| `/api/sacco-settings` | GET, POST | GET is public; POST requires SACCO admin |
+| `/api/sacco-settings` | GET, POST | GET requires a token and reads only a group the caller belongs to — `?group_code=` must be in that set (else 403), and with none named it resolves from the caller. POST requires admin **of the group being written** |
 | `/api/dues` | GET | Outstanding weekly mandatory funds. Scoped by RLS — a member gets their own row, staff get one per member |
 | `/api/admin/join-dates` | POST | Admin — sets `profiles.joined_on` for one member, or fills every blank at once |
 | `/api/admin/dividends` | GET, POST | Admin of the target SACCO |
@@ -112,8 +112,19 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/platform` | GET, POST | Email must be in `PLATFORM_ADMIN_EMAILS` |
 
 `sacco-settings/route.js` also exports `getActiveSaccoSettings()`, imported directly by
-`contribution-habits` and `dues`. It falls back to a local `settings.json` file when no database row
-exists — that fallback is a development convenience and is not reliable on serverless.
+`contribution-habits`, `dues` and `user-transactions`. **Pass it a group code.** With none, or with
+one that matches nothing, it returns this app's defaults flagged `isDefault: true` — it will not
+guess. It used to guess, twice: the most recently updated `sacco_settings` row from *any* group, then
+a deployment-wide `settings.json`. Both handed one group's share price and fund amounts to another,
+and those figures drive the dues arithmetic everywhere. Both are gone, along with `settings.json`.
+
+Its `GET` is the read path for six screens and takes a **bearer token, always**. The group it answers
+about must be one the caller belongs to: `profiles.group_id`, any `sacco_memberships` row of any role,
+or a `saccos` row they founded. Membership of *any* role counts, unlike the write path, which admits
+only `admin`. A code outside that set is refused with a 403 identical to the one for a code that does
+not exist, so the reply cannot be used to discover which group codes are real. The handler used to
+require nothing at all — `?group_code=` from anywhere on the internet returned that SACCO's share
+price, fines and loan fees, and triggered the service-role auto-seed above as a side effect.
 
 ## 7. Data model
 
@@ -354,18 +365,35 @@ Legacy `VITE_*` variants are still read as fallbacks in some files, left over fr
 
 ## 13. Known gaps
 
-- No automated tests and no CI. `npm run build` is the only gate.
+- `npm test` (`node --test`, no dependencies) covers the dues arithmetic, the meeting-date maths
+  and the settings route's tenant isolation — 107 cases. CI runs it plus `npm run build` on every
+  push and PR. Everything else is untested: the React components, and the loan-fee, dividend and
+  balance arithmetic, which all live in SQL and would need a database to exercise.
 - ESLint reports pre-existing unused-variable and hook-ordering issues; `.ts`/`.tsx` are not linted.
+  Not a CI gate for that reason — fix the existing errors before adding it.
 - `audit_events` doubles as the broadcast and attendance-snapshot store rather than having
   purpose-built tables.
 - Broadcast read state and member avatars are partly kept in `localStorage`, so they don't follow a
   user across devices.
-- The `settings.json` file fallback in `sacco-settings` won't persist on serverless.
+- A group with no `sacco_settings` and no `saccos` row reads as this app's defaults, not as an
+  error. Callers that care can check `isDefault` on the response; none do yet.
 - `sacco_settings` and `saccos` both carry fund/week values and are written together; they can drift.
+- **`sacco_settings`, `saccos` and `profiles` are `FOR SELECT USING (true)` with no `TO` clause
+  (`0015`), and no migration revokes the default table grants — so those rows are readable by `anon`
+  straight from PostgREST with the key that ships in the browser bundle. `/api/sacco-settings` now
+  scopes its own reads, but that only closes the app's door, not the database's. Tightening the
+  policies needs care: `sacco_settings.sacco_id` is nullable, and pre-0009 groups and bulk-added
+  members do not always have a `sacco_memberships` row, so a membership-only policy would hide rows
+  from the people they belong to.**
 - `current_week` on both tables is a cache of a derived value, not a setting. Only
   `finalize_historical_onboarding` and `start_new_sacco_cycle` may move it; read the week through
   `/api/sacco-settings` (or `sacco_active_week()` in SQL), never from the column.
 - Loan interest is a flat rate applied in application code, not amortised in the database.
+- Migrations are applied by hand with no tool. `supabase/verify-schema.sql` is what closes the loop:
+  it reads the system catalog and reports whether the deployed database matches this repo. Run it
+  after any migration. The danger it exists for is that **0009 disables RLS and only 0015 re-enables
+  it** — a sequence stopped in between leaves a fully open database with no symptom. `0032`'s
+  `schema_migrations` ledger records what was run, but a ledger is a claim; the catalog is evidence.
 
 ## 14. Working notes
 

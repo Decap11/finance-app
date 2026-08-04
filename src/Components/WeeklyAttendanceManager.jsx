@@ -152,13 +152,20 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           // a week behind between meetings. Opening this tab on the wrong week is how an
           // admin ends up saving a register over a previous meeting's.
           //
-          // Asked for by group code -- called without one the endpoint falls back to the
-          // most recently updated settings row in the table, which on a multi-tenant
-          // database belongs to somebody else.
+          // Sent with the session token: /api/sacco-settings refuses an unauthenticated
+          // read, and refuses a group code the caller does not belong to. The code is named
+          // anyway rather than left to the endpoint's own lookup, so this asks for the same
+          // group whose absenteeism fine was just read above.
           try {
+            const { data: { session } } = await supabase.auth.getSession();
             const res = await fetch(
               `/api/sacco-settings?group_code=${encodeURIComponent(activeGroupCode.trim())}`,
-              { cache: "no-store" }
+              {
+                headers: session?.access_token
+                  ? { Authorization: `Bearer ${session.access_token}` }
+                  : {},
+                cache: "no-store"
+              }
             );
             if (res.ok) {
               const settings = await res.json();

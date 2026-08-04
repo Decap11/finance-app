@@ -15,10 +15,15 @@
  * passed" row every meeting day, and a derived number self-heals: backfill a record that was
  * missing and the shortfall corrects itself on the next read. The whole thing is pure
  * arithmetic over transactions the caller has already fetched, so the API route, the admin
- * card, the member banner and the test script all agree by construction.
+ * card and the member banner all agree by construction.
+ *
+ * Covered by tests/utils/duesEngine.test.mjs -- `npm test`. This header claimed a test script
+ * for some time before one existed.
  */
 
-import { getMeetingDayOnOrAfter } from './meetingDateUtils';
+// Extension included deliberately. Next resolves it either way, but Node's own ESM loader
+// does not -- and without it `node --test` cannot import this file at all.
+import { getMeetingDayOnOrAfter } from './meetingDateUtils.js';
 
 /** The funds a member owes every week whether or not they contribute anything else. */
 export const MANDATORY_FUNDS = ['development_fund', 'social_fund'];
