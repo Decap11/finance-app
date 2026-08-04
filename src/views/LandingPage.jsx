@@ -3,6 +3,82 @@
 import React, { useState, useEffect } from "react";
 import "../styles/LandingPage.css";
 import Link from "next/link";
+import { SUBSCRIPTION_PLANS } from "../utils/subscriptionPlans";
+
+/**
+ * The public landing page.
+ *
+ * Prices come from subscriptionPlans.js rather than being written out here, so the page can
+ * never quote a figure the checkout would not honour. Every plan's button points at
+ * /register-sacco: a committee cannot buy anything before it has a SACCO, and 0016 made plan
+ * activation platform-controlled anyway, so checkout is something they reach from inside the
+ * app once they are running.
+ */
+
+// Contact details shown in the footer. Placeholders -- replace with the real line before
+// this page goes public; a finance product with no reachable phone number does not get
+// trusted, and a wrong one is worse than none.
+const CONTACT = {
+  phone: "+256 000 000 000",
+  phoneHref: "tel:+256000000000",
+  whatsapp: "https://wa.me/256000000000",
+  email: "hello@example.com",
+  address: "Kampala, Uganda"
+};
+
+// The long comparison checklist. A committee weighing two systems reads this with a pen in
+// hand, so it lists what exists today -- nothing aspirational.
+const CAPABILITIES = [
+  "Weekly contribution tracking",
+  "Shares recorded as a count and a unit price",
+  "Development fund targets",
+  "Social fund minimums",
+  "Member enrolment and admin approval",
+  "Group-code access control",
+  "Loan requests with guarantors",
+  "Guarantor accept or decline",
+  "Repayment tracking to the shilling",
+  "Loan late fees",
+  "Loan application fees",
+  "Weekly attendance register",
+  "Automatic absence fines",
+  "General fines and waivers",
+  "Member savings vaults",
+  "Dividend cycles and payouts",
+  "PDF audit and member reports",
+  "Contribution approve or reject",
+  "MTN and Airtel Money payments",
+  "Live dashboard totals",
+  "Historical records from your old book",
+  "Audit trail of every admin action"
+];
+
+const FAQS = [
+  {
+    q: "Do we need to be technical to use it?",
+    a: "No. If your treasurer can use WhatsApp, they can run a meeting here. Recording a week is a list of members and an amount against each one."
+  },
+  {
+    q: "What happens to the records already in our book?",
+    a: "You can enter past weeks during onboarding, so the system starts from where your book left off rather than from zero. Balances, shares and dividends are then calculated over the full history."
+  },
+  {
+    q: "Can a member quietly change their own balance?",
+    a: "No. What a member submits is a request; it does not move the books until an admin approves it. Members also cannot promote themselves to admin -- the database refuses that write, not just the screen."
+  },
+  {
+    q: "What if there is no network at the meeting hall?",
+    a: "PEWOSA needs a connection to save a meeting. Committees usually record on a phone over mobile data, and where there is no signal the treasurer enters the week afterwards -- the meeting date is what gets recorded, not the moment of typing."
+  },
+  {
+    q: "How do we pay for it?",
+    a: "MTN Mobile Money or Airtel Money, from inside the app. Your onboarding month is free and asks for no payment details, so a committee can run a full cycle before deciding."
+  },
+  {
+    q: "Can another SACCO see our members or our money?",
+    a: "No. Every row in the database carries the SACCO it belongs to, and Postgres itself refuses to return rows outside the SACCO of whoever is asking."
+  }
+];
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -38,6 +114,16 @@ export default function LandingPage() {
           </span>
           <span className="logo-badge">SaaS v1.0</span>
         </a>
+
+        {/* Section links. Hidden below 787px, where the header only has room for the
+            three account actions. */}
+        <ul className="nav-sections">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#security">Security</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#faq">Questions</a></li>
+        </ul>
+
         <div className="nav-actions">
           <Link href="/login" className="nav-link-login">
             Log In
@@ -55,25 +141,29 @@ export default function LandingPage() {
       {/* Hero Section */}
       <header className="hero">
         <div className="hero-content">
-          <span className="tagline">Cloud Cooperative Platform</span>
+          <span className="tagline">Built for Ugandan savings groups</span>
           <h1 className="hero-title">
-            The Secure Operating System for <span>Modern SACCOs</span>
+            Run your SACCO without <span>the exercise book</span>
           </h1>
           <p className="hero-desc">
-            Automate mandatory weekly obligations, manage shared capital ledger
-            streams, calculate loans with intelligent estimators, and govern physical
-            attendance within a secured workspace.
+            Contributions recorded the week they are paid. Fines, share balances and loan
+            interest worked out for you. Every member sees the same figures the treasurer
+            sees, so meetings are about money rather than about the record.
           </p>
           <div className="hero-btn-group">
-            <Link href="/signup" className="btn-primary">
-              <span>Sign Up Now</span>
-              <i className="fa-solid fa-arrow-right"></i>
-            </Link>
-            <Link href="/register-sacco" className="btn-secondary">
-              <span>Register SACCO</span>
+            <Link href="/register-sacco" className="btn-primary">
+              <span>Register your SACCO</span>
               <i className="fa-solid fa-building-columns"></i>
             </Link>
+            <a href="#pricing" className="btn-secondary">
+              <span>See pricing</span>
+              <i className="fa-solid fa-arrow-right"></i>
+            </a>
           </div>
+          <p className="hero-note">
+            <i className="fa-solid fa-circle-check"></i>
+            Free for your onboarding month &mdash; no payment details asked for.
+          </p>
         </div>
 
         {/* Interactive Simulated Mockup Graphic */}
@@ -87,13 +177,13 @@ export default function LandingPage() {
                 <span className="dot dot-red"></span>
                 <span className="dot dot-yellow"></span>
                 <span className="dot dot-green"></span>
-                <span className="mockup-status-title">SECURED ENVIRONMENT</span>
+                <span className="mockup-status-title">KIKUUBO TRADERS &middot; WEEK 14</span>
               </div>
               <i className="fa-solid fa-shield-halved mockup-shield-icon"></i>
             </div>
 
             <div className="mockup-body">
-              <div className="mockup-label">AGGREGATE COOPERATIVE CAPITAL</div>
+              <div className="mockup-label">Total SACCO capital</div>
               <div className="mockup-balance">
                 <span>Shs 84,500,000</span>
                 <span className="mockup-growth-badge">+14.2%</span>
@@ -111,9 +201,9 @@ export default function LandingPage() {
             <div className="mockup-footer">
               <div className="mockup-online-tag">
                 <i className="fa-solid fa-circle"></i>
-                <span>Admin Gateway: Online</span>
+                <span>Week open for contributions</span>
               </div>
-              <span>28 Members Configured</span>
+              <span>28 members</span>
             </div>
           </div>
 
@@ -122,19 +212,120 @@ export default function LandingPage() {
               <i className="fa-solid fa-users"></i>
             </div>
             <div className="stats-details">
-              <h4>Fast & Easy Onboarding</h4>
-              <p>Sub-millisecond ledger setup</p>
+              <h4>Set up in one sitting</h4>
+              <p>Ready before your next meeting</p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Features Section */}
-      <section className="features">
+      {/* Assurance strip -- the four things a committee wants settled before reading on. */}
+      <section className="assurance-strip">
+        <div className="assurance-item">
+          <i className="fa-solid fa-gift"></i>
+          <span>Free for your first month</span>
+        </div>
+        <div className="assurance-item">
+          <i className="fa-solid fa-mobile-screen-button"></i>
+          <span>Paid by MTN or Airtel Money</span>
+        </div>
+        <div className="assurance-item">
+          <i className="fa-solid fa-wifi"></i>
+          <span>Works on any phone with a browser</span>
+        </div>
+        <div className="assurance-item">
+          <i className="fa-solid fa-lock"></i>
+          <span>Your books, sealed off from every other SACCO</span>
+        </div>
+      </section>
+
+      {/* Problem Section */}
+      <section className="problem">
         <div className="section-header">
-          <h2 className="section-title">Core Management Engine</h2>
+          <span className="tagline tagline-impact">The weekly reality</span>
+          <h2 className="section-title">If any of this sounds familiar</h2>
           <p className="section-desc">
-            Designed with industry-standard security and usability principles to govern your collective financial resources effectively.
+            Most groups do not fail for lack of discipline. They fail because the record of
+            who paid what lives in one book, in one handwriting, in one person&rsquo;s bag.
+          </p>
+        </div>
+        <div className="problem-grid">
+          <div className="problem-card">
+            <div className="problem-icon">
+              <i className="fa-solid fa-book"></i>
+            </div>
+            <h3>Only one person can read the book</h3>
+            <p>
+              Contributions sit in the treasurer&rsquo;s notebook. When they travel or fall
+              ill, nobody can say who has paid this week and who has not.
+            </p>
+          </div>
+          <div className="problem-card">
+            <div className="problem-icon">
+              <i className="fa-solid fa-scale-unbalanced"></i>
+            </div>
+            <h3>Disputes nobody can settle</h3>
+            <p>
+              A member insists they paid. The book says otherwise. There is no record of who
+              wrote the entry, or when, so the meeting stalls on somebody&rsquo;s memory.
+            </p>
+          </div>
+          <div className="problem-card">
+            <div className="problem-icon">
+              <i className="fa-solid fa-calculator"></i>
+            </div>
+            <h3>Totals that eat a whole evening</h3>
+            <p>
+              Fines, share balances, loan interest and year-end dividends all added up by
+              hand &mdash; then added up again by somebody else to be sure.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="steps">
+        <div className="section-header">
+          <h2 className="section-title">From nothing to your first meeting</h2>
+          <p className="section-desc">
+            Three steps. A committee can finish all of them in an afternoon.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <div className="step-card">
+            <span className="step-number">1</span>
+            <h3>Register the SACCO</h3>
+            <p>
+              Give your group a name and your committee an admin. You get a group code &mdash;
+              the only door into your SACCO&rsquo;s data.
+            </p>
+          </div>
+          <div className="step-card">
+            <span className="step-number">2</span>
+            <h3>Bring in your members</h3>
+            <p>
+              Share the code. Members sign up themselves on their own phones and wait for an
+              admin to approve them. Nobody joins by accident.
+            </p>
+          </div>
+          <div className="step-card">
+            <span className="step-number">3</span>
+            <h3>Run the week</h3>
+            <p>
+              Record contributions, mark the attendance register, and let the fines, balances
+              and loan schedules follow on their own.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="features" id="features">
+        <div className="section-header">
+          <h2 className="section-title">What it actually does</h2>
+          <p className="section-desc">
+            Four things a savings group has to get right every week, handled the same way
+            every week.
           </p>
         </div>
         <div className="features-grid">
@@ -148,9 +339,11 @@ export default function LandingPage() {
             >
               <i className="fa-solid fa-shield-halved"></i>
             </div>
-            <h3>Multi-Tenant Separation</h3>
+            <h3>Your own private books</h3>
             <p>
-              Every cooperative runs in its own private silo, securely accessed using an exclusive Organization Code generated during signup.
+              Every cooperative runs behind its own group code. No other SACCO can see your
+              members, your money or your meetings &mdash; and neither can a member of yours
+              see somebody else&rsquo;s ledger.
             </p>
           </div>
           <div className="feature-card">
@@ -163,9 +356,11 @@ export default function LandingPage() {
             >
               <i className="fa-solid fa-chart-pie"></i>
             </div>
-            <h3>Mandatory Weekly Pools</h3>
+            <h3>Three funds, one weekly entry</h3>
             <p>
-              Organize structured obligation tracks: set up standard weekly share targets, developmental capital logs, and voluntary social funding pools.
+              Shares, development fund and social fund tracked separately against the targets
+              your committee sets. Shares are recorded as a count at an agreed price, so the
+              figure always reconciles.
             </p>
           </div>
           <div className="feature-card">
@@ -176,11 +371,13 @@ export default function LandingPage() {
                 color: "#10b981",
               }}
             >
-              <i className="fa-solid fa-calculator"></i>
+              <i className="fa-solid fa-hand-holding-dollar"></i>
             </div>
-            <h3>Loan Processing & Auditing</h3>
+            <h3>Loans, request to last repayment</h3>
             <p>
-              Enable members to calculate loan interests instantly with a transparent 5% monthly fee dashboard and submit applications directly to admins.
+              Members apply and name their guarantors in the app; guarantors accept or decline
+              on their own phones. Admins approve. Repayments, late fees and the closing date
+              are tracked to the shilling.
             </p>
           </div>
           <div className="feature-card">
@@ -193,114 +390,223 @@ export default function LandingPage() {
             >
               <i className="fa-solid fa-user-check"></i>
             </div>
-            <h3>Attendance & Fine Logs</h3>
+            <h3>Attendance and fines, handled</h3>
             <p>
-              Enforce governance guidelines. Track weekly physical meetings, check in members, and automatically trigger fines for absentees.
+              Mark the weekly register. Absentees are fined at your SACCO&rsquo;s own rate,
+              the member is told what they owe and why, and an admin can waive it with a
+              reason on the record.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="testimonials" id="impact">
+      {/* Two audiences */}
+      <section className="audience">
         <div className="section-header">
-          <span className="tagline tagline-impact">Cooperative Impact</span>
-          <h2 className="section-title">Empowering Real Community Growth</h2>
+          <h2 className="section-title">Two people use this, and they want different things</h2>
           <p className="section-desc">
-            See how active cooperative members are leveraging secure capital pools and low-interest loans to expand their businesses and build a better future.
+            The committee needs control and a clean audit. A member needs to know where they
+            stand without asking anyone.
+          </p>
+        </div>
+        <div className="audience-grid">
+          <div className="audience-card">
+            <div className="audience-head">
+              <i className="fa-solid fa-user-tie"></i>
+              <h3>For the committee</h3>
+            </div>
+            <ul className="audience-list">
+              <li>Approve or reject every contribution before it touches the books</li>
+              <li>Total capital, weekly collections and outstanding loans on one dashboard</li>
+              <li>Approve loans with the member&rsquo;s full history in front of you</li>
+              <li>Run the attendance register and let fines follow automatically</li>
+              <li>Declare a dividend cycle and see each member&rsquo;s share before paying out</li>
+              <li>Export a PDF report for the AGM or the auditor</li>
+            </ul>
+          </div>
+          <div className="audience-card">
+            <div className="audience-head">
+              <i className="fa-solid fa-user"></i>
+              <h3>For members</h3>
+            </div>
+            <ul className="audience-list">
+              <li>See what you have paid, and what is still owing this week</li>
+              <li>Watch your shares and savings build up week by week</li>
+              <li>Request a loan and follow it through approval and repayment</li>
+              <li>Accept or decline standing as somebody&rsquo;s guarantor</li>
+              <li>Know about a fine before the meeting, not during it</li>
+              <li>Check any of it from your own phone, without asking the treasurer</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Security */}
+      <section className="security" id="security">
+        <div className="security-inner">
+          <span className="tagline tagline-security">Where the money is concerned</span>
+          <h2 className="section-title">
+            Separation enforced by the database, not just the screen
+          </h2>
+          <p className="security-lede">
+            Most multi-tenant systems keep groups apart in application code, where one missed
+            check is enough for a member to see another SACCO&rsquo;s ledger. Here every row
+            carries the SACCO it belongs to, and Postgres itself refuses to hand back rows
+            outside the SACCO of whoever is asking &mdash; whatever the app happens to ask for.
+          </p>
+          <div className="security-points">
+            <div className="security-point">
+              <i className="fa-solid fa-fingerprint"></i>
+              <h4>Isolation at the row</h4>
+              <p>
+                Access rules live in the database. An account that is not in your SACCO gets
+                nothing back, not a filtered list.
+              </p>
+            </div>
+            <div className="security-point">
+              <i className="fa-solid fa-user-shield"></i>
+              <h4>No self-promotion</h4>
+              <p>
+                A member cannot make themselves an admin or edit their own status. Those
+                columns are not writable by members at all.
+              </p>
+            </div>
+            <div className="security-point">
+              <i className="fa-solid fa-list-check"></i>
+              <h4>Approve, then record</h4>
+              <p>
+                What a member submits is a request. Nothing moves the books until an admin
+                approves it, and the approval is logged with a name and a time.
+              </p>
+            </div>
+          </div>
+          <p className="security-footnote">
+            We also keep a script that reads the live database and reports anything that has
+            drifted from what the code expects. A security rule you cannot verify is a
+            security rule you do not have.
+          </p>
+        </div>
+      </section>
+
+      {/* Full capability checklist */}
+      <section className="checklist">
+        <div className="section-header">
+          <h2 className="section-title">Everything that comes with it</h2>
+          <p className="section-desc">
+            Comparing us against something else? Here is the whole list, as it stands today.
+          </p>
+        </div>
+        <ul className="checklist-grid">
+          {CAPABILITIES.map((item) => (
+            <li className="checklist-item" key={item}>
+              <i className="fa-solid fa-check"></i>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Pricing */}
+      <section className="pricing" id="pricing">
+        <div className="section-header">
+          <span className="tagline">Plain pricing</span>
+          <h2 className="section-title">What it costs</h2>
+          <p className="section-desc">
+            No sales call to find out the number. Start free for your onboarding month, then
+            pick the plan that suits how your group meets.
           </p>
         </div>
 
-        <div className="testimonials-grid">
-          <div className="testimonial-card">
-            <div className="testimonial-img-wrapper">
-              <img
-                src="/images/happy_member_market.png"
-                alt="Happy Market Retailer"
-                className="testimonial-img"
-              />
-              <div className="testimonial-badge">
-                <i className="fa-solid fa-store"></i> Retail & Commerce
-              </div>
-            </div>
-            <div className="testimonial-body">
-              <div>
-                <div className="testimonial-stars">
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                </div>
-                <h4 className="testimonial-headline">
-                  "My boutique grew threefold within six months"
-                </h4>
-                <p className="testimonial-quote">
-                  "Before our SACCO linked to this platform, tracking my weekly shares was chaotic. The automated ledger gave the cooperative the transparency to approve my Shs 1.5M business loan in record time."
-                </p>
-              </div>
-              <div className="testimonial-author">
-                <div>
-                  <h5 className="author-name">Sarah Namubiru</h5>
-                  <span className="author-role">Boutique Owner • Member #0014</span>
-                </div>
-                <span className="author-sacco-tag">Kikuubo Traders</span>
-              </div>
-            </div>
-          </div>
+        <div className="pricing-grid">
+          {SUBSCRIPTION_PLANS.map((plan) => (
+            <div
+              className={`price-card ${plan.recommended ? "price-card-recommended" : ""}`}
+              key={plan.id}
+            >
+              {plan.recommended && <span className="price-flag">Most groups pick this</span>}
+              <span className="price-badge">{plan.badge}</span>
+              <h3 className="price-name">{plan.name}</h3>
 
-          <div className="testimonial-card">
-            <div className="testimonial-img-wrapper">
-              <img
-                src="/images/happy_farmer_success.png"
-                alt="Happy Farmer"
-                className="testimonial-img"
-              />
-              <div className="testimonial-badge">
-                <i className="fa-solid fa-wheat-awn"></i> Agriculture & Farming
+              <div className="price-amount">
+                {plan.price === 0 ? (
+                  <span className="price-figure">Free</span>
+                ) : (
+                  <>
+                    <span className="price-currency">UGX</span>
+                    <span className="price-figure">{plan.price.toLocaleString()}</span>
+                  </>
+                )}
+                <span className="price-cycle">/ {plan.billingCycle}</span>
               </div>
-            </div>
-            <div className="testimonial-body">
-              <div>
-                <div className="testimonial-stars">
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
-                  <i className="fa-solid fa-star"></i>
+
+              {plan.originalPrice && (
+                <div className="price-original">
+                  Normally UGX {plan.originalPrice.toLocaleString()} &mdash; you save{" "}
+                  {(plan.originalPrice - plan.price).toLocaleString()}
                 </div>
-                <h4 className="testimonial-headline">
-                  "Funded solar irrigation for my maize field"
-                </h4>
-                <p className="testimonial-quote">
-                  "Contributing Shs 1,000 weekly to our development fund pool was incredibly simple on the mobile interface. The SACCO awarded me a yield loan that allowed me to buy solar pumps!"
-                </p>
-              </div>
-              <div className="testimonial-author">
-                <div>
-                  <h5 className="author-name">David Kibirige</h5>
-                  <span className="author-role">Maize Farmer • Member #0128</span>
-                </div>
-                <span className="author-sacco-tag tag-green">Mityana Growers</span>
-              </div>
+              )}
+
+              <p className="price-desc">{plan.description}</p>
+
+              <ul className="price-features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <i className="fa-solid fa-check"></i>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href="/register-sacco"
+                className={plan.recommended ? "price-cta price-cta-primary" : "price-cta"}
+              >
+                <span>{plan.isTrial ? "Start free" : `Choose ${plan.name}`}</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </Link>
             </div>
-          </div>
+          ))}
+        </div>
+
+        <p className="pricing-note">
+          <i className="fa-solid fa-circle-info"></i>
+          Every SACCO begins on the free onboarding month. When you are ready to continue, you
+          choose a paid plan from inside the app and pay by MTN Mobile Money or Airtel Money.
+        </p>
+      </section>
+
+      {/* FAQ */}
+      <section className="faq" id="faq">
+        <div className="section-header">
+          <h2 className="section-title">The questions committees actually ask</h2>
+        </div>
+        <div className="faq-list">
+          {FAQS.map((faq) => (
+            <details className="faq-item" key={faq.q}>
+              <summary>
+                <span>{faq.q}</span>
+                <i className="fa-solid fa-chevron-down"></i>
+              </summary>
+              <p>{faq.a}</p>
+            </details>
+          ))}
         </div>
       </section>
 
       {/* CTA Sign Up Banner */}
       <section className="cta-banner-section">
-        <h2 className="cta-title">Ready to Join Your SACCO Cooperative?</h2>
+        <h2 className="cta-title">Ready to run your first week?</h2>
         <p className="cta-desc">
-          Create your personal member account in seconds and start tracking your shares, savings, and loan applications effortlessly.
+          Register the SACCO, share the group code, and record your next meeting here instead
+          of in the book. The onboarding month costs nothing.
         </p>
         <div className="cta-btn-group">
-          <Link href="/signup" className="cta-btn-primary">
-            <span>Sign Up Now</span>
-            <i className="fa-solid fa-user-plus"></i>
+          <Link href="/register-sacco" className="cta-btn-primary">
+            <span>Register your SACCO</span>
+            <i className="fa-solid fa-building-columns"></i>
           </Link>
-          <Link href="/login" className="cta-btn-secondary">
-            <span>Log In</span>
+          <Link href="/signup" className="cta-btn-secondary">
+            <span>I have a group code</span>
             <i className="fa-solid fa-arrow-right-to-bracket"></i>
           </Link>
         </div>
@@ -308,14 +614,61 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer>
-        <a href="#" className="footer-logo">
-          <span>SACCO Finance SaaS</span>
-        </a>
-        <ul className="footer-links">
-          <li><Link href="/login">Login</Link></li>
-          <li><Link href="/signup">Member Signup</Link></li>
-          <li><Link href="/register-sacco">Register SACCO</Link></li>
-        </ul>
+        <div className="footer-grid">
+          <div className="footer-col footer-brand">
+            <a href="#" className="footer-logo">
+              <span>SACCO Finance SaaS</span>
+            </a>
+            <p>
+              Weekly contributions, loans, attendance and dividends for Ugandan savings and
+              credit cooperatives.
+            </p>
+          </div>
+
+          <div className="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#security">Security</a></li>
+              <li><a href="#pricing">Pricing</a></li>
+              <li><a href="#faq">Questions</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-col">
+            <h4>Account</h4>
+            <ul>
+              <li><Link href="/login">Log in</Link></li>
+              <li><Link href="/signup">Member sign up</Link></li>
+              <li><Link href="/register-sacco">Register a SACCO</Link></li>
+            </ul>
+          </div>
+
+          <div className="footer-col footer-contact">
+            <h4>Talk to a person</h4>
+            <ul>
+              <li>
+                <a href={CONTACT.phoneHref}>
+                  <i className="fa-solid fa-phone"></i> {CONTACT.phone}
+                </a>
+              </li>
+              <li>
+                <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer">
+                  <i className="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${CONTACT.email}`}>
+                  <i className="fa-solid fa-envelope"></i> {CONTACT.email}
+                </a>
+              </li>
+              <li className="footer-plain">
+                <i className="fa-solid fa-location-dot"></i> {CONTACT.address}
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <div className="footer-copyright">
           © {new Date().getFullYear()} SACCO Finance SaaS. All rights reserved.
         </div>

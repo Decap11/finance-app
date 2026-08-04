@@ -114,6 +114,27 @@ body {
   white-space: nowrap;
 }
 
+/* Section links. Removed entirely below 787px rather than shrunk -- the account actions
+   need the whole header on a phone. */
+.nav-sections {
+  display: flex;
+  align-items: center;
+  gap: 2.8rem;
+  list-style: none;
+}
+
+.nav-sections a {
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.nav-sections a:hover {
+  color: var(--primary-color);
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -283,6 +304,20 @@ body {
   border-color: var(--primary-color);
   background: rgba(37, 59, 142, 0.04);
   transform: translateY(-0.3rem);
+}
+
+.hero-note {
+  margin-top: 2rem;
+  font-size: 1.4rem;
+  color: var(--text-light);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.hero-note i {
+  color: #10b981;
+  font-size: 1.5rem;
 }
 
 /* --- Hero Visual Mockup Graphic --- */
@@ -500,6 +535,136 @@ body {
   color: var(--text-light);
 }
 
+/* --- Assurance Strip --- */
+.assurance-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem 4.5rem;
+  padding: 2.6rem 6%;
+  background: var(--white);
+  border-top: 0.1rem solid rgba(226, 232, 240, 0.8);
+  border-bottom: 0.1rem solid rgba(226, 232, 240, 0.8);
+}
+
+.assurance-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.assurance-item i {
+  color: var(--primary-light);
+  font-size: 1.7rem;
+}
+
+/* --- Problem Section --- */
+.problem {
+  padding: 8rem 6%;
+  background: var(--white);
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+  gap: 3rem;
+  max-width: 118rem;
+  margin: 0 auto;
+}
+
+.problem-card {
+  background: var(--bg-color);
+  border: 0.1rem solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--border-radius);
+  padding: 3.2rem 2.8rem;
+  transition: var(--transition);
+}
+
+.problem-card:hover {
+  transform: translateY(-0.4rem);
+  box-shadow: var(--card-shadow);
+}
+
+.problem-icon {
+  width: 5.2rem;
+  height: 5.2rem;
+  border-radius: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin-bottom: 1.8rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.problem-card h3 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+}
+
+.problem-card p {
+  font-size: 1.45rem;
+  color: var(--text-light);
+  line-height: 1.65;
+}
+
+/* --- How It Works --- */
+.steps {
+  padding: 8rem 6%;
+  background: var(--bg-color);
+  border-top: 0.1rem solid rgba(226, 232, 240, 0.8);
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+  gap: 3rem;
+  max-width: 118rem;
+  margin: 0 auto;
+}
+
+.step-card {
+  background: var(--white);
+  border: 0.1rem solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--border-radius);
+  padding: 3.2rem 2.8rem;
+  position: relative;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: var(--white);
+  font-size: 1.9rem;
+  font-weight: 800;
+  margin-bottom: 1.8rem;
+  box-shadow: 0 0.8rem 2rem rgba(37, 59, 142, 0.22);
+}
+
+.step-card h3 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+}
+
+.step-card p {
+  font-size: 1.45rem;
+  color: var(--text-light);
+  line-height: 1.65;
+}
+
 /* --- Features Section --- */
 .features {
   padding: 8rem 6%;
@@ -577,144 +742,443 @@ body {
   line-height: 1.6;
 }
 
-/* --- Testimonials Section --- */
-.testimonials {
-  padding: 8rem 6%;
-  background: var(--bg-color);
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
-}
-
 .tagline-impact {
   background: rgba(245, 158, 11, 0.08) !important;
   color: var(--accent-color) !important;
 }
 
-.testimonials-grid {
+/* --- Audience Split --- */
+.audience {
+  padding: 8rem 6%;
+  background: var(--white);
+  border-top: 0.1rem solid rgba(226, 232, 240, 0.8);
+}
+
+.audience-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(32rem, 1fr));
-  gap: 3.5rem;
-  max-width: 110rem;
+  grid-template-columns: repeat(auto-fit, minmax(34rem, 1fr));
+  gap: 3rem;
+  max-width: 108rem;
   margin: 0 auto;
 }
 
-.testimonial-card {
-  background: var(--white);
+.audience-card {
+  background: var(--bg-color);
+  border: 0.1rem solid rgba(226, 232, 240, 0.9);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  overflow: hidden;
-  box-shadow: var(--card-shadow);
-  display: flex;
-  flex-direction: column;
-  transition: var(--transition);
+  padding: 3.4rem 3rem;
 }
 
-.testimonial-card:hover {
-  transform: translateY(-0.4rem);
-  box-shadow: 0 2.5rem 5rem rgba(37, 59, 142, 0.12);
-}
-
-.testimonial-img-wrapper {
-  position: relative;
-  width: 100%;
-  height: 24rem;
-  overflow: hidden;
-  background: #e2e8f0;
-}
-
-.testimonial-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: var(--transition);
-}
-
-.testimonial-card:hover .testimonial-img {
-  transform: scale(1.05);
-}
-
-.testimonial-badge {
-  position: absolute;
-  bottom: 1.2rem;
-  left: 1.2rem;
-  background: rgba(15, 23, 42, 0.78);
-  backdrop-filter: blur(8px);
-  padding: 0.5rem 1.2rem;
-  border-radius: 2rem;
-  color: var(--white);
-  font-size: 1.1rem;
-  font-weight: 700;
+.audience-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1.4rem;
+  margin-bottom: 2.4rem;
+  padding-bottom: 2rem;
+  border-bottom: 0.1rem solid rgba(226, 232, 240, 0.9);
 }
 
-.testimonial-body {
-  padding: 3rem;
-  flex-grow: 1;
+.audience-head i {
+  width: 4.8rem;
+  height: 4.8rem;
+  border-radius: 1.4rem;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: rgba(37, 59, 142, 0.1);
+  color: var(--primary-color);
+  flex-shrink: 0;
 }
 
-.testimonial-stars {
-  display: flex;
-  gap: 0.4rem;
-  color: var(--accent-color);
-  font-size: 1.2rem;
-  margin-bottom: 1.2rem;
-}
-
-.testimonial-headline {
-  font-size: 1.9rem;
+.audience-head h3 {
+  font-size: 2.1rem;
   font-weight: 700;
   color: var(--text-dark);
-  margin-bottom: 1rem;
-  line-height: 1.35;
 }
 
-.testimonial-quote {
-  font-size: 1.4rem;
+.audience-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.audience-list li {
+  position: relative;
+  padding-left: 2.8rem;
+  font-size: 1.45rem;
   color: var(--text-light);
   line-height: 1.6;
-  margin-bottom: 2rem;
-  font-style: italic;
 }
 
-.testimonial-author {
-  border-top: 1px solid rgba(226, 232, 240, 0.7);
-  padding-top: 1.8rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.audience-list li::before {
+  content: "\f00c"; /* Font Awesome check */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: absolute;
+  left: 0;
+  top: 0.1rem;
+  color: #10b981;
+  font-size: 1.3rem;
 }
 
-.author-name {
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--text-dark);
+/* --- Security Section --- */
+.security {
+  padding: 8rem 6%;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: var(--white);
 }
 
-.author-role {
-  font-size: 1.2rem;
-  color: var(--text-light);
+.security-inner {
+  max-width: 96rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.tagline-security {
+  background: rgba(59, 130, 246, 0.14) !important;
+  color: #93c5fd !important;
+}
+
+.security .section-title {
+  color: var(--white);
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.security-lede {
+  font-size: 1.65rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+  max-width: 72rem;
+  margin: 0 auto 4.5rem auto;
+}
+
+.security-points {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  gap: 2.4rem;
+  text-align: left;
+}
+
+.security-point {
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.1rem solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--input-radius);
+  padding: 2.6rem 2.2rem;
+}
+
+.security-point i {
+  font-size: 2rem;
+  color: var(--primary-light);
+  margin-bottom: 1.4rem;
   display: block;
 }
 
-.author-sacco-tag {
-  font-size: 1.1rem;
+.security-point h4 {
+  font-size: 1.7rem;
   font-weight: 700;
-  background: rgba(37, 59, 142, 0.08);
-  color: var(--primary-color);
-  padding: 0.4rem 0.9rem;
-  border-radius: 2rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04rem;
-  white-space: nowrap;
+  color: var(--white);
+  margin-bottom: 0.8rem;
 }
 
-.author-sacco-tag.tag-green {
-  background: rgba(16, 185, 129, 0.08);
+.security-point p {
+  font-size: 1.35rem;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.security-footnote {
+  margin-top: 3.5rem;
+  font-size: 1.4rem;
+  color: #94a3b8;
+  line-height: 1.7;
+  max-width: 68rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- Capability Checklist --- */
+.checklist {
+  padding: 8rem 6%;
+  background: var(--white);
+}
+
+.checklist-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+  gap: 1.4rem 3rem;
+  max-width: 108rem;
+  margin: 0 auto;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2rem;
+  font-size: 1.45rem;
+  color: var(--text-dark);
+  padding: 1rem 0;
+  border-bottom: 0.1rem solid rgba(226, 232, 240, 0.7);
+}
+
+.checklist-item i {
   color: #10b981;
+  font-size: 1.3rem;
+  margin-top: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* --- Pricing --- */
+.pricing {
+  padding: 8rem 6%;
+  background: var(--bg-color);
+  border-top: 0.1rem solid rgba(226, 232, 240, 0.8);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(29rem, 1fr));
+  gap: 3rem;
+  max-width: 112rem;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.price-card {
+  position: relative;
+  background: var(--white);
+  border: 0.1rem solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--border-radius);
+  padding: 3.4rem 2.8rem;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition);
+}
+
+.price-card:hover {
+  transform: translateY(-0.4rem);
+  box-shadow: var(--card-shadow);
+}
+
+.price-card-recommended {
+  border: 0.2rem solid var(--primary-color);
+  box-shadow: 0 2rem 5rem rgba(37, 59, 142, 0.14);
+}
+
+.price-flag {
+  position: absolute;
+  top: -1.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary-color);
+  color: var(--white);
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.6rem 1.6rem;
+  border-radius: 2rem;
+  white-space: nowrap;
+  letter-spacing: 0.03rem;
+}
+
+.price-badge {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.1rem;
+  color: var(--primary-light);
+  text-transform: uppercase;
+}
+
+.price-name {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0.6rem 0 1.6rem 0;
+}
+
+.price-amount {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.price-currency {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.price-figure {
+  font-size: 3.6rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  letter-spacing: -0.1rem;
+  line-height: 1.1;
+}
+
+.price-cycle {
+  font-size: 1.4rem;
+  color: var(--text-light);
+}
+
+.price-original {
+  margin-top: 0.8rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  display: inline-block;
+}
+
+.price-desc {
+  font-size: 1.4rem;
+  color: var(--text-light);
+  line-height: 1.6;
+  margin: 1.8rem 0;
+  padding-bottom: 1.8rem;
+  border-bottom: 0.1rem solid rgba(226, 232, 240, 0.9);
+}
+
+.price-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-bottom: 3rem;
+  flex-grow: 1;
+}
+
+.price-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  font-size: 1.4rem;
+  color: var(--text-dark);
+  line-height: 1.5;
+}
+
+.price-features i {
+  color: #10b981;
+  font-size: 1.2rem;
+  margin-top: 0.4rem;
+  flex-shrink: 0;
+}
+
+.price-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 1.4rem 2.4rem;
+  border-radius: var(--input-radius);
+  text-decoration: none;
+  background: var(--white);
+  color: var(--primary-color);
+  border: 0.1rem solid var(--input-border);
+  transition: var(--transition);
+}
+
+.price-cta:hover {
+  border-color: var(--primary-color);
+  background: rgba(37, 59, 142, 0.04);
+}
+
+.price-cta-primary {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 0.8rem 2.2rem rgba(37, 59, 142, 0.2);
+}
+
+.price-cta-primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.pricing-note {
+  max-width: 68rem;
+  margin: 4rem auto 0 auto;
+  text-align: center;
+  font-size: 1.4rem;
+  color: var(--text-light);
+  line-height: 1.7;
+}
+
+.pricing-note i {
+  color: var(--primary-light);
+  margin-right: 0.6rem;
+}
+
+/* --- FAQ --- */
+.faq {
+  padding: 8rem 6%;
+  background: var(--white);
+}
+
+.faq-list {
+  max-width: 82rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.faq-item {
+  background: var(--bg-color);
+  border: 0.1rem solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--input-radius);
+  padding: 0 2.4rem;
+  transition: var(--transition);
+}
+
+.faq-item[open] {
+  background: var(--white);
+  box-shadow: var(--card-shadow);
+  border-color: rgba(37, 59, 142, 0.18);
+}
+
+.faq-item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.2rem 0;
+  cursor: pointer;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  list-style: none;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary i {
+  color: var(--primary-color);
+  font-size: 1.4rem;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.faq-item[open] summary i {
+  transform: rotate(180deg);
+}
+
+.faq-item p {
+  font-size: 1.45rem;
+  color: var(--text-light);
+  line-height: 1.7;
+  padding-bottom: 2.2rem;
+  max-width: 68rem;
 }
 
 /* --- CTA Sign Up Banner --- */
@@ -794,18 +1258,60 @@ body {
 footer {
   background: #0f172a;
   color: #94a3b8;
-  padding: 5rem 6% 3.5rem 6%;
-  text-align: center;
+  padding: 6rem 6% 3.5rem 6%;
   border-top: 0.1rem solid rgba(255, 255, 255, 0.05);
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1.3fr;
+  gap: 4rem;
+  max-width: 118rem;
+  margin: 0 auto 4rem auto;
+}
+
+.footer-col h4 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 1.8rem;
+  letter-spacing: 0.02rem;
+}
+
+.footer-col ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.footer-col a,
+.footer-plain {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 1.35rem;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.footer-col a:hover {
+  color: var(--white);
+}
+
+.footer-col i {
+  width: 1.6rem;
+  text-align: center;
+  color: var(--primary-light);
 }
 
 .footer-logo {
   display: inline-flex;
-  justify-content: center;
   align-items: center;
   gap: 1rem;
   text-decoration: none;
-  margin-bottom: 2rem;
+  margin-bottom: 1.4rem;
 }
 
 .footer-logo span {
@@ -814,28 +1320,15 @@ footer {
   color: var(--white);
 }
 
-.footer-links {
-  display: flex;
-  justify-content: center;
-  gap: 2.4rem;
-  list-style: none;
-  margin-bottom: 3rem;
-  flex-wrap: wrap;
-}
-
-.footer-links a {
-  color: #94a3b8;
-  text-decoration: none;
+.footer-brand p {
   font-size: 1.35rem;
-  transition: var(--transition);
-}
-
-.footer-links a:hover {
-  color: var(--white);
+  line-height: 1.7;
+  max-width: 32rem;
 }
 
 .footer-copyright {
   font-size: 1.2rem;
+  text-align: center;
   border-top: 0.1rem solid rgba(255, 255, 255, 0.06);
   padding-top: 2.5rem;
 }
@@ -855,6 +1348,10 @@ footer {
   }
 
   .logo-badge {
+    display: none;
+  }
+
+  .nav-sections {
     display: none;
   }
 
@@ -913,6 +1410,11 @@ footer {
     padding: 1.5rem 2.4rem;
   }
 
+  .hero-note {
+    justify-content: center;
+    font-size: 1.35rem;
+  }
+
   .hero-visual {
     width: 100%;
   }
@@ -953,17 +1455,54 @@ footer {
     padding: 2.8rem 2rem;
   }
 
-  .testimonials {
+  .assurance-strip {
+    gap: 1.4rem 2.6rem;
+    padding: 2.2rem 4%;
+  }
+
+  .assurance-item {
+    font-size: 1.3rem;
+  }
+
+  .problem,
+  .steps,
+  .audience,
+  .security,
+  .checklist,
+  .pricing,
+  .faq {
     padding: 6rem 4%;
   }
 
-  .testimonials-grid {
+  .problem-grid,
+  .steps-grid,
+  .audience-grid,
+  .pricing-grid,
+  .checklist-grid {
     grid-template-columns: 1fr;
-    gap: 2.5rem;
+    gap: 2rem;
   }
 
-  .testimonial-body {
-    padding: 2.4rem 2rem;
+  .checklist-grid {
+    gap: 0;
+  }
+
+  .security-points {
+    grid-template-columns: 1fr;
+    gap: 1.6rem;
+  }
+
+  .security-lede {
+    font-size: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+
+  .price-card {
+    padding: 3rem 2.2rem;
+  }
+
+  .faq-item summary {
+    font-size: 1.5rem;
   }
 
   .cta-banner-section {
@@ -985,6 +1524,15 @@ footer {
   .cta-btn-secondary {
     width: 100%;
     justify-content: center;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem 2rem;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1128,38 +1676,60 @@ footer {
     font-size: 1.35rem;
   }
 
-  .testimonials {
+  .problem,
+  .steps,
+  .audience,
+  .security,
+  .checklist,
+  .pricing,
+  .faq {
     padding: 5rem 3%;
   }
 
-  .testimonial-img-wrapper {
-    height: 20rem;
+  .assurance-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.2rem;
+    padding: 2rem 3%;
   }
 
-  .testimonial-body {
-    padding: 2rem 1.6rem;
+  .problem-card,
+  .step-card,
+  .audience-card {
+    padding: 2.4rem 1.8rem;
+    border-radius: 1.6rem;
   }
 
-  .testimonial-headline {
-    font-size: 1.7rem;
+  .problem-card h3,
+  .step-card h3 {
+    font-size: 1.75rem;
   }
 
-  .testimonial-quote {
-    font-size: 1.3rem;
-    margin-bottom: 1.5rem;
+  .audience-head h3 {
+    font-size: 1.9rem;
   }
 
-  .author-name {
+  .price-card {
+    padding: 2.6rem 1.8rem;
+    border-radius: 1.6rem;
+  }
+
+  .price-figure {
+    font-size: 3.2rem;
+  }
+
+  .faq-item {
+    padding: 0 1.8rem;
+  }
+
+  .faq-item summary {
+    font-size: 1.45rem;
+    padding: 1.8rem 0;
+  }
+
+  .faq-item p {
     font-size: 1.35rem;
-  }
-
-  .author-role {
-    font-size: 1.1rem;
-  }
-
-  .author-sacco-tag {
-    font-size: 1rem;
-    padding: 0.3rem 0.7rem;
+    padding-bottom: 1.8rem;
   }
 
   .cta-banner-section {
@@ -1188,11 +1758,14 @@ footer {
     padding: 4rem 3% 3rem 3%;
   }
 
-  .footer-links {
-    gap: 1.6rem;
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 2.8rem;
+    margin-bottom: 3rem;
   }
 
-  .footer-links a {
-    font-size: 1.25rem;
+  .footer-col a,
+  .footer-plain {
+    font-size: 1.3rem;
   }
 }
