@@ -86,6 +86,26 @@ export default function FundDistributionMix() {
   const strokeWidth = 16;
   const circumference = 2 * Math.PI * radius; // ~345.57
 
+  // The centre label lives inside the SVG rather than in an overlaid div, so it is measured
+  // in the ring's own viewBox units. An HTML overlay was sized in rem while the ring was
+  // sized in px, which made the two scale independently: the ring held at 180px on a phone
+  // while the number kept its desktop size, and "Shs 1,048,000" spilled out over the ring.
+  //
+  // Inside the viewBox the hole is a fixed 94 units across (2 x (radius - strokeWidth / 2))
+  // no matter what the root font-size or the viewport is, so fitting the text is arithmetic
+  // rather than a media query.
+  const holeWidth = 2 * (radius - strokeWidth / 2); // 94
+  const amountText = loading ? "..." : `Shs ${totalCapital.toLocaleString()}`;
+
+  // 0.6em is a serviceable average advance width for bold digits in a sans-serif face, and
+  // 0.88 keeps the string off the curve of the hole rather than touching it. Clamped at 15
+  // so a short total is not blown up, and at 7.5 so a SACCO in the hundreds of millions
+  // still renders something readable instead of vanishing.
+  const amountFontSize = Math.max(
+    7.5,
+    Math.min(15, (holeWidth * 0.88) / (amountText.length * 0.6))
+  );
+
   // Calculate percentages and stroke offsets
   let accumulatedLength = 0;
   const segmentsWithMath = segments.map((seg) => {
@@ -120,69 +140,78 @@ export default function FundDistributionMix() {
           marginTop: "1.5rem"
         }}>
           {/* Doughnut Chart SVG */}
-          <div style={{ position: "relative", width: "180px", height: "180px" }}>
-            <svg width="100%" height="100%" viewBox="0 0 160 160" style={{ transform: "rotate(-90deg)" }}>
-              {/* Underlay track */}
-              <circle
-                cx="80"
-                cy="80"
-                r={radius}
-                fill="transparent"
-                stroke="#f1f5f9"
-                strokeWidth={strokeWidth}
-              />
-              {/* Segments */}
-              {segmentsWithMath.map((seg, idx) => (
+          <div style={{ width: "180px", maxWidth: "100%", aspectRatio: "1" }}>
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 160 160"
+              role="img"
+              aria-label={`Capital asset distribution. Total ${amountText}.`}
+            >
+              {/* The quarter turn that starts the first segment at twelve o'clock belongs to
+                  the ring alone -- applying it to the whole <svg>, as this once did, would
+                  lay the centre label on its side. */}
+              <g transform="rotate(-90 80 80)">
+                {/* Underlay track */}
                 <circle
-                  key={idx}
                   cx="80"
                   cy="80"
                   r={radius}
                   fill="transparent"
-                  stroke={seg.color}
+                  stroke="#f1f5f9"
                   strokeWidth={strokeWidth}
-                  strokeDasharray={seg.strokeDasharray}
-                  strokeDashoffset={seg.strokeDashoffset}
-                  strokeLinecap="round"
-                  style={{
-                    transition: "stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease",
-                    cursor: "pointer"
-                  }}
-                  title={`${seg.label}: ${Math.round(seg.percentage)}%`}
                 />
-              ))}
-            </svg>
+                {/* Segments */}
+                {segmentsWithMath.map((seg, idx) => (
+                  <circle
+                    key={idx}
+                    cx="80"
+                    cy="80"
+                    r={radius}
+                    fill="transparent"
+                    stroke={seg.color}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={seg.strokeDasharray}
+                    strokeDashoffset={seg.strokeDashoffset}
+                    strokeLinecap="round"
+                    style={{
+                      transition: "stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease",
+                      cursor: "pointer"
+                    }}
+                    title={`${seg.label}: ${Math.round(seg.percentage)}%`}
+                  />
+                ))}
+              </g>
 
-            {/* Central Info Overlay */}
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-              width: "100px",
-              pointerEvents: "none"
-            }}>
-              <span style={{
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                color: "var(--text-light)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                display: "block",
-                marginBottom: "0.2rem"
-              }}>
+              {/* Central Info */}
+              <text
+                x="80"
+                y="70"
+                textAnchor="middle"
+                dominantBaseline="central"
+                style={{
+                  fontSize: "8px",
+                  fontWeight: 700,
+                  fill: "var(--text-light)",
+                  letterSpacing: "0.5px"
+                }}
+              >
                 TOTAL
-              </span>
-              <span style={{
-                fontSize: "1.5rem",
-                fontWeight: 800,
-                color: "var(--text-dark)",
-                whiteSpace: "nowrap"
-              }}>
-                {loading ? "..." : `Shs ${totalCapital.toLocaleString()}`}
-              </span>
-            </div>
+              </text>
+              <text
+                x="80"
+                y="88"
+                textAnchor="middle"
+                dominantBaseline="central"
+                style={{
+                  fontSize: `${amountFontSize}px`,
+                  fontWeight: 800,
+                  fill: "var(--text-dark)"
+                }}
+              >
+                {amountText}
+              </text>
+            </svg>
           </div>
 
           {/* Interactive Legend Grid */}
@@ -191,7 +220,11 @@ export default function FundDistributionMix() {
             flexDirection: "column",
             gap: "1.4rem",
             flex: "1",
-            minWidth: "220px"
+            // A flat 220px floor is wider than the card's content box on a small phone, and
+            // a flex item cannot shrink below its min-width -- so the legend pushed the page
+            // into a horizontal scroll. min() keeps the intent (don't crowd the labels when
+            // there is room) while still allowing it to fit when there is not.
+            minWidth: "min(220px, 100%)"
           }}>
             {segmentsWithMath.map((seg, idx) => (
               <div key={idx} style={{
@@ -213,21 +246,24 @@ export default function FundDistributionMix() {
                   flexShrink: 0
                 }} />
                 
-                {/* Label and Value */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                {/* Label and Value. minWidth: 0 on the flex child because the default of
+                    `auto` refuses to shrink below the widest word, which is what turns a long
+                    description into overflow instead of a wrap. The figures opposite carry
+                    flexShrink: 0 -- when space runs out the prose gives way, never the money. */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "0.8rem" }}>
                     <span style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)" }}>
                       {seg.label}
                     </span>
-                    <span style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--text-dark)" }}>
+                    <span style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--text-dark)", flexShrink: 0 }}>
                       {totalCapital > 0 ? `${Math.round(seg.percentage)}%` : "0%"}
                     </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.2rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.2rem", gap: "0.8rem" }}>
                     <span style={{ fontSize: "1.1rem", color: "var(--text-light)" }}>
                       {seg.desc}
                     </span>
-                    <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600 }}>
+                    <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>
                       Shs {seg.value.toLocaleString()}
                     </span>
                   </div>
