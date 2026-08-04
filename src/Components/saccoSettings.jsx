@@ -5,6 +5,7 @@ import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
 import { exportWeeklyReportPDF } from "../utils/pdfExportUtils";
 import { getActiveWeek, WEEKS_PER_CYCLE } from "../utils/meetingDateUtils";
+import { DEFAULT_SHARE_PRICE, shareCountOf } from "../utils/sharePricing";
 import "../styles/saccoSettings.css";
 
 /** "Wed 4 Jun 2025" -- how the anchor is shown next to the week number. */
@@ -28,7 +29,7 @@ export default function SaccoSettings() {
       }
     }
     return {
-      sharePrice: 25000,
+      sharePrice: DEFAULT_SHARE_PRICE,
       devtFund: 1000,
       socialFund: 2000,
       currentWeek: 1,
@@ -77,7 +78,12 @@ export default function SaccoSettings() {
       if (!user) return;
 
       const token = session?.access_token;
-      const headers = (token && token.length < 3000) ? { "Authorization": `Bearer ${token}` } : {};
+      // Attached unconditionally. There used to be a `token.length < 3000` guard here, from
+      // when /api/sacco-settings answered unauthenticated reads: an oversized JWT quietly
+      // dropped the header and the fetch still worked. The endpoint now returns 401 without
+      // it, so the guard would have blanked this screen for exactly the accounts carrying
+      // the most metadata -- and silently, since the fetch is wrapped below.
+      const headers = token ? { "Authorization": `Bearer ${token}` } : {};
 
       const { data: profileData } = await supabase
         .from("profiles")
@@ -133,7 +139,7 @@ export default function SaccoSettings() {
             const derivedWeek = anchor ? getActiveWeek(anchor, meetingDay) : null;
 
             const formatted = {
-              sharePrice: Number(directSetting.share_price) || 25000,
+              sharePrice: Number(directSetting.share_price) || DEFAULT_SHARE_PRICE,
               devtFund: Number(directSetting.devt_fund) || 1000,
               socialFund: Number(directSetting.social_fund) || 2000,
               currentWeek: derivedWeek || Number(directSetting.current_week) || 1,
@@ -283,7 +289,10 @@ export default function SaccoSettings() {
 
         if (catNorm === "shares") {
           sharesAmt += amt;
-          sharesQty += Math.round(amt / settings.sharePrice);
+          // The count as recorded on the row, not `amt / today's price`. Dividing meant
+          // that changing the share price in the form above silently rewrote how many
+          // shares every member had ever bought, in this report and everywhere else.
+          sharesQty += shareCountOf(tx, settings.sharePrice);
         } else if (catNorm === "development_fund") {
           devtAmt += amt;
         } else if (catNorm === "social_fund") {

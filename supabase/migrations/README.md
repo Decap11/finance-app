@@ -8,9 +8,32 @@ Files are numbered in the order they should be applied. The numbering was recons
 history after the fact — the files originally sat unordered in the repo root, so treat the
 sequence as "best known good order", not as a log of what actually ran against production.
 
+## Checking the database against this repo
+
+**`../verify-schema.sql` is how you find out what actually ran.** Paste it into the SQL editor and
+run it; it reads the system catalog and returns one row per check, failures first. It only reads.
+
+It exists because everything else in this directory is a claim and the catalog is the evidence.
+Nothing here can tell you whether a file was applied, half-applied before erroring, or applied and
+then undone by hand — and the consequence is not subtle: **0009 disables Row Level Security on five
+tables and only 0015 turns it back on**, so a sequence that stopped in between leaves a database
+that behaves completely normally through the app and is readable and writable by anyone holding the
+public anon key. That state has no symptom. The script checks for it directly.
+
+Run it after applying any migration, before trusting a database with real members' money, and
+whenever a feature appears never to have worked — which in this project has three separate times
+turned out to be an unapplied file rather than a bug (0021, 0028, 0029).
+
+Check 14 is the one to read after applying `0033`: a `WARN` there means the share-consistency
+constraint went on but existing rows disagree with it, and it names the query that lists them.
+
+`0032` adds a `schema_migrations` ledger and `record_migration()`; call it as the last statement of
+every new migration. The ledger is a convenience for reading recent history, **not** evidence — it
+records what somebody said they ran. When the two disagree, the catalog is right.
+
 ## Applying these to a fresh database
 
-Run **0001 through 0031 in numeric order, without stopping.**
+Run **0001 through 0033 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -20,7 +43,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029, then 0030, then 0031**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029, then 0030, then 0031, then 0032, then 0033**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -84,6 +107,8 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0029 | `transactions-reference` | ✅ **Unblocks Historical Onboarding a second time.** Adds the missing `transactions.reference` column. 0028 tags every backfilled row `reference = 'HISTORICAL'`, but the column was declared only in 0001's `CREATE TABLE` and the live table predates that file, so every submission aborted on `column "reference" of relation "transactions" does not exist`. It aborted misleadingly: the API tested the message for `does not exist` alone, which an undefined *column* matches exactly as an undefined *function* does, so a schema gap was reported as an unapplied 0028 — and 0028 was re-run repeatedly with no effect. Fixed in the route to key on `PGRST202`/`42883` instead. Confirmed missing on the live database 2026-08-04, while every other column 0028 writes was present. Adds a partial index over the tagged rows. Depends on nothing. |
 | 0030 | `week-anchor-cycles` | ✅ **Gives the week number a meaning.** There were two week numbers and neither was the one a SACCO counts: `sacco_settings.current_week` was typed by hand in Configuration Settings and nothing in the app ever advanced it, while 0028 stamped rows with the *Nth meeting day of that date's own calendar year* — so a record from 5 Aug 2026 was "week 31" because it was the 31st Wednesday of 2026, which says nothing about how long the group had been running. Adds `week_anchor_date` to `sacco_settings`/`saccos`: the meeting date that is Week 1 of the current 52-week cycle, from which the active week is **derived on every read**, so it advances by itself each meeting day. Adds `finalize_historical_onboarding` — the button at the end of a backfill — which makes the oldest record Week 1, re-stamps `transactions.week_number` (and the trailing `\| Week N` in the description) plus `audit_events.metadata.week_number` on every saved attendance register, sets the active week and switches historical mode off, all in one transaction. The attendance half is not cosmetic: `WeeklyAttendanceManager` finds a saved register by matching that field against the active week, so one left on the old scale becomes unreachable, not merely mislabelled. Row numbers are deliberately **not** clamped at 52 — that would squash a multi-year history — and instead carry a true 1–52 position within their own cycle, while the active week clamps and `start_new_sacco_cycle` re-anchors. Also replaces `log_historical_record` to use the anchor when one exists (falling back to 0028's calendar-year rule until then, since rows typed mid-backfill are renumbered by the finalize anyway), and adds `meeting_dow`, `meeting_day_on_or_after`, `sacco_week_of`, `sacco_active_week`, `sacco_week_config`, `staff_sacco_for_caller` and `apply_sacco_week_anchor`. Mirrored in JS by `getSaccoWeekOf` / `getActiveWeek` in `src/utils/meetingDateUtils.js`. Depends on 0019 (`is_sacco_staff`) and 0028. |
 | 0031 | `member-join-dates` | ✅ **Closes the blind spot in arrears.** Adds `profiles.joined_on` — the date an admin *states* a member joined the SACCO — plus `set_member_join_date` and `set_all_member_join_dates`. Development and social fund are owed every meeting week, so what a member owes rests entirely on the week they started owing it; `src/utils/duesEngine.js` had to infer that from the member's earliest record, and that inference cannot tell "joined in week 20" from "was here since week 1 and paid nothing until week 20" — it forgives the unpaid weeks, being most generous to exactly the members the feature exists to surface. Precedence becomes `joined_on` → first record → SACCO Week 1, so a stated fact always beats the guess. The column is **nullable and starts NULL for everybody**: nothing changes on the day it is applied, and the numbers only move when an admin asserts a date. `set_all_member_join_dates` is what makes it usable at all — no admin types thirty dates — filling every blank with the SACCO's `week_anchor_date` in one call, and touching only members with no date set so re-running it never undoes a correction. Deliberately on `profiles` rather than `sacco_memberships`: bulk-added and pre-0009 members often have no membership row, and a date that silently could not be stored for those members would be worse than none. Distinct from `sacco_memberships.joined_at`, which is `default now()` and records when the membership *row* was created. Depends on 0030 (reads `saccos.week_anchor_date`) and 0017 (`admin_sacco_for_member`). |
+| 0032 | `migration-ledger` | Adds `schema_migrations` and `record_migration()`, so a hand-applied file leaves a record. Backfilled **by evidence, not assumption**: a version is written only where an object that migration alone creates is actually present in the catalog, so the starting contents are an observation rather than a claim. Deliberately weaker than it looks — `../verify-schema.sql` checks the catalog itself and is the thing to trust when the two disagree. RLS on with no policy, so the table is invisible from a browser. Depends on nothing. |
+| 0033 | `share-quantity-integrity` | ✅ **Makes a shares contribution mean one thing.** A shares contribution is a whole number of shares at the SACCO's share price, but the ledger stored only the product in `amount` — the count and the price lived nowhere except as prose in `description`. So every screen that needed a count divided the amount by whatever the price happened to be *at the moment of reading*, and the price itself was resolved separately by the member's browser (from a `localStorage` cache shared across every SACCO ever signed in on that device), by the API, and by the reporting screens — each falling back to a hardcoded 25,000 when its own lookup failed, and `UserProgressTracker` to 5,000. One request could therefore be a different figure on the member's screen, in the database, and in the admin's approval queue, and editing the share price silently rewrote how many shares every member had ever bought. Adds `transactions.share_count` and `transactions.unit_price` — the count and *the price actually charged*, which is not the same thing as the current one — recovers both for existing rows by parsing the `N share(s) @ Shs X` descriptions the API has always written (and only where they multiply back to the stored amount; rows that disagree are reported, not overwritten), and adds the `transactions_share_amount_consistent` CHECK so `amount = share_count * unit_price` is a database rule. Added `NOT VALID` then validated separately, so pre-existing bad rows are named by the migration's own `RAISE WARNING` rather than aborting the file — the constraint governs all new writes either way. `verify-schema.sql` check 14 reports the un-validated state. The application half is `src/utils/sharePricing.js` (the only place the multiplication happens) and `/api/user-transactions`, which now refuses a shares request it cannot price rather than guessing 25,000, refuses a non-integer or out-of-range quantity, and refuses one whose price disagrees with what the member's screen displayed (409 `SHARE_PRICE_CHANGED`). Depends on nothing. |
 
 ## Which definition is live
 
@@ -128,9 +153,16 @@ comes from real commit timestamps and is reliable.
 
 ## Adding a new migration
 
-Use the next number and today's date: `0032_YYYYMMDD_short-description.sql`. Write it to be
+Use the next number and today's date: `0034_YYYYMMDD_short-description.sql`. Write it to be
 re-runnable (`IF EXISTS` / `IF NOT EXISTS` / `CREATE OR REPLACE`) — with no migration tool tracking
 what has been applied, assume any file may be run more than once.
+
+End it with `SELECT public.record_migration('0034', 'one line on what it does');` so the ledger
+0032 introduced stays current.
+
+If it adds a function, column or policy the app depends on, add it to the corresponding list in
+`../verify-schema.sql`. That file is only as good as its coverage, and an object nobody added to it
+is an object whose absence will be discovered by a member seeing the wrong number.
 
 If a change touches RLS policies or a `SECURITY DEFINER` function, update the supersession table
 above so the next person can tell which definition is live.

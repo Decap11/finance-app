@@ -111,7 +111,8 @@ required_columns(tbl, col, mig) as (
          ('loans','closed_at','0023'), ('loans','application_fee','0023'),
          ('loans','loan_number','0026'),
          ('sacco_settings','week_anchor_date','0030'), ('saccos','week_anchor_date','0030'),
-         ('profiles','joined_on','0031')
+         ('profiles','joined_on','0031'),
+         ('transactions','share_count','0033'), ('transactions','unit_price','0033')
 ),
 
 results(sort_key, check_name, status, detail) as (
@@ -290,6 +291,48 @@ results(sort_key, check_name, status, detail) as (
          else 'present; read it with: select * from public.schema_migrations order by version. '
               || 'The checks above are the authority -- a ledger records what somebody said '
               || 'they ran, the catalog records what is true.'
+    end
+
+  -- 14 -- a shares amount must be a whole number of shares at the price actually agreed.
+  --
+  -- Three states, and the middle one is the reason this is checked separately from the
+  -- columns in 7: a constraint left NOT VALID still governs every new write but means 0033
+  -- found existing rows whose stated share count and stored amount are different claims
+  -- about the same money. That is a real discrepancy sitting in the ledger, and it is
+  -- invisible unless something asks.
+  union all
+  select 14, 'Shares amounts reconcile to a count and a price (0033)',
+    case
+      when not exists (
+        select 1 from pg_constraint
+        where conrelid = to_regclass('public.transactions')
+          and conname = 'transactions_share_amount_consistent'
+      ) then 'FAIL'
+      when exists (
+        select 1 from pg_constraint
+        where conrelid = to_regclass('public.transactions')
+          and conname = 'transactions_share_amount_consistent'
+          and not convalidated
+      ) then 'WARN'
+      else 'PASS'
+    end,
+    case
+      when not exists (
+        select 1 from pg_constraint
+        where conrelid = to_regclass('public.transactions')
+          and conname = 'transactions_share_amount_consistent'
+      ) then 'nothing stops a shares transaction being an amount that is not a multiple of '
+             || 'any share price. Apply 0033.'
+      when exists (
+        select 1 from pg_constraint
+        where conrelid = to_regclass('public.transactions')
+          and conname = 'transactions_share_amount_consistent'
+          and not convalidated
+      ) then 'constraint present but NOT VALID -- it governs new writes, but existing rows '
+             || 'disagree with it. List them: select id, profile_id, amount, share_count, '
+             || 'unit_price from public.transactions where category = ''shares'' and '
+             || 'share_count is not null and amount <> share_count * unit_price;'
+      else 'every shares row with a stated count multiplies back to its amount'
     end
 )
 

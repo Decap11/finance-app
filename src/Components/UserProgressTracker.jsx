@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useToast } from "../context/ToastContext";
+import { DEFAULT_SHARE_PRICE } from "../utils/sharePricing";
 import "../styles/UserProgressTracker.css";
 
 export default function UserProgressTracker() {
@@ -12,8 +13,11 @@ export default function UserProgressTracker() {
     social_fund: 0,
   });
 
+  // 5,000 here against 25,000 everywhere else was its own quiet fault: this screen sizes a
+  // member's default shares target at ten shares, so before the settings loaded it showed
+  // them a target a fifth of what the contribution form was charging.
   const [settings, setSettings] = useState({
-    sharePrice: 5000,
+    sharePrice: DEFAULT_SHARE_PRICE,
     devtFund: 1000,
     socialFund: 2000,
   });
@@ -63,12 +67,12 @@ export default function UserProgressTracker() {
       });
       const settingsData = await settingsRes.json();
       
-      let currentSharePrice = 5000;
+      let currentSharePrice = DEFAULT_SHARE_PRICE;
       let currentDevtFund = 1000;
       let currentSocialFund = 2000;
 
       if (settingsRes.ok && settingsData) {
-        currentSharePrice = Number(settingsData.sharePrice) || 5000;
+        currentSharePrice = Number(settingsData.sharePrice) || DEFAULT_SHARE_PRICE;
         currentDevtFund = Number(settingsData.devtFund) || 1000;
         currentSocialFund = Number(settingsData.socialFund) || 2000;
         setSettings({

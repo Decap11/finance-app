@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { getForthcomingMeetingDate } from "../utils/meetingDateUtils";
+import { DEFAULT_SHARE_PRICE, shareCountOf } from "../utils/sharePricing";
 import "../styles/calendarHeatMap.css";
 import "../styles/UserProgressTracker.css";
 
@@ -263,7 +264,9 @@ export default function CalendarHeatMap({ memberId }) {
           }
 
           if (catNorm === 'shares') {
-            const numShares = Math.floor(amt / (settings.sharePrice || 25000));
+            // The count the member actually bought, from the row itself. Dividing by the
+            // current price re-interpreted every past week whenever the admin changed it.
+            const numShares = shareCountOf(tx, settings.sharePrice || DEFAULT_SHARE_PRICE);
             tempShares[meetingIndex] += numShares;
             mData.sharesAmount += amt;
             mData.sharesCount += numShares;

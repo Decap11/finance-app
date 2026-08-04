@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
 import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
+import { shareCountOf, shareUnitPriceOf, formatShs } from "../utils/sharePricing";
 import "../styles/contributionApprovals.css";
 
 export interface TransactionApprovalItem {
@@ -15,6 +16,11 @@ export interface TransactionApprovalItem {
   profile_id: string;
   requested_by?: string;
   description?: string;
+  // How many shares, and at what price, as agreed with the member at the moment they
+  // submitted. Null on rows written before migration 0033, where the same two facts are
+  // recovered from the description instead.
+  share_count?: number | null;
+  unit_price?: number | null;
   profiles?: {
     full_name: string;
     member_number: string;
@@ -83,9 +89,31 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
 
       const saccoId = saccoRes.data.id;
 
-      let query = supabase
-        .from('transactions')
-        .select(`
+      const run = (columns: string) => {
+        let query = supabase
+          .from('transactions')
+          .select(columns)
+          .eq('sacco_id', saccoId)
+          // Fines and loan application fees are pending transactions too, but neither is a
+          // contribution awaiting verification: nobody is claiming to have paid them, and
+          // each is confirmed from its own panel. A fee would also fail if approved here --
+          // approve_member_transaction resolves an account by account_type = category and
+          // there is no 'fee' account. Loan disbursements and repayments do belong here.
+          .not('category', 'in', '("fines","fee")')
+          .order('created_at', { ascending: false });
+
+        if (pendingOnly) {
+          query = query.eq('status', 'pending');
+        }
+
+        if (limit) {
+          query = query.limit(limit);
+        }
+
+        return query;
+      };
+
+      const BASE_COLUMNS = `
           id,
           amount,
           category,
@@ -98,25 +126,19 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
             full_name,
             member_number
           )
-        `)
-        .eq('sacco_id', saccoId)
-        // Fines and loan application fees are pending transactions too, but neither is a
-        // contribution awaiting verification: nobody is claiming to have paid them, and
-        // each is confirmed from its own panel. A fee would also fail if approved here --
-        // approve_member_transaction resolves an account by account_type = category and
-        // there is no 'fee' account. Loan disbursements and repayments do belong here.
-        .not('category', 'in', '("fines","fee")')
-        .order('created_at', { ascending: false });
+      `;
 
-      if (pendingOnly) {
-        query = query.eq('status', 'pending');
+      // share_count / unit_price arrive with migration 0033. Asking PostgREST for a column
+      // that does not exist fails the WHOLE query, so on a database that has not had 0033
+      // applied this table would go blank -- and an approvals queue that shows nothing is
+      // indistinguishable from one with nothing in it. Fall back to the columns that have
+      // always existed; `shareCountOf` then reads the count out of the description instead.
+      let { data, error } = await run(`${BASE_COLUMNS}, share_count, unit_price`);
+
+      if (error && (error.code === '42703' || error.code === 'PGRST204' || /share_count|unit_price/i.test(error.message || ''))) {
+        console.warn('Approvals: share_count/unit_price missing — apply migration 0033.', error.message);
+        ({ data, error } = await run(BASE_COLUMNS));
       }
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching approval requests:", error);
@@ -283,6 +305,22 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
                 const isPending = request.status === 'pending';
                 const isApproved = request.status === 'approved' || request.status === 'completed';
 
+                // An admin approving a shares request should see what the member actually
+                // asked for -- so many shares at so much each -- not only the product. When
+                // the two stop agreeing, this line is where it shows, and it is taken from
+                // the request itself rather than from today's configured share price.
+                const isShares = request.category === 'shares';
+                const shareQty = isShares ? shareCountOf(request, 0) : 0;
+                const shareUnit = isShares ? shareUnitPriceOf(request) : null;
+                const shareBreakdown = isShares && shareQty > 0 && shareUnit
+                  ? `${shareQty} × Shs ${formatShs(shareUnit)}`
+                  : null;
+                // Recorded money that is not the shares it claims to be. Only ever reachable
+                // for rows written before the server started pricing shares itself.
+                const shareMismatch = Boolean(
+                  shareBreakdown && shareQty * shareUnit! !== Number(request.amount || 0)
+                );
+
                 return (
                   <tr key={request.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "1.2rem 1.5rem", fontSize: "1.3rem", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
@@ -310,7 +348,21 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
                       </span>
                     </td>
                     <td style={{ padding: "1.2rem 1.5rem", fontSize: "1.4rem", fontWeight: 800, color: "#0f172a" }}>
-                      Shs {Number(request.amount || 0).toLocaleString()}
+                      Shs {formatShs(request.amount)}
+                      {shareBreakdown && (
+                        <div style={{
+                          fontSize: "1.1rem",
+                          fontWeight: 600,
+                          color: shareMismatch ? "#b91c1c" : "#64748b",
+                          marginTop: "0.2rem"
+                        }}>
+                          {shareMismatch && (
+                            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.4rem" }}></i>
+                          )}
+                          {shareBreakdown}
+                          {shareMismatch && " — does not match the amount"}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: "1.2rem 1.5rem" }}>
                       <span style={{

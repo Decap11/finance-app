@@ -95,7 +95,7 @@ token>` header and resolves the caller with `supabase.auth.getUser()`.
 | `/api/group-members` | GET | Members of the caller's own SACCO |
 | `/api/user-balances` | GET | Own account balances |
 | `/api/sacco-balances` | GET | Via `get_sacco_total_balances` RPC |
-| `/api/user-transactions` | GET, POST | Own transactions; POST logs pending contributions |
+| `/api/user-transactions` | GET, POST | Own transactions; POST logs pending contributions. Prices shares itself — 503 if it cannot, 409 `SHARE_PRICE_CHANGED` if the price the member's screen showed disagrees |
 | `/api/contribution-habits` | GET | Own data; `?memberId=` requires admin/loan_officer of that member's SACCO |
 | `/api/loans` | GET, POST, PATCH | Own loan; POST calls `request_loan` / `record_loan_repayment`; PATCH is staff-only (`confirm_fee`, `apply_late_fees`) |
 | `/api/loans/guarantors` | GET, POST | Nominate only for own loan; respond only if you are the nominated guarantor |
@@ -170,6 +170,24 @@ The first three are contributions. **Fines are not**, and the distinction is loa
   `MemberFinesManager`. They share one pool because the money is real either way and has
   to sit somewhere; every column, banner and total a human reads keeps them apart. The
   weekly report and the PDF each carry an **Absent** column and a separate **Fines** one.
+
+### Shares
+
+A shares contribution is **a whole number of shares (1–10) at the SACCO's share price** — the money
+is a consequence of those two facts, not a fact in its own right. `transactions` therefore stores
+`share_count` and `unit_price` (the price *actually charged*, which is not the current one) beside
+`amount`, and migration `0033`'s `transactions_share_amount_consistent` CHECK holds
+`amount = share_count * unit_price`. **Never recover a share count by dividing `amount` by the
+current share price** — that is what the columns exist to replace; use `shareCountOf()` from
+`src/utils/sharePricing.js`, which is also the only place the multiplication happens.
+
+`POST /api/user-transactions` is the sole authority on the price. It **refuses rather than guesses**:
+a shares request it cannot price returns 503, and one whose `sharePrice` body field — what the
+member's screen displayed — disagrees with the database returns 409 `SHARE_PRICE_CHANGED` with the
+correct figure, which the form redraws for the member to confirm. That handshake is what keeps the
+member's total, the stored row and the admin's approval queue equal by construction. Rows written
+before `0033` carry both facts only in `description` (`N share(s) @ Shs X`); `shareCountOf` parses
+that before falling back to division.
 
 ### Weekly mandatory funds and arrears
 
@@ -365,10 +383,11 @@ Legacy `VITE_*` variants are still read as fallbacks in some files, left over fr
 
 ## 13. Known gaps
 
-- `npm test` (`node --test`, no dependencies) covers the dues arithmetic, the meeting-date maths
-  and the settings route's tenant isolation — 107 cases. CI runs it plus `npm run build` on every
-  push and PR. Everything else is untested: the React components, and the loan-fee, dividend and
-  balance arithmetic, which all live in SQL and would need a database to exercise.
+- `npm test` (`node --test`, no dependencies) covers the dues arithmetic, the meeting-date maths,
+  the settings route's tenant isolation and the share-price arithmetic — 132 cases. CI runs it plus
+  `npm run build` on every push and PR. Everything else is untested: the React components, and the
+  loan-fee, dividend and balance arithmetic, which all live in SQL and would need a database to
+  exercise.
 - ESLint reports pre-existing unused-variable and hook-ordering issues; `.ts`/`.tsx` are not linted.
   Not a CI gate for that reason — fix the existing errors before adding it.
 - `audit_events` doubles as the broadcast and attendance-snapshot store rather than having
