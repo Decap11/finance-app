@@ -30,8 +30,17 @@ node_modules/
 .next/
 
 # environment variables
-.env.local
+# Everything matching .env* is ignored, including variants nobody has created yet
+# (.env.production, .env.development.local, ...). .env.example is the one exception:
+# it is the committed template and holds placeholders only, never a real value.
 .env
+.env.*
+!.env.example
+
+# Throwaway local scripts. scratch/register-dev-account.js documented itself as ignored
+# while nothing in here actually was, and the files held real project URLs plus a literal
+# account password that reached a public repo. The whole directory stays untracked.
+scratch/
 
 # build cache
 *.tsbuildinfo
