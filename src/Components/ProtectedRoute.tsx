@@ -101,6 +101,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           return;
         }
 
+        // SACCO Admins entering via /dashboard are automatically routed to the Admin Dashboard
+        if (pathname === "/dashboard" && role === "admin") {
+          setLoading(false);
+          router.replace("/admin");
+          return;
+        }
+
         // If user has a group_id or is an admin, they are associated with a SACCO
         if (groupId || role === "admin") {
           const cleanGroupCode = groupId.toUpperCase();
