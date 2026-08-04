@@ -4,6 +4,7 @@ import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
 import ServiceWorkerRegistrar from "../Components/ServiceWorkerRegistrar";
+import PwaInstallBanner from "../Components/PwaInstallBanner";
 import { siteMetadata, siteViewport } from "../utils/siteMetadata";
 
 export const metadata: Metadata = siteMetadata;
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <GlobalErrorHandler />
         <ServiceWorkerRegistrar />
+        <PwaInstallBanner />
         <div id="root">{children}</div>
       </body>
     </html>
