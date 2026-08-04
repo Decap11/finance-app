@@ -647,7 +647,7 @@ export default function SaccoSettings() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="socialFund">Weekly Social Fund (Shs)</label>
+            <label htmlFor="socialFund">Weekly Social Fund — Minimum (Shs)</label>
             <input
               type="number"
               id="socialFund"
@@ -657,6 +657,11 @@ export default function SaccoSettings() {
               placeholder="e.g. 2000"
               required
             />
+            <small className="settings-hint">
+              The least a member may put in each week. They can give more than this and it is
+              credited in full; anything below it is refused, and the week counts as unpaid
+              until the shortfall is covered.
+            </small>
           </div>
 
           <div className="form-group">

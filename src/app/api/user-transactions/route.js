@@ -113,12 +113,17 @@ export async function POST(request) {
     
     let sharePrice = 25000;
     let currentWeek = 1;
+    // The weekly social fund floor. 0 until the settings load, and a failed load deliberately
+    // leaves it at 0 rather than at a guessed default: refusing a member's money because this
+    // request could not read the settings would be the worse failure of the two.
+    let minSocial = 0;
     try {
       const { getActiveSaccoSettings } = await import('../sacco-settings/route.js');
       const settings = await getActiveSaccoSettings(saccoData?.group_code);
       if (settings) {
         if (settings.sharePrice) sharePrice = settings.sharePrice;
         if (settings.currentWeek) currentWeek = settings.currentWeek;
+        if (settings.socialFund) minSocial = Number(settings.socialFund) || 0;
       }
     } catch (err) {
       console.warn("Failed to load active settings, using fallback:", err);
@@ -127,6 +132,16 @@ export async function POST(request) {
     const numShares = Number(shares) || 0;
     const numDevt = Number(devtFund) || 0;
     const numSocial = Number(socialFund) || 0;
+
+    // Social fund is a minimum, not a fixed amount: the set figure or anything above it meets
+    // the week's obligation, and the surplus is credited in full. Anything below it does not
+    // meet the obligation at all, so it is refused rather than filed as if it had. Checked
+    // here as well as in the form because the form is not the only way to reach this route.
+    if (numSocial > 0 && minSocial > 0 && numSocial < minSocial) {
+      return Response.json({
+        error: `The social fund is at least Shs ${minSocial.toLocaleString()} a week. Enter that amount or more.`
+      }, { status: 400 });
+    }
 
     // Check if the user has already submitted requests for this week number
     const { data: existingTxs, error: checkErr } = await supabase

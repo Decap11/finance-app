@@ -1,9 +1,15 @@
 /**
  * Weekly mandatory fund arrears.
  *
- * Development fund and social fund are owed every meeting week, by every member, at a fixed
- * amount. Shares are not (1-10, the member's choice) and fines are not (levied for a reason,
- * not owed on a schedule) -- so those two are the only funds this file knows about.
+ * Development fund and social fund are owed every meeting week, by every member. Shares are not
+ * (1-10, the member's choice) and fines are not (levied for a reason, not owed on a schedule) --
+ * so those two are the only funds this file knows about.
+ *
+ * The social fund rate is a MINIMUM: a member meets the week with that amount or anything above
+ * it. That needs no special case here -- `expected` is built from the minimum, which is what is
+ * owed, and a surplus simply lands in `paid`. What it does mean is that giving extra in one week
+ * reduces what is expected in later ones, which follows from the running-total rule below and is
+ * the same arithmetic that lets a lump sum clear a backlog.
  *
  * Arrears are DERIVED, never stored. There is no scheduler in this app to write a "week
  * passed" row every meeting day, and a derived number self-heals: backfill a record that was

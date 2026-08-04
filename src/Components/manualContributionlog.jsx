@@ -85,6 +85,11 @@ export default function ManualContributionLog({ allMembers }) {
   const [occurredOn, setOccurredOn] = useState(todayISO());
   const [currentWeek, setCurrentWeek] = useState(1);
   const [meetingDay, setMeetingDay] = useState("Wednesday");
+  // The SACCO's weekly social fund minimum. Used here only to warn -- an admin copying a paper
+  // book must be able to enter what a member actually paid, including a week they came up
+  // short. The floor is enforced where members submit for themselves, not where history is
+  // recorded; a backfill that refused to record reality would just be lost data.
+  const [socialMinimum, setSocialMinimum] = useState(0);
   // Week 1 of the SACCO's cycle, once historical onboarding has been finished. null until
   // then, and the calendar-year rule is used instead.
   const [weekAnchorDate, setWeekAnchorDate] = useState(null);
@@ -182,6 +187,7 @@ export default function ManualContributionLog({ allMembers }) {
         const settingsObj = data.settings || data;
         setCurrentWeek(Number(settingsObj.currentWeek) || 1);
         if (settingsObj.meetingDay) setMeetingDay(settingsObj.meetingDay);
+        setSocialMinimum(Number(settingsObj.socialFund) || 0);
         setWeekAnchorDate(settingsObj.weekAnchorDate || null);
         const historicalOn = Boolean(settingsObj.isHistoricalMode);
         setHistoricalEnabled(historicalOn);
@@ -226,6 +232,7 @@ export default function ManualContributionLog({ allMembers }) {
       }
       if (e.detail.meetingDay) setMeetingDay(e.detail.meetingDay);
       if (e.detail.currentWeek) setCurrentWeek(Number(e.detail.currentWeek));
+      if (e.detail.socialFund !== undefined) setSocialMinimum(Number(e.detail.socialFund) || 0);
       if ("weekAnchorDate" in e.detail) setWeekAnchorDate(e.detail.weekAnchorDate || null);
     }
 
@@ -681,11 +688,31 @@ export default function ManualContributionLog({ allMembers }) {
         <input
           type="number"
           min="1"
-          placeholder="Enter amount..."
+          placeholder={
+            recordType === "social_fund" && socialMinimum > 0
+              ? `Minimum Shs ${socialMinimum.toLocaleString()}`
+              : "Enter amount..."
+          }
           className="admin-input-amount"
           value={addAmount}
           onChange={(e) => setAddAmount(e.target.value)}
         />
+        {/* A warning, not a block. Most short social fund entries are a mistyped figure, and
+            saying so at the keyboard is worth a lot during a long backfill -- but the ones that
+            are not mistyped are what actually happened, and those still have to go in. */}
+        {recordType === "social_fund" && socialMinimum > 0 && Number(addAmount) > 0
+          && Number(addAmount) < socialMinimum && (
+          <div style={{
+            marginTop: "0.6rem",
+            fontSize: "1.15rem",
+            color: "#92400e",
+            lineHeight: 1.5
+          }}>
+            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.5rem" }}></i>
+            Under the Shs {socialMinimum.toLocaleString()} weekly minimum. It will be recorded as
+            entered, and the difference stays owing.
+          </div>
+        )}
       </div>
 
       <button className="admin-btn-primary admin-btn-register-contribution" disabled={loading}>

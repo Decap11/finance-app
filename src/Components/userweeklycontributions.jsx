@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import "../styles/weeklyContributions.css";
 
@@ -6,6 +6,12 @@ export default function WeeklyContributions() {
   const [shares, setShares] = useState("");
   const [DevtFund, setDevtFund] = useState(1000); // Default to 1000
   const [socialFund, setsocialFund] = useState("");
+  // The social fund amount the admin set is a FLOOR, not a fixed figure: a member may give
+  // more in any week, and often does. So once the member has typed their own amount, the
+  // settings load must stop overwriting it -- an admin saving settings, or the realtime
+  // subscription firing, would otherwise silently pull a deliberate 10,000 back down to the
+  // 2,000 minimum between typing it and pressing Contribute.
+  const socialTouched = useRef(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -52,7 +58,7 @@ export default function WeeklyContributions() {
           if (data.devtFund !== undefined && data.devtFund !== null) {
             setDevtFund(data.devtFund);
           }
-          if (data.socialFund !== undefined && data.socialFund !== null) {
+          if (data.socialFund !== undefined && data.socialFund !== null && !socialTouched.current) {
             setsocialFund(data.socialFund);
           }
           if (typeof window !== "undefined") {
@@ -98,7 +104,7 @@ export default function WeeklyContributions() {
       if (e.detail) {
         setGroupSettings(e.detail);
         if (e.detail.devtFund !== undefined) setDevtFund(e.detail.devtFund);
-        if (e.detail.socialFund !== undefined) setsocialFund(e.detail.socialFund);
+        if (e.detail.socialFund !== undefined && !socialTouched.current) setsocialFund(e.detail.socialFund);
       }
     };
 
@@ -111,6 +117,14 @@ export default function WeeklyContributions() {
 
   const sharePrice = groupSettings.sharePrice;
   const isLocked = groupSettings.isLocked;
+  // The weekly social fund obligation is met by this amount OR ANYTHING ABOVE IT. The admin
+  // sets the floor; what a member gives on top of it is their own call, and is credited in
+  // full. Below it is not a smaller contribution, it is an unmet weekly obligation, so it is
+  // refused here and again on the server.
+  const minSocial = Number(groupSettings.socialFund) || 0;
+  const socialEntered = Number(socialFund) || 0;
+  const socialBelowMinimum = socialFund !== "" && socialEntered > 0 && socialEntered < minSocial;
+  const socialAboveMinimum = socialEntered > minSocial ? socialEntered - minSocial : 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -130,6 +144,16 @@ export default function WeeklyContributions() {
 
     if (numShares < 0 || numDevt < 0 || numSocial < 0) {
       setMessage("Obligation values cannot be negative.");
+      return;
+    }
+
+    // Leaving the social fund empty is skipping it this week -- which the arrears figure will
+    // report. Putting a number in that is short of the weekly minimum is a different thing:
+    // it would be filed as a met obligation when it is not one, so it is rejected outright.
+    if (numSocial > 0 && minSocial > 0 && numSocial < minSocial) {
+      setMessage(
+        `The social fund is at least Shs ${minSocial.toLocaleString()} a week. Enter that amount or more.`
+      );
       return;
     }
 
@@ -166,7 +190,10 @@ export default function WeeklyContributions() {
       // Reset states
       setShares("");
       setDevtFund(groupSettings.devtFund || 1000); // Reset back to default
-      setsocialFund("");
+      // Back to the minimum rather than blank, so the next week starts from what is owed. The
+      // touch flag goes with it -- this is a fresh entry, not the one they typed.
+      socialTouched.current = false;
+      setsocialFund(groupSettings.socialFund ?? "");
     } catch (err) {
       setMessage(err.message || "Failed to submit contributions");
     } finally {
@@ -302,17 +329,22 @@ export default function WeeklyContributions() {
             </div>
             <div>
               <h4 className="fund-title">Social Fund</h4>
-              <p className="fund-desc">Weekly obligation: Shs {groupSettings.socialFund.toLocaleString()}</p>
+              <p className="fund-desc">
+                Weekly minimum: Shs {minSocial.toLocaleString()} — give more if you wish
+              </p>
             </div>
           </div>
           <div className="fund-input-area">
             <input
               type="number"
               className="number-input"
-              placeholder="Amount (Shs)"
-              min={0}
+              placeholder={`Shs ${minSocial.toLocaleString()} or more`}
+              min={minSocial}
               value={socialFund}
-              onChange={(e) => setsocialFund(e.target.value)}
+              onChange={(e) => {
+                socialTouched.current = true;
+                setsocialFund(e.target.value);
+              }}
               disabled={isLocked}
             />
             <div className="calculated-total" style={{ visibility: socialFund ? "visible" : "hidden" }}>
@@ -320,6 +352,31 @@ export default function WeeklyContributions() {
             </div>
           </div>
         </div>
+
+        {/* Said under the card rather than only on submit: a member who has typed 1,500 against
+            a 2,000 minimum should find out before pressing Contribute, not after. The
+            above-minimum line is the other half of the same rule -- confirmation that the extra
+            was taken as given and not quietly trimmed. */}
+        {(socialBelowMinimum || socialAboveMinimum > 0) && (
+          <div style={{
+            margin: "-0.5rem 0 1.5rem",
+            padding: "0.9rem 1.2rem",
+            borderRadius: "0.6rem",
+            fontSize: "1.15rem",
+            fontWeight: 600,
+            background: socialBelowMinimum ? "#fffbeb" : "#f0fdf4",
+            color: socialBelowMinimum ? "#92400e" : "#15803d",
+            border: `1px solid ${socialBelowMinimum ? "#fde68a" : "#bbf7d0"}`
+          }}>
+            <i
+              className={`fa-solid ${socialBelowMinimum ? "fa-triangle-exclamation" : "fa-circle-check"}`}
+              style={{ marginRight: "0.6rem" }}
+            ></i>
+            {socialBelowMinimum
+              ? `Below the weekly minimum of Shs ${minSocial.toLocaleString()}. Enter that amount or more.`
+              : `Shs ${socialAboveMinimum.toLocaleString()} above the weekly minimum — the full amount is credited.`}
+          </div>
+        )}
 
         {message && (
           <div style={{

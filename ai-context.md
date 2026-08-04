@@ -143,7 +143,7 @@ Four pools, each with a fixed colour used consistently in the UI:
 |------|----------|--------|
 | Shares | `shares` | `#253b8e` |
 | Development fund | `development_fund` | `#10b981` |
-| Social fund (mandatory, small fixed amount) | `social_fund` | `#ef4444` |
+| Social fund (mandatory weekly **minimum**; a member may give more) | `social_fund` | `#ef4444` |
 | Fines (collected penalties) | `fines` | `#8b5cf6` |
 | Aggregate | — | `#f59e0b` |
 
@@ -162,10 +162,18 @@ The first three are contributions. **Fines are not**, and the distinction is loa
 
 ### Weekly mandatory funds and arrears
 
-Development fund and social fund are owed **every meeting week**, by every member, at the fixed
-`sacco_settings.devt_fund` / `social_fund` amount. Shares are not (1–10, the member's choice) and
-fines are not (levied for a reason, not on a schedule) — those two funds are the only ones that can
-fall into arrears.
+Development fund and social fund are owed **every meeting week**, by every member, from
+`sacco_settings.devt_fund` / `social_fund`. Shares are not (1–10, the member's choice) and fines are
+not (levied for a reason, not on a schedule) — those two funds are the only ones that can fall into
+arrears.
+
+The two differ in one respect: **`social_fund` is a minimum, not a fixed figure.** A member meets the
+week by giving that amount or any amount above it, and the surplus is credited in full; anything
+below it is refused by both `WeeklyContributions` and the `POST /api/user-transactions` route, which
+re-checks the floor because the form is not the only way to reach it. The admin **manual
+contribution log deliberately does not enforce this** — it only warns — because a backfill has to be
+able to record a week a member genuinely came up short. Note that a surplus feeds the running total
+below, so giving extra in one week does reduce what is expected in later ones.
 
 Arrears are **derived on every read, never stored** — `src/utils/duesEngine.js` is the single
 definition, served by `/api/dues` and rendered by `MemberDuesCard` (admin) and
