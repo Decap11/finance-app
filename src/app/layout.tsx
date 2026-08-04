@@ -1,11 +1,13 @@
 import React, { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "../layout/layout.css";
 import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
-import { siteMetadata } from "../utils/siteMetadata";
+import ServiceWorkerRegistrar from "../Components/ServiceWorkerRegistrar";
+import { siteMetadata, siteViewport } from "../utils/siteMetadata";
 
 export const metadata: Metadata = siteMetadata;
+export const viewport: Viewport = siteViewport;
 
 interface RootLayoutProps {
   children: ReactNode;
@@ -15,7 +17,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        {/* The icon <link> tags are emitted from `metadata.icons` in siteMetadata.ts -- they
+            were hand-written here and pointed at a favicon.svg that did not exist. */}
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
@@ -27,6 +30,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body>
         <GlobalErrorHandler />
+        <ServiceWorkerRegistrar />
         <div id="root">{children}</div>
       </body>
     </html>

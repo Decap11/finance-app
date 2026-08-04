@@ -33,6 +33,7 @@ Open <http://localhost:3001> (note: port 3001, not the Next.js default).
 | `npm run lint` | ESLint over the `.js`/`.jsx` sources |
 | `npm run check:secrets` | Scan staged changes for credentials; add `-- --all` for every tracked file |
 | `npm run setup:hooks` | Enable the pre-commit secret guard — run once per clone |
+| `npm run icons` | Regenerate the PWA icons from `public/images/icon-source.png` |
 
 ## Environment
 
@@ -74,6 +75,40 @@ still fails the build.
 
 If a credential does reach a commit, **rotate it first** — it should be treated as public from
 that moment, and rewriting history does not un-publish what was already fetched or indexed.
+
+## Installable app (PWA)
+
+The app installs to a phone's home screen and launches standalone. Three pieces:
+
+| File | Role |
+| --- | --- |
+| [`src/app/manifest.ts`](src/app/manifest.ts) | Served at `/manifest.webmanifest`. Name, icons, colours, `display: standalone`. |
+| [`public/sw.js`](public/sw.js) | The service worker. Caches the app shell; **never** the ledger. |
+| [`src/Components/ServiceWorkerRegistrar.tsx`](src/Components/ServiceWorkerRegistrar.tsx) | Registers it, in production only. |
+
+**What is cached is the shell, and only the shell** — content-hashed JS and CSS, fonts, images
+and the prerendered HTML. Every request to `/api/*` and to Supabase is network-only, and offline
+they fail rather than resolve. This is deliberate: a member shown a cached balance has no way to
+tell it is three days old, and a stale figure in a ledger gets acted on. Offline navigation falls
+back to [`/offline`](src/app/offline/page.tsx), which says plainly that no figures are being shown.
+
+If a page is ever changed to server-render a member's data into its HTML, exclude it in `sw.js` —
+the HTML is currently cacheable only because these pages are prerendered and user-agnostic.
+
+The routing rules are tested in [`tests/pwa/serviceWorker.test.mjs`](tests/pwa/serviceWorker.test.mjs),
+which evaluates the real `public/sw.js` rather than a copy, so the "never cache `/api` or Supabase"
+guarantee cannot be edited away without a failing test.
+
+The service worker does **not** register in development — it would sit in front of HMR and serve
+stale chunks. The registrar also unregisters any worker left behind by a local production build.
+
+### Icons
+
+`npm run icons` regenerates every size from `public/images/icon-source.png`. To use better
+artwork, replace that file (square, 512×512 or larger) and re-run — the manifest references the
+generated filenames, so nothing else changes. The current source is the SACCO logo at 279×256,
+which is below the largest rendered size, so the 512 icons are upscaled and slightly soft; the
+script warns about this on every run until the source is replaced.
 
 ## Database
 
