@@ -1,25 +1,23 @@
-/* --- Responsive Root Sizing System --- */
+/* --- Root Sizing ---
+ *
+ * 1rem = 10px at EVERY width. This file used to step the root down at 900/787/440px
+ * (to 58/52/48%) so that one set of rem values would shrink to fit a phone, but those
+ * rules never took effect: src/layout/layout.css sets
+ *
+ *     html { font-size: 62.5% !important; }
+ *
+ * and it is imported by the root layout, so it wins over any media query here no matter
+ * the order. Every mobile rule below was therefore being authored against 4.8px/rem and
+ * rendering at 10px/rem -- roughly a third larger than intended, which is why the small
+ * breakpoints overflowed.
+ *
+ * The dead rules are gone rather than made `!important`: this stylesheet is global once
+ * loaded, so fighting layout.css over the root size would resize the dashboard too. The
+ * breakpoints below now carry explicit sizes that assume 10px/rem.
+ */
 html {
-  font-size: 62.5%; /* Default Desktop: 1rem = 10px */
+  font-size: 62.5%;
   scroll-behavior: smooth;
-}
-
-@media (max-width: 900px) {
-  html {
-    font-size: 58%; /* Small Desktop / Large Tablet */
-  }
-}
-
-@media (max-width: 787px) {
-  html {
-    font-size: 52%; /* Tablet & Large Mobile */
-  }
-}
-
-@media (max-width: 440px) {
-  html {
-    font-size: 48%; /* Mobile Screen Scaling: 1rem = 4.8px */
-  }
 }
 
 :root {
@@ -55,6 +53,15 @@ body {
 .landing-page {
   overflow-x: hidden;
   width: 100%;
+}
+
+/* The navbar is fixed, so an in-page jump would otherwise put the section heading behind
+   it. Roughly the header's height plus a little air; the phone value is in the 440 block. */
+#features,
+#security,
+#pricing,
+#faq {
+  scroll-margin-top: 9.5rem;
 }
 
 /* --- Navigation Header --- */
@@ -208,8 +215,13 @@ body {
     radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
 }
 
+/* min-width: 0 on both grid children. A grid item defaults to min-width: auto, so the
+   track refuses to shrink below the widest child's min-content -- at 320px the tagline's
+   letter-spaced uppercase line held the column at 313px inside a 292px box, pushing the
+   whole hero past the viewport edge. */
 .hero-content {
   animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 0;
 }
 
 @keyframes fadeInLeft {
@@ -327,6 +339,7 @@ body {
   justify-content: center;
   align-items: center;
   width: 100%;
+  min-width: 0;
   animation: fadeInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1415,8 +1428,12 @@ footer {
     font-size: 1.35rem;
   }
 
+  /* The stats card is absolutely positioned on desktop, so .hero-visual only ever has one
+     in-flow child there. Below 787px it returns to flow, and as a second flex item in a row
+     it sat beside the mockup and squeezed it to a third of the width. Stack them. */
   .hero-visual {
     width: 100%;
+    flex-direction: column;
   }
 
   .mockup-card {
@@ -1537,61 +1554,108 @@ footer {
 }
 
 /* --- Mobile Devices Emphasis (<= 440px) --- */
+/* --- Header overflow guard (<= 520px) ---
+ *
+ * Wordmark plus three actions needs roughly 485px of header before it starts pushing past
+ * the viewport, and the navbar neither wraps nor lets its nowrap buttons shrink -- it just
+ * runs under the edge, where body { overflow-x: hidden } quietly clips it. Create SACCO is
+ * the one that goes: it is the least-used of the three from a cold visit, and the hero
+ * repeats it as the primary button a few hundred pixels below.
+ *
+ * Placed before the 440px block so that block's tighter values win where they overlap.
+ */
+@media (max-width: 520px) {
+  .nav-link-sacco {
+    display: none;
+  }
+}
+
+/* --- Phones (<= 440px) ---
+ *
+ * Targets 320-440px. Two things drive the values here.
+ *
+ * Gutters are a fixed 1.8rem, not a percentage. At 320px a 3% gutter is 9.6px, which puts
+ * card borders almost against the bezel; the same rule at 440px gives 13px. A fixed gutter
+ * keeps the margin honest across the whole range.
+ *
+ * Body copy sits at 1.5rem (15px) rather than the 1.3-1.4rem this block used to carry.
+ * Those smaller values were written expecting the root downscale described at the top of
+ * this file, and without it they read as roughly 13px -- too small to be comfortable on a
+ * page that asks a committee to read about their money.
+ */
 @media (max-width: 440px) {
+  /* Header. Three actions do not fit beside the wordmark at 320px, so the SACCO link
+     steps aside -- "Register your SACCO" is the hero's primary button immediately below,
+     and Log In returns as a compact text link so signing in stays one tap. */
   .navbar {
-    padding: 1.2rem 3%;
+    padding: 1rem 1.6rem;
   }
 
   .logo-img {
-    width: 3.2rem;
-    height: 3.2rem;
+    width: 2.8rem;
+    height: 2.8rem;
+  }
+
+  .logo-group {
+    gap: 0.8rem;
   }
 
   .logo-text {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
+    letter-spacing: -0.03rem;
+  }
+
+  .nav-sections {
+    display: none;
   }
 
   .nav-actions {
-    gap: 0.4rem;
+    gap: 0.6rem;
   }
 
   .nav-link-login {
-    display: none; /* Hide redundant text link on tiny mobile header */
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.3rem;
+    padding: 0.6rem 0.8rem;
+    min-height: 4rem;
+    border-radius: 0.8rem;
   }
 
   .nav-cta {
     font-size: 1.3rem;
-    padding: 0.8rem 1.2rem;
-    border-radius: 0.8rem;
+    padding: 0 1.4rem;
+    min-height: 4rem;
+    border-radius: 0.9rem;
   }
 
   .nav-link-sacco {
-    font-size: 1.2rem;
-    padding: 0.8rem 1rem;
-    border-radius: 0.8rem;
+    display: none;
   }
 
+  /* Hero. Padding-top clears the fixed header (about 6rem tall here) with room to spare. */
   .hero {
-    padding: 10.5rem 3% 5rem 3%;
-    gap: 3rem;
+    padding: 9.5rem 1.8rem 5.5rem 1.8rem;
+    gap: 3.2rem;
   }
 
   .tagline {
     font-size: 1.2rem;
     padding: 0.5rem 1.2rem;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.4rem;
   }
 
   .hero-title {
     font-size: 3.2rem;
     line-height: 1.2;
-    margin-bottom: 1.5rem;
+    letter-spacing: -0.08rem;
+    margin-bottom: 1.6rem;
   }
 
   .hero-desc {
-    font-size: 1.45rem;
-    line-height: 1.55;
-    margin-bottom: 2.5rem;
+    font-size: 1.55rem;
+    line-height: 1.65;
+    margin-bottom: 2.8rem;
   }
 
   .hero-btn-group {
@@ -1602,28 +1666,44 @@ footer {
   .btn-primary,
   .btn-secondary {
     width: 100%;
-    padding: 1.6rem 2rem;
-    font-size: 1.5rem;
-    border-radius: 1rem;
+    padding: 1.7rem 2rem;
+    font-size: 1.55rem;
+    border-radius: 1.2rem;
+  }
+
+  .hero-note {
+    font-size: 1.35rem;
+    line-height: 1.5;
+    align-items: flex-start;
+    text-align: left;
+    margin-top: 1.8rem;
+  }
+
+  .hero-note i {
+    margin-top: 0.2rem;
   }
 
   .mockup-card {
-    padding: 1.8rem 1.5rem;
+    padding: 2rem 1.6rem;
     border-radius: 1.8rem;
   }
 
   .mockup-status-title {
-    display: none; /* Keep clean on 440px mobile width */
+    display: none; /* No room beside the traffic-light dots at this width */
+  }
+
+  .mockup-label {
+    font-size: 1.15rem;
   }
 
   .mockup-balance {
     font-size: 2.4rem;
-    gap: 0.6rem;
+    gap: 0.8rem;
   }
 
   .mockup-growth-badge {
     font-size: 1.1rem;
-    padding: 0.3rem 0.6rem;
+    padding: 0.3rem 0.7rem;
   }
 
   .mockup-chart-bars {
@@ -1631,51 +1711,34 @@ footer {
     height: 5.5rem;
   }
 
+  .mockup-footer {
+    font-size: 1.15rem;
+    gap: 1rem;
+  }
+
   .stats-card-overlay {
-    padding: 1.4rem 1.6rem;
-    margin-top: 1.4rem;
-    border-radius: 1rem;
+    padding: 1.5rem 1.6rem;
+    margin-top: 1.6rem;
+    border-radius: 1.2rem;
   }
 
   .stats-icon {
-    width: 3.4rem;
-    height: 3.4rem;
-    font-size: 1.5rem;
+    width: 3.6rem;
+    height: 3.6rem;
+    font-size: 1.6rem;
+    flex-shrink: 0;
   }
 
   .stats-details h4 {
-    font-size: 1.3rem;
-  }
-
-  .stats-details p {
-    font-size: 1.1rem;
-  }
-
-  .features {
-    padding: 5rem 3%;
-  }
-
-  .section-title {
-    font-size: 2.5rem;
-  }
-
-  .section-desc {
     font-size: 1.4rem;
   }
 
-  .feature-card {
-    padding: 2.4rem 1.6rem;
-    border-radius: 1.6rem;
+  .stats-details p {
+    font-size: 1.2rem;
   }
 
-  .feature-card h3 {
-    font-size: 1.75rem;
-  }
-
-  .feature-card p {
-    font-size: 1.35rem;
-  }
-
+  /* Section rhythm. One gutter, one vertical step, applied everywhere. */
+  .features,
   .problem,
   .steps,
   .audience,
@@ -1683,89 +1746,345 @@ footer {
   .checklist,
   .pricing,
   .faq {
-    padding: 5rem 3%;
+    padding: 5.6rem 1.8rem;
+  }
+
+  .section-header {
+    margin-bottom: 3.4rem;
+  }
+
+  .section-title {
+    font-size: 2.5rem;
+    line-height: 1.25;
+    letter-spacing: -0.05rem;
+  }
+
+  .section-desc {
+    font-size: 1.5rem;
+    line-height: 1.65;
   }
 
   .assurance-strip {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 1.2rem;
-    padding: 2rem 3%;
+    align-items: stretch;
+    gap: 1.4rem;
+    padding: 2.2rem 1.8rem;
   }
 
+  .assurance-item {
+    align-items: flex-start;
+    font-size: 1.45rem;
+    line-height: 1.5;
+  }
+
+  .assurance-item i {
+    font-size: 1.6rem;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+  }
+
+  .feature-card,
   .problem-card,
   .step-card,
-  .audience-card {
-    padding: 2.4rem 1.8rem;
+  .audience-card,
+  .price-card {
+    padding: 2.6rem 2rem;
     border-radius: 1.6rem;
   }
 
+  .feature-card h3,
   .problem-card h3,
   .step-card h3 {
-    font-size: 1.75rem;
+    font-size: 1.85rem;
+    line-height: 1.3;
+  }
+
+  .feature-card p,
+  .problem-card p,
+  .step-card p {
+    font-size: 1.5rem;
+    line-height: 1.65;
+  }
+
+  .feature-icon-wrapper,
+  .problem-icon {
+    width: 4.8rem;
+    height: 4.8rem;
+    font-size: 1.9rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .step-number {
+    width: 4.2rem;
+    height: 4.2rem;
+    font-size: 1.8rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .audience-head {
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.8rem;
+  }
+
+  .audience-head i {
+    width: 4.2rem;
+    height: 4.2rem;
+    font-size: 1.8rem;
   }
 
   .audience-head h3 {
     font-size: 1.9rem;
+    line-height: 1.3;
   }
 
-  .price-card {
-    padding: 2.6rem 1.8rem;
-    border-radius: 1.6rem;
+  .audience-list li {
+    font-size: 1.5rem;
+    line-height: 1.6;
+    padding-left: 2.6rem;
+  }
+
+  #features,
+  #security,
+  #pricing,
+  #faq {
+    scroll-margin-top: 7rem;
+  }
+
+  /* Headings stay centred; these two run to six or seven lines, and centred body copy that
+     long gives every line a ragged start as well as a ragged end. */
+  .security-lede,
+  .security-footnote {
+    text-align: left;
+    font-size: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .security-lede {
+    margin-bottom: 3rem;
+  }
+
+  .security-point {
+    padding: 2.2rem 1.8rem;
+  }
+
+  .security-point h4 {
+    font-size: 1.65rem;
+  }
+
+  .security-point p {
+    font-size: 1.45rem;
+    line-height: 1.65;
+  }
+
+  .security-footnote {
+    margin-top: 2.8rem;
+  }
+
+  .checklist-item {
+    font-size: 1.5rem;
+    line-height: 1.5;
+    padding: 1.1rem 0;
+    gap: 1.1rem;
+  }
+
+  /* Pricing. Cards are already one per row from 787px down; the flag needs the card's
+     full width at this size or it clips against the rounded corner. */
+  .price-flag {
+    font-size: 1.15rem;
+    padding: 0.5rem 1.2rem;
+    max-width: calc(100% - 3.2rem);
+    text-align: center;
+  }
+
+  .price-name {
+    font-size: 2.1rem;
   }
 
   .price-figure {
     font-size: 3.2rem;
   }
 
+  .price-desc,
+  .price-features li {
+    font-size: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .price-cta {
+    width: 100%;
+    padding: 1.5rem 2rem;
+    font-size: 1.5rem;
+    border-radius: 1.2rem;
+  }
+
+  .pricing-note {
+    font-size: 1.45rem;
+    line-height: 1.7;
+    margin-top: 3rem;
+    text-align: left;
+  }
+
   .faq-item {
     padding: 0 1.8rem;
+    border-radius: 1.4rem;
   }
 
   .faq-item summary {
-    font-size: 1.45rem;
+    font-size: 1.5rem;
+    line-height: 1.4;
     padding: 1.8rem 0;
+    gap: 1.4rem;
   }
 
   .faq-item p {
-    font-size: 1.35rem;
+    font-size: 1.45rem;
+    line-height: 1.7;
     padding-bottom: 1.8rem;
   }
 
   .cta-banner-section {
-    margin: 3rem 2% 4rem 2%;
-    padding: 3.5rem 3%;
-    border-radius: 1.6rem;
+    margin: 3.2rem 1.8rem 4.4rem 1.8rem;
+    padding: 4rem 2rem;
+    border-radius: 1.8rem;
   }
 
   .cta-title {
     font-size: 2.4rem;
+    line-height: 1.25;
   }
 
   .cta-desc {
-    font-size: 1.4rem;
-    margin-bottom: 2.2rem;
+    font-size: 1.5rem;
+    line-height: 1.65;
+    margin-bottom: 2.6rem;
   }
 
   .cta-btn-primary,
   .cta-btn-secondary {
-    padding: 1.4rem 2rem;
-    font-size: 1.45rem;
-    border-radius: 1rem;
+    padding: 1.6rem 2rem;
+    font-size: 1.5rem;
+    border-radius: 1.2rem;
   }
 
   footer {
-    padding: 4rem 3% 3rem 3%;
+    padding: 4.4rem 1.8rem 3rem 1.8rem;
   }
 
   .footer-grid {
     grid-template-columns: 1fr;
-    gap: 2.8rem;
-    margin-bottom: 3rem;
+    gap: 3rem;
+    margin-bottom: 3.2rem;
   }
 
+  .footer-col h4 {
+    font-size: 1.45rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .footer-col ul {
+    gap: 0.6rem;
+  }
+
+  /* Padding rather than gap so each link owns a tappable band. */
   .footer-col a,
   .footer-plain {
-    font-size: 1.3rem;
+    font-size: 1.4rem;
+    padding: 0.7rem 0;
+    overflow-wrap: anywhere;
+  }
+
+  .footer-brand p {
+    font-size: 1.45rem;
+    max-width: none;
+  }
+}
+
+/* --- Small phones (<= 360px) ---
+ *
+ * The 320-360px band: iPhone SE portrait, Galaxy A-series, and anything with display zoom
+ * turned on. Only the places where 440px values genuinely run out of room are touched --
+ * the header, which has the least slack of anything on the page, and the two figures wide
+ * enough to push past the viewport.
+ */
+@media (max-width: 360px) {
+  .navbar {
+    padding: 1rem 1.4rem;
+  }
+
+  .logo-img {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+
+  .logo-group {
+    gap: 0.6rem;
+  }
+
+  .logo-text {
+    font-size: 1.5rem;
+  }
+
+  .nav-actions {
+    gap: 0.5rem;
+  }
+
+  /* The arrow is decoration; the label carries the meaning. */
+  .nav-cta i {
+    display: none;
+  }
+
+  .nav-cta {
+    padding: 0 1.2rem;
+    font-size: 1.25rem;
+  }
+
+  .nav-link-login {
+    font-size: 1.25rem;
+    padding: 0.6rem;
+  }
+
+  .hero,
+  .features,
+  .problem,
+  .steps,
+  .audience,
+  .security,
+  .checklist,
+  .pricing,
+  .faq {
+    padding-left: 1.4rem;
+    padding-right: 1.4rem;
+  }
+
+  .cta-banner-section {
+    margin-left: 1.4rem;
+    margin-right: 1.4rem;
+  }
+
+  footer {
+    padding-left: 1.4rem;
+    padding-right: 1.4rem;
+  }
+
+  .hero-title {
+    font-size: 2.9rem;
+  }
+
+  .section-title {
+    font-size: 2.3rem;
+  }
+
+  /* "Shs 84,500,000" beside its growth badge is the widest single line on the page. */
+  .mockup-balance {
+    font-size: 2.1rem;
+  }
+
+  .price-figure {
+    font-size: 2.9rem;
+  }
+
+  .cta-title {
+    font-size: 2.2rem;
   }
 }

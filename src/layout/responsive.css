@@ -100,7 +100,9 @@
     padding: 1.6rem;
   }
 
-  header,
+  /* .hero excluded -- see layout.css. `height: 7.5rem !important` in particular collapsed
+     the landing page's hero to 75px and spilled its whole contents out of the box. */
+  header:not(.hero),
   .admin-header,
   .payment-header {
     flex-wrap: nowrap !important;
@@ -289,7 +291,8 @@
     overflow: visible !important;
   }
 
-  header,
+  /* .hero excluded -- see layout.css. */
+  header:not(.hero),
   .admin-header,
   .payment-header {
     position: -webkit-sticky !important;
