@@ -17,6 +17,7 @@ import {
   getMeetingDayOnOrAfter,
   getSaccoWeekOf,
   getActiveWeek,
+  getMeetingDateForWeek,
   formatTransactionMeetingDate,
   WEEKS_PER_CYCLE
 } from '../../src/utils/meetingDateUtils.js';
@@ -210,4 +211,31 @@ test('formatTransactionMeetingDate dates a row by when the money landed', () => 
 
 test('formatTransactionMeetingDate returns empty for nothing', () => {
   assert.equal(formatTransactionMeetingDate(null, 'Wednesday'), '');
+});
+
+test('getMeetingDateForWeek is the inverse of getSaccoWeekOf', () => {
+  assert.equal(iso(getMeetingDateForWeek('2026-01-07', 1, 'Wednesday')), '2026-01-07');
+  assert.equal(iso(getMeetingDateForWeek('2026-01-07', 2, 'Wednesday')), '2026-01-14');
+  assert.equal(iso(getMeetingDateForWeek('2026-01-07', 31, 'Wednesday')), '2026-08-05');
+  // The last meeting of the cycle; the next one re-anchors at week 1.
+  assert.equal(iso(getMeetingDateForWeek('2026-01-07', WEEKS_PER_CYCLE, 'Wednesday')), '2026-12-30');
+
+  // Round trip: every week maps to a date that maps back to the same week.
+  for (const week of [1, 2, 17, 31, 52]) {
+    const date = getMeetingDateForWeek('2026-01-07', week, 'Wednesday');
+    assert.equal(getSaccoWeekOf(date, '2026-01-07', 'Wednesday'), week);
+  }
+});
+
+test('getMeetingDateForWeek snaps an anchor that is not on the meeting day', () => {
+  // Week 1 is a meeting, never the Monday somebody happened to store.
+  assert.equal(iso(getMeetingDateForWeek('2026-01-05', 1, 'Wednesday')), '2026-01-07');
+});
+
+test('getMeetingDateForWeek has no answer without an anchor', () => {
+  // An unanchored SACCO's week number is typed by hand and corresponds to no date at all,
+  // so there is nothing honest to show beside it.
+  assert.equal(getMeetingDateForWeek(null, 4, 'Wednesday'), null);
+  assert.equal(getMeetingDateForWeek('2026-01-07', 0, 'Wednesday'), null);
+  assert.equal(getMeetingDateForWeek('2026-01-07', 'not a week', 'Wednesday'), null);
 });

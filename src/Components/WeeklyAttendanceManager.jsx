@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
+import { getMeetingDateForWeek } from "../utils/meetingDateUtils";
+import {
+  cycleKeyOf,
+  findWeekRegister,
+  statusOf,
+  tallyAttendance,
+  materialiseRegister,
+  WEEKS_PER_CYCLE
+} from "../utils/attendanceRegisters";
 
 /**
  * The fine controls for one absent member, in a menu anchored to that member's row.
@@ -105,6 +114,15 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const [groupCode, setGroupCode] = useState("");
   const [fineRate, setFineRate] = useState(1000); // Default Shs 1,000 absenteeism fine
   const [attendance, setAttendance] = useState({});
+  // The cycle the week dropdown is counting within, and the meeting day it counts in steps
+  // of. Both come from the settings endpoint; null anchor means this SACCO was never
+  // onboarded and its week number is a typed one.
+  const [weekAnchorDate, setWeekAnchorDate] = useState(null);
+  const [meetingDay, setMeetingDay] = useState("Wednesday");
+  // What was found for the selected week: { savedAt } for a register that exists, null for a
+  // meeting nobody has recorded. Kept apart from `attendance` because an empty map and an
+  // unrecorded week are the same object but not the same fact.
+  const [savedRegister, setSavedRegister] = useState(null);
   const [fineTransactions, setFineTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -116,11 +134,20 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
   const [internalMembers, setInternalMembers] = useState([]);
 
+  // Runs once, on mount, and deliberately does not depend on the member list.
+  //
+  // It used to re-run whenever `allMembers` changed identity, which the admin dashboard
+  // hands it a fresh copy of on every realtime `profiles` event. Each of those re-ran the
+  // settings fetch below and called setCurrentWeek(active week) -- so an admin who had gone
+  // back to review Week 3 was thrown forward to the live week by somebody else's profile
+  // update, with no indication of what had happened.
   useEffect(() => {
+    let cancelled = false;
+
     async function loadSaccoContext() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user || cancelled) return;
 
         const { data: profile } = await supabase
           .from("profiles")
@@ -167,9 +194,13 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
                 cache: "no-store"
               }
             );
-            if (res.ok) {
+            if (res.ok && !cancelled) {
               const settings = await res.json();
               setCurrentWeek(Number(settings.currentWeek) || 1);
+              // Which 52-week cycle the numbers in the dropdown belong to. Saved onto every
+              // register from here on so that next cycle's Week 3 and this one's stay apart.
+              setWeekAnchorDate(settings.weekAnchorDate || null);
+              setMeetingDay(settings.meetingDay || "Wednesday");
             }
           } catch {
             // Falls back to the week already selected; the picker is still usable.
@@ -180,8 +211,21 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       }
     }
 
+    loadSaccoContext();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Whether the parent gave us a member list, which is all this component needs to know
+  // about it. Keyed on the boolean rather than the array so a parent that re-renders with a
+  // fresh empty array -- the default prop builds one every render -- cannot drive the effect
+  // below into a fetch loop.
+  const parentSuppliedMembers = allMembers.length > 0;
+
+  // Separate from the context effect above because this one legitimately does depend on the
+  // member list: it is the fallback for when the parent supplies none.
+  useEffect(() => {
     async function loadMembersFromAPI() {
-      if (allMembers && allMembers.length > 0) return;
+      if (parentSuppliedMembers) return;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
@@ -207,15 +251,35 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       }
     }
 
-    loadSaccoContext();
     loadMembersFromAPI();
-  }, [allMembers]);
+  }, [parentSuppliedMembers]);
 
-  const activeMemberList = (allMembers && allMembers.length > 0) ? allMembers : internalMembers;
+  const activeMemberList = parentSuppliedMembers ? allMembers : internalMembers;
 
-  // Load saved attendance snapshot & fine transactions for selected meeting week
+  const cycleKey = useMemo(
+    () => cycleKeyOf(weekAnchorDate, meetingDay),
+    [weekAnchorDate, meetingDay]
+  );
+
+  // The date of the meeting this register covers. Null for a SACCO with no anchor, whose
+  // week numbers are typed and correspond to no date.
+  const selectedMeetingDate = useMemo(
+    () => getMeetingDateForWeek(weekAnchorDate, currentWeek, meetingDay),
+    [weekAnchorDate, currentWeek, meetingDay]
+  );
+
+  // Load saved attendance snapshot & fine transactions for selected meeting week.
+  //
+  // The member list is NOT a dependency. It used to be, so every realtime `profiles` event
+  // re-ran this and replaced whatever the admin had toggled but not yet saved with the copy
+  // from the database -- a half-taken register wiped mid-meeting, silently.
   useEffect(() => {
     if (!groupCode || !currentWeek) return;
+
+    // Switching weeks quickly leaves more than one of these in flight, and without this
+    // guard the slower answer overwrites the faster one -- so the screen ends up showing a
+    // week other than the one named in the dropdown.
+    let cancelled = false;
 
     async function loadWeekData() {
       setLoading(true);
@@ -231,21 +295,20 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         }
 
         const { data: records } = await auditQuery;
+        if (cancelled) return;
 
-        const weekRecord = (records || []).find(r => 
-          r.metadata?.group_code?.toLowerCase() === groupCode.toLowerCase() && 
-          Number(r.metadata?.week_number) === Number(currentWeek)
-        );
+        const register = findWeekRegister(records, {
+          groupCode,
+          weekNumber: currentWeek,
+          cycleKey
+        });
 
-        if (weekRecord && weekRecord.metadata?.attendance_map) {
-          setAttendance(weekRecord.metadata.attendance_map);
-        } else {
-          const defaultMap = {};
-          (activeMemberList || []).forEach(m => {
-            defaultMap[m.id] = "present";
-          });
-          setAttendance(defaultMap);
-        }
+        // No register means this meeting was never recorded, and that is what gets shown --
+        // an empty map, which renders as nobody marked. Pre-filling everyone as present
+        // here is what made an unrecorded week indistinguishable from a week the whole
+        // group attended, on a screen whose entire job is to tell those two apart.
+        setAttendance(register?.attendance || {});
+        setSavedRegister(register ? { savedAt: register.savedAt } : null);
 
         // 2. Fetch this week's absence fines.
         //
@@ -261,17 +324,18 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             .eq("fine_type", "absenteeism")
             .eq("week_number", currentWeek);
 
-          setFineTransactions(txList || []);
+          if (!cancelled) setFineTransactions(txList || []);
         }
       } catch (err) {
         console.warn("Failed to load week attendance & fine data:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadWeekData();
-  }, [groupCode, saccoId, currentWeek, activeMemberList]);
+    return () => { cancelled = true; };
+  }, [groupCode, saccoId, currentWeek, cycleKey]);
 
   // Stable so the menu's document-level listeners are not torn down and rebound on
   // every render of this component.
@@ -309,19 +373,18 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     (m.memberId || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const presentCount = Object.values(attendance).filter(s => s === "present").length;
-  const absentCount = Object.values(attendance).filter(s => s === "absent").length;
-  const excusedCount = Object.values(attendance).filter(s => s === "excused").length;
+  // Counted over the member list, not over the stored map. Counting the map's own values
+  // let the tiles and the rows disagree on a past week: a member who has since left stayed
+  // in the old map and kept being counted with no row to show for it, while one who joined
+  // afterwards had a row on screen but no entry to count.
+  const counts = tallyAttendance(activeMemberList, attendance);
+  const { present: presentCount, absent: absentCount, excused: excusedCount, unmarked: unmarkedCount } = counts;
 
   const totalFinesAssessed = absentCount * fineRate;
 
   // Compute collected vs outstanding fines from transaction records
   const collectedFines = fineTransactions
     .filter(tx => tx.status === "completed" || tx.status === "approved")
-    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-
-  const outstandingFines = fineTransactions
-    .filter(tx => tx.status === "pending")
     .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
   // Save Attendance & Issue Fine Liabilities
@@ -331,8 +394,15 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
     setStatusMessage(null);
 
     try {
-      const absentMemberIds = Object.keys(attendance).filter(id => attendance[id] === "absent");
-      const absentMembers = activeMemberList.filter(m => absentMemberIds.includes(m.id));
+      // Everybody the admin did not mark is saved as present -- a register is taken by
+      // calling out the absentees, so that convention is applied here, at the point of
+      // saving, rather than by pre-filling the screen and leaving an untouched week looking
+      // like a recorded one. What gets stored is a complete map either way.
+      const finalAttendance = materialiseRegister(activeMemberList, attendance);
+      const finalCounts = tallyAttendance(activeMemberList, finalAttendance);
+      const finalFinesAssessed = finalCounts.absent * fineRate;
+
+      const absentMembers = activeMemberList.filter(m => finalAttendance[m.id] === "absent");
 
       // 1. Record attendance snapshot
       const { error: snapshotErr } = await supabase.from("audit_events").insert({
@@ -343,12 +413,16 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           group_code: groupCode,
           sacco_id: saccoId,
           week_number: currentWeek,
-          attendance_map: attendance,
-          present_count: presentCount,
-          absent_count: absentCount,
-          excused_count: excusedCount,
+          // Which 52-week cycle that week number belongs to. Without it, next cycle's Week 3
+          // is stored under the same key as this one's, and since the newest row wins, the
+          // older meeting becomes unreachable through the dropdown.
+          cycle_anchor: cycleKey,
+          attendance_map: finalAttendance,
+          present_count: finalCounts.present,
+          absent_count: finalCounts.absent,
+          excused_count: finalCounts.excused,
           fine_rate: fineRate,
-          total_fine_assessed: totalFinesAssessed,
+          total_fine_assessed: finalFinesAssessed,
           registered_at: new Date().toISOString()
         }
       });
@@ -356,6 +430,12 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       if (snapshotErr) {
         throw new Error(`Could not record the attendance snapshot: ${snapshotErr.message}`);
       }
+
+      // The register is on record from this point. Reflected on screen straight away so that
+      // a fine failure below -- which throws -- cannot leave the week still showing as
+      // unrecorded when it has in fact been saved. Both error messages there say as much.
+      setAttendance(finalAttendance);
+      setSavedRegister({ savedAt: new Date().toISOString() });
 
       // 2. Log pending absenteeism fines for absent members (deduplicated)
       if (absentMembers.length > 0) {
@@ -427,7 +507,9 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
 
       setStatusMessage({
         type: "success",
-        text: `Week ${currentWeek} Presence Saved! ${absentCount} absent member(s) assessed UGX ${totalFinesAssessed.toLocaleString()} in fines.`
+        text: `Week ${currentWeek} presence saved. ${finalCounts.present} present, ` +
+          `${finalCounts.excused} excused, ${finalCounts.absent} absent — assessed ` +
+          `UGX ${finalFinesAssessed.toLocaleString()} in fines.`
       });
 
       if (typeof window !== "undefined") {
@@ -516,11 +598,70 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
             onChange={(e) => setCurrentWeek(Number(e.target.value))}
             className="attendance-week-select"
           >
-            {Array.from({ length: 52 }, (_, i) => i + 1).map(w => (
+            {Array.from({ length: WEEKS_PER_CYCLE }, (_, i) => i + 1).map(w => (
               <option key={w} value={w}>Week {w}</option>
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Whether the week on screen has been recorded.
+          A blank sheet and a saved all-present register used to look identical -- the same
+          rows, the same green pills, the same counts -- so an admin checking back on a past
+          meeting could not tell a full house from a meeting nobody ever registered. */}
+      <div
+        role="status"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.8rem",
+          flexWrap: "wrap",
+          padding: "1rem 1.4rem",
+          borderRadius: "1rem",
+          marginBottom: "1.6rem",
+          fontSize: "1.25rem",
+          fontWeight: 600,
+          background: loading ? "#f1f5f9" : savedRegister ? "#eff6ff" : "#fffbeb",
+          color: loading ? "#475569" : savedRegister ? "#1e40af" : "#92400e",
+          border: `1px solid ${loading ? "#e2e8f0" : savedRegister ? "#bfdbfe" : "#fde68a"}`
+        }}
+      >
+        <i
+          className={
+            loading
+              ? "fa-solid fa-spinner fa-spin"
+              : savedRegister
+                ? "fa-solid fa-clipboard-check"
+                : "fa-solid fa-clipboard"
+          }
+        ></i>
+        <span>
+          {loading ? (
+            `Loading the Week ${currentWeek} register…`
+          ) : savedRegister ? (
+            <>
+              Week {currentWeek} register is saved
+              {savedRegister.savedAt && (
+                <> · recorded {new Date(savedRegister.savedAt).toLocaleString(undefined, {
+                  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+                })}</>
+              )}
+              . Saving again replaces it.
+            </>
+          ) : (
+            <>
+              No register saved for Week {currentWeek}. Nothing has been recorded for this
+              meeting yet — this is a blank sheet.
+            </>
+          )}
+        </span>
+        {selectedMeetingDate && (
+          <span style={{ opacity: 0.85, fontWeight: 500 }}>
+            · Meeting of {selectedMeetingDate.toLocaleDateString(undefined, {
+              weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC"
+            })}
+          </span>
+        )}
       </div>
 
       {/* Alert Banner */}
@@ -559,6 +700,16 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           <span style={{ fontSize: "1.2rem", color: "#873800", fontWeight: 600, display: "block" }}>Excused</span>
           <strong style={{ fontSize: "2rem", color: "#d48806" }}>{excusedCount}</strong>
         </div>
+
+        {/* Only while somebody is still unaccounted for. It says exactly what is left to do
+            before saving, and on a past week it names the members who were not in that
+            meeting's register at all -- anyone who joined the SACCO after it. */}
+        {unmarkedCount > 0 && (
+          <div className="attendance-metrics-card" style={{ background: "#f8fafc", border: "1px dashed #cbd5e1", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center" }}>
+            <span style={{ fontSize: "1.2rem", color: "#475569", fontWeight: 600, display: "block" }}>Not marked</span>
+            <strong style={{ fontSize: "2rem", color: "#64748b" }}>{unmarkedCount}</strong>
+          </div>
+        )}
 
         <div className="attendance-metrics-card" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: "1.2rem", borderRadius: "1.2rem", textAlign: "center", color: "white" }}>
           <span style={{ fontSize: "1.15rem", color: "#94a3b8", fontWeight: 600, display: "block" }}>Fines Assessed</span>
@@ -610,7 +761,11 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
           </div>
         ) : (
           filteredMembers.map((member) => {
-            const status = attendance[member.id] || "present";
+            // null when this member is on no register for the week -- either nobody has
+            // marked them yet, or they joined the SACCO after the meeting took place. Not
+            // silently promoted to "present", which is how a member could be shown as
+            // having attended a meeting held before they existed.
+            const status = statusOf(attendance, member.id);
             const memberFineTx = fineTransactions.find(t => t.profile_id === member.id);
             const isFinePaid = memberFineTx && (memberFineTx.status === "completed" || memberFineTx.status === "approved");
             const isMenuOpen = fineMenu?.memberId === member.id;
@@ -851,6 +1006,16 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
       >
         {saving ? "Saving Presence & Assessing Fines..." : `Save Week ${currentWeek} Presence & Log Absenteeism Fines`}
       </button>
+
+      {/* Says what saving will do with anyone still unmarked, before it is done rather than
+          after. The rule is the group's own -- a register is taken by calling out the
+          absentees -- but it should not be a surprise. */}
+      {!saving && !loading && unmarkedCount > 0 && (
+        <p style={{ marginTop: "0.8rem", fontSize: "1.2rem", color: "#64748b", textAlign: "center" }}>
+          {unmarkedCount} member{unmarkedCount === 1 ? " is" : "s are"} not marked and will be
+          saved as present.
+        </p>
+      )}
     </div>
   );
 }

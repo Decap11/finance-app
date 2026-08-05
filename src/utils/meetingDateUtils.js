@@ -124,6 +124,27 @@ export function getActiveWeek(anchorInput, meetingDayName = 'Wednesday', todayIn
 }
 
 /**
+ * The meeting date a given week number of the current cycle falls on.
+ *
+ * The inverse of getSaccoWeekOf: that maps a date to a week, this maps a week back to its
+ * date. Screens that let an admin pick a week out of a dropdown need it -- "Week 7" alone
+ * does not tell anybody which meeting they are looking at, and picking the wrong one is
+ * only visible once the date is on screen beside it.
+ *
+ * Returns null without an anchor, since an unanchored SACCO's week numbers are typed by
+ * hand and correspond to no date at all.
+ */
+export function getMeetingDateForWeek(anchorInput, weekNumber, meetingDayName = 'Wednesday') {
+  const anchor = getMeetingDayOnOrAfter(anchorInput, meetingDayName);
+  const week = Number(weekNumber);
+  if (!anchor || !Number.isFinite(week) || week < 1) return null;
+
+  const d = new Date(anchor);
+  d.setUTCDate(d.getUTCDate() + (week - 1) * 7);
+  return d;
+}
+
+/**
  * Formats a transaction's date into a user-friendly string aligned to the SACCO meeting day.
  * Always synchronized with the Contribution Habit Tracker.
  * Example output: "3rd August, week 1" or "4th August, week 1"
