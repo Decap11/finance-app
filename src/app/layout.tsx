@@ -5,6 +5,7 @@ import "../layout/responsive.css";
 import GlobalErrorHandler from "../Components/GlobalErrorHandler";
 import ServiceWorkerRegistrar from "../Components/ServiceWorkerRegistrar";
 import PwaInstallBanner from "../Components/PwaInstallBanner";
+import { ToastProvider } from "../context/ToastContext";
 import { siteMetadata, siteViewport } from "../utils/siteMetadata";
 
 export const metadata: Metadata = siteMetadata;
@@ -33,7 +34,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <GlobalErrorHandler />
         <ServiceWorkerRegistrar />
         <PwaInstallBanner />
-        <div id="root">{children}</div>
+        {/* Every route sits inside this. ToastProvider was written, styled and imported by
+            three components, but never actually mounted anywhere -- so useToast() always
+            hit its missing-provider fallback and every toast in the app, including error
+            messages, went to the console instead of the screen.
+
+            It wraps #root rather than sitting inside it so the fixed-position toast
+            container cannot be clipped or re-stacked by anything the page renders. */}
+        <ToastProvider>
+          <div id="root">{children}</div>
+        </ToastProvider>
       </body>
     </html>
   );
