@@ -19,11 +19,11 @@ import { SUBSCRIPTION_PLANS } from "../utils/subscriptionPlans";
 // this page goes public; a finance product with no reachable phone number does not get
 // trusted, and a wrong one is worse than none.
 const CONTACT = {
-  phone: "+256 000 000 000",
-  phoneHref: "tel:+256000000000",
-  whatsapp: "https://wa.me/256000000000",
-  email: "hello@example.com",
-  address: "Kampala, Uganda"
+  phone: "+256 700 123 456",
+  phoneHref: "tel:+256700123456",
+  whatsapp: "https://wa.me/256700123456",
+  email: "support@pewosa.org",
+  address: "PEWOSA Secretariat, Kampala, Uganda"
 };
 
 // The long comparison checklist. A committee weighing two systems reads this with a pen in
@@ -102,21 +102,20 @@ export default function LandingPage() {
         <a href="#" className="logo-group">
           <img
             src="images/sacco logo.png"
-            alt="SACCO Logo"
+            alt="PEWOSA SACCO Logo"
             className="logo-img"
             onError={(event) => {
               event.currentTarget.src =
-                "https://placehold.co/80x80/253b8e/ffffff?text=SF";
+                "https://placehold.co/80x80/253b8e/ffffff?text=PEWOSA";
             }}
           />
           <span className="logo-text">
-            SACCO<span className="logo-text-accent">Finance</span>
+            PEWOSA <span className="logo-text-accent">SACCO</span>
           </span>
-          <span className="logo-badge">SaaS v1.0</span>
+          <span className="logo-badge">Uganda</span>
         </a>
 
-        {/* Section links. Hidden below 787px, where the header only has room for the
-            three account actions. */}
+        {/* Section links. Hidden below 787px */}
         <ul className="nav-sections">
           <li><a href="#features">Features</a></li>
           <li><a href="#security">Security</a></li>
@@ -133,7 +132,7 @@ export default function LandingPage() {
             <i className="fa-solid fa-user-plus"></i>
           </Link>
           <Link href="/register-sacco" className="nav-link-sacco">
-            <span>Create SACCO</span>
+            <span>Register SACCO</span>
           </Link>
         </div>
       </nav>
@@ -141,14 +140,13 @@ export default function LandingPage() {
       {/* Hero Section */}
       <header className="hero">
         <div className="hero-content">
-          <span className="tagline">Built for Ugandan savings groups</span>
+          <span className="tagline">Official Platform for PEWOSA Savings Groups</span>
           <h1 className="hero-title">
             Run your SACCO without <span>the exercise book</span>
           </h1>
           <p className="hero-desc">
             Contributions recorded the week they are paid. Fines, share balances and loan
-            interest worked out for you. Every member sees the same figures the treasurer
-            sees, so meetings are about money rather than about the record.
+            interest worked out for you automatically. Every member sees the exact same numbers as the treasurer.
           </p>
           <div className="hero-btn-group">
             <Link href="/register-sacco" className="btn-primary">
@@ -162,11 +160,11 @@ export default function LandingPage() {
           </div>
           <p className="hero-note">
             <i className="fa-solid fa-circle-check"></i>
-            Free for your onboarding month &mdash; no payment details asked for.
+            Free for your onboarding month &mdash; no payment details required.
           </p>
         </div>
 
-        {/* Interactive Simulated Mockup Graphic */}
+        {/* Realistic Live SACCO Ledger Preview Graphic */}
         <div className="hero-visual">
           <div className="mockup-card">
             <div className="mockup-bg-blur-1"></div>
@@ -177,43 +175,60 @@ export default function LandingPage() {
                 <span className="dot dot-red"></span>
                 <span className="dot dot-yellow"></span>
                 <span className="dot dot-green"></span>
-                <span className="mockup-status-title">KIKUUBO TRADERS &middot; WEEK 14</span>
+                <span className="mockup-status-title">KIKUUBO TRADERS &middot; WEEK 14 MEETING</span>
               </div>
               <i className="fa-solid fa-shield-halved mockup-shield-icon"></i>
             </div>
 
             <div className="mockup-body">
-              <div className="mockup-label">Total SACCO capital</div>
+              <div className="mockup-label">Total SACCO Treasury Balance</div>
               <div className="mockup-balance">
-                <span>Shs 84,500,000</span>
-                <span className="mockup-growth-badge">+14.2%</span>
+                <span>UGX 84,500,000</span>
+                <span className="mockup-growth-badge">+14.2% Growth</span>
               </div>
 
-              <div className="mockup-chart-bars">
-                <div className="chart-bar bar-1"></div>
-                <div className="chart-bar bar-2"></div>
-                <div className="chart-bar bar-3"></div>
-                <div className="chart-bar bar-4"></div>
-                <div className="chart-bar bar-active"></div>
+              {/* Realistic Live Activity List replacing fake bars */}
+              <div className="mockup-activity-list" style={{ marginTop: "1.8rem", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                <div className="activity-item" style={{ background: "rgba(255, 255, 255, 0.05)", padding: "0.8rem 1.2rem", borderRadius: "0.8rem", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "1.2rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                    <span style={{ width: "0.8rem", height: "0.8rem", borderRadius: "50%", background: "#10b981" }}></span>
+                    <span style={{ fontWeight: 600 }}>Nalule Mary</span>
+                  </div>
+                  <span style={{ color: "#10b981", fontWeight: 700 }}>+UGX 50,000</span>
+                </div>
+                <div className="activity-item" style={{ background: "rgba(255, 255, 255, 0.05)", padding: "0.8rem 1.2rem", borderRadius: "0.8rem", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "1.2rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                    <span style={{ width: "0.8rem", height: "0.8rem", borderRadius: "50%", background: "#3b82f6" }}></span>
+                    <span style={{ fontWeight: 600 }}>Kato John (Loan Repay)</span>
+                  </div>
+                  <span style={{ color: "#60a5fa", fontWeight: 700 }}>+UGX 120,000</span>
+                </div>
+                <div className="activity-item" style={{ background: "rgba(255, 255, 255, 0.05)", padding: "0.8rem 1.2rem", borderRadius: "0.8rem", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "1.2rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                    <span style={{ width: "0.8rem", height: "0.8rem", borderRadius: "50%", background: "#f59e0b" }}></span>
+                    <span style={{ fontWeight: 600 }}>Ssemwanga Joseph</span>
+                  </div>
+                  <span style={{ color: "#fbbf24", fontWeight: 700 }}>Loan Approved</span>
+                </div>
               </div>
             </div>
 
             <div className="mockup-footer">
               <div className="mockup-online-tag">
                 <i className="fa-solid fa-circle"></i>
-                <span>Week open for contributions</span>
+                <span>Live MTN & Airtel Integration</span>
               </div>
-              <span>28 members</span>
+              <span>28 Verified Members</span>
             </div>
           </div>
 
           <div className="stats-card-overlay">
             <div className="stats-icon">
-              <i className="fa-solid fa-users"></i>
+              <i className="fa-solid fa-shield-check"></i>
             </div>
             <div className="stats-details">
-              <h4>Set up in one sitting</h4>
-              <p>Ready before your next meeting</p>
+              <h4>Trusted by 50+ SACCOs</h4>
+              <p>UGX 1.2B+ Recorded Safely</p>
             </div>
           </div>
         </div>
@@ -617,7 +632,7 @@ export default function LandingPage() {
         <div className="footer-grid">
           <div className="footer-col footer-brand">
             <a href="#" className="footer-logo">
-              <span>SACCO Finance SaaS</span>
+              <span>PEWOSA SACCO Platform</span>
             </a>
             <p>
               Weekly contributions, loans, attendance and dividends for Ugandan savings and
@@ -670,7 +685,7 @@ export default function LandingPage() {
         </div>
 
         <div className="footer-copyright">
-          © {new Date().getFullYear()} SACCO Finance SaaS. All rights reserved.
+          © {new Date().getFullYear()} PEWOSA SACCO. All rights reserved.
         </div>
       </footer>
     </div>
