@@ -97,7 +97,8 @@ required_functions(fn, mig) as (
          ('sacco_active_week','0030'), ('sacco_week_config','0030'),
          ('staff_sacco_for_caller','0030'), ('apply_sacco_week_anchor','0030'),
          ('finalize_historical_onboarding','0030'), ('start_new_sacco_cycle','0030'),
-         ('set_member_join_date','0031'), ('set_all_member_join_dates','0031')
+         ('set_member_join_date','0031'), ('set_all_member_join_dates','0031'),
+         ('sacco_capital_on_hand','0034'), ('get_sacco_capital_position','0034')
 ),
 
 -- Columns whose absence has actually broken a feature in production. 0029 exists solely
@@ -333,6 +334,54 @@ results(sort_key, check_name, status, detail) as (
              || 'unit_price from public.transactions where category = ''shares'' and '
              || 'share_count is not null and amount <> share_count * unit_price;'
       else 'every shares row with a stated count multiplies back to its amount'
+    end
+
+  -- 15 -- 0034 replaces two functions it does not create, so their presence proves
+  --       nothing. Check 6 sees sacco_capital_on_hand and stops there; a file that
+  --       errored after STEP 2 would leave the new functions defined, the dashboard
+  --       reporting a capital figure that falls when a loan is approved, and the
+  --       approval itself still willing to hand out money the SACCO does not hold.
+  --       That is the worst of the three states and the only one nothing else detects.
+  union all
+  select 15, 'Approving a loan is checked against the money (0034)',
+    case
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'sacco_capital_on_hand'
+      ) then 'FAIL'
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'approve_member_transaction'
+          and pg_get_functiondef(p.oid) like '%sacco_capital_on_hand%'
+      ) then 'FAIL'
+      when exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'get_sacco_capital_trend'
+          and pg_get_functiondef(p.oid) not like '%loan_disbursement%'
+      ) then 'FAIL'
+      else 'PASS'
+    end,
+    case
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'sacco_capital_on_hand'
+      ) then 'lending is invisible to every capital figure and an admin can approve a '
+             || 'loan the SACCO cannot fund. Apply 0034.'
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'approve_member_transaction'
+          and pg_get_functiondef(p.oid) like '%sacco_capital_on_hand%'
+      ) then 'HALF-APPLIED 0034: the capital figure now falls when a loan is '
+             || 'approved, but approve_member_transaction is still the 0024 version and '
+             || 'will disburse past zero. Re-run 0034 from STEP 4.'
+      when exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'get_sacco_capital_trend'
+          and pg_get_functiondef(p.oid) not like '%loan_disbursement%'
+      ) then 'HALF-APPLIED 0034: the trend still ignores lending, so the percentage on '
+             || 'the card contradicts the figure above it. Re-run 0034 from STEP 3.'
+      else 'a disbursement is measured against sacco_capital_on_hand, and the weekly '
+           || 'trend counts lending on the same basis'
     end
 )
 

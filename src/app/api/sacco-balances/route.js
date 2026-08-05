@@ -29,10 +29,12 @@ export async function GET(request) {
     // members. Both read the same ledger, so they are issued together.
     const [
       { data: accounts, error: rpcErr },
-      { data: trendRows, error: trendErr }
+      { data: trendRows, error: trendErr },
+      { data: positionRows, error: positionErr }
     ] = await Promise.all([
       supabase.rpc('get_sacco_total_balances', { p_profile_id: user.id }),
-      supabase.rpc('get_sacco_capital_trend', { p_profile_id: user.id })
+      supabase.rpc('get_sacco_capital_trend', { p_profile_id: user.id }),
+      supabase.rpc('get_sacco_capital_position', { p_profile_id: user.id })
     ]);
 
     if (rpcErr) {
@@ -83,7 +85,32 @@ export async function GET(request) {
       });
     }
 
-    return Response.json({ accounts: formattedAccounts, trend });
+    // The pools above say what was contributed by category. They do not say what is left:
+    // a loan leaves the box as a 'loan_disbursement' row, which is in none of those
+    // categories, so the four figures keep climbing whether or not the money is still
+    // there. This is the cash position -- what the SACCO actually holds today, and how
+    // much of the pot is currently sitting with borrowers.
+    //
+    // Degraded the same way as the trend, and for the same reason: a database without
+    // 0034 fails this RPC with "function does not exist", and blanking the funds page
+    // over it would be the wrong trade. The card falls back to the contributed total.
+    let capital = null;
+    if (positionErr) {
+      console.warn('Capital position unavailable (is migration 0034 applied?):', positionErr.message);
+    } else if (positionRows?.length) {
+      const row = positionRows[0];
+      capital = {
+        contributed: Number(row.contributed) || 0,
+        disbursedTotal: Number(row.disbursed_total) || 0,
+        repaidTotal: Number(row.repaid_total) || 0,
+        outOnLoan: Number(row.out_on_loan) || 0,
+        // Deliberately not clamped at zero. A SACCO that has lent more than it collected
+        // needs to see that, and rounding it up to "0" is how it stays unnoticed.
+        onHand: Number(row.on_hand) || 0
+      };
+    }
+
+    return Response.json({ accounts: formattedAccounts, trend, capital });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

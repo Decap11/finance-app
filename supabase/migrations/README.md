@@ -33,7 +33,7 @@ records what somebody said they ran. When the two disagree, the catalog is right
 
 ## Applying these to a fresh database
 
-Run **0001 through 0033 in numeric order, without stopping.**
+Run **0001 through 0034 in numeric order, without stopping.**
 
 Several mid-sequence files (0003, 0007, 0009, 0010) put the database into a deliberately
 permissive state to unblock development — 0009 disables Row Level Security outright, and 0007 and
@@ -43,7 +43,7 @@ fully exposed, so never stop the sequence early.
 
 ## Applying these to the existing production database
 
-Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029, then 0030, then 0031, then 0032, then 0033**. 0016 depends on 0015's `saccos_update_admin_only`
+Run **0015, then 0016, then 0017, then 0018, then 0019, then 0020, then 0021, then 0022, then 0023, then 0024, then 0025, then 0026, then 0027, then 0028, then 0029, then 0030, then 0031, then 0032, then 0033, then 0034**. 0016 depends on 0015's `saccos_update_admin_only`
 policy being in place — it narrows that policy's reach with column-level grants. 0017 depends on
 0015's column-level `REVOKE UPDATE ON public.profiles`: its functions are `SECURITY DEFINER`
 precisely because `role` and `status` are no longer writable by `authenticated` directly. 0018
@@ -109,6 +109,7 @@ assessing UGX 1,000 against one absentee, and the ledger held no fine of either 
 | 0031 | `member-join-dates` | ✅ **Closes the blind spot in arrears.** Adds `profiles.joined_on` — the date an admin *states* a member joined the SACCO — plus `set_member_join_date` and `set_all_member_join_dates`. Development and social fund are owed every meeting week, so what a member owes rests entirely on the week they started owing it; `src/utils/duesEngine.js` had to infer that from the member's earliest record, and that inference cannot tell "joined in week 20" from "was here since week 1 and paid nothing until week 20" — it forgives the unpaid weeks, being most generous to exactly the members the feature exists to surface. Precedence becomes `joined_on` → first record → SACCO Week 1, so a stated fact always beats the guess. The column is **nullable and starts NULL for everybody**: nothing changes on the day it is applied, and the numbers only move when an admin asserts a date. `set_all_member_join_dates` is what makes it usable at all — no admin types thirty dates — filling every blank with the SACCO's `week_anchor_date` in one call, and touching only members with no date set so re-running it never undoes a correction. Deliberately on `profiles` rather than `sacco_memberships`: bulk-added and pre-0009 members often have no membership row, and a date that silently could not be stored for those members would be worse than none. Distinct from `sacco_memberships.joined_at`, which is `default now()` and records when the membership *row* was created. Depends on 0030 (reads `saccos.week_anchor_date`) and 0017 (`admin_sacco_for_member`). |
 | 0032 | `migration-ledger` | Adds `schema_migrations` and `record_migration()`, so a hand-applied file leaves a record. Backfilled **by evidence, not assumption**: a version is written only where an object that migration alone creates is actually present in the catalog, so the starting contents are an observation rather than a claim. Deliberately weaker than it looks — `../verify-schema.sql` checks the catalog itself and is the thing to trust when the two disagree. RLS on with no policy, so the table is invisible from a browser. Depends on nothing. |
 | 0033 | `share-quantity-integrity` | ✅ **Makes a shares contribution mean one thing.** A shares contribution is a whole number of shares at the SACCO's share price, but the ledger stored only the product in `amount` — the count and the price lived nowhere except as prose in `description`. So every screen that needed a count divided the amount by whatever the price happened to be *at the moment of reading*, and the price itself was resolved separately by the member's browser (from a `localStorage` cache shared across every SACCO ever signed in on that device), by the API, and by the reporting screens — each falling back to a hardcoded 25,000 when its own lookup failed, and `UserProgressTracker` to 5,000. One request could therefore be a different figure on the member's screen, in the database, and in the admin's approval queue, and editing the share price silently rewrote how many shares every member had ever bought. Adds `transactions.share_count` and `transactions.unit_price` — the count and *the price actually charged*, which is not the same thing as the current one — recovers both for existing rows by parsing the `N share(s) @ Shs X` descriptions the API has always written (and only where they multiply back to the stored amount; rows that disagree are reported, not overwritten), and adds the `transactions_share_amount_consistent` CHECK so `amount = share_count * unit_price` is a database rule. Added `NOT VALID` then validated separately, so pre-existing bad rows are named by the migration's own `RAISE WARNING` rather than aborting the file — the constraint governs all new writes either way. `verify-schema.sql` check 14 reports the un-validated state. The application half is `src/utils/sharePricing.js` (the only place the multiplication happens) and `/api/user-transactions`, which now refuses a shares request it cannot price rather than guessing 25,000, refuses a non-integer or out-of-range quantity, and refuses one whose price disagrees with what the member's screen displayed (409 `SHARE_PRICE_CHANGED`). Depends on nothing. |
+| 0034 | `lending-draws-capital` | ✅ **Makes a loan come from somewhere.** A disbursement has always been a real ledger row — `request_loan` writes a `loan_disbursement` debit and the admin's approval completes it — but every function that added capital up ignored both loan categories, so a SACCO could lend out its entire pot with no figure in the app moving by one shilling. There was nowhere to see where a loan came from, and nothing stopping an admin approving one the group could not fund. Capital becomes a **cash position** — `contributions + fines + repayments − principal disbursed` — in `sacco_capital_on_hand`, with `get_sacco_capital_position` returning the breakdown. Approving a loan now visibly draws the pot down, and repayments build it back **with their interest**, recognised when the money actually arrives rather than as the projected `principal × rate × term` the admin dashboard computed for itself. **Savings are excluded**: members' own money held on their behalf, a liability and not the SACCO's to lend. That also settles a standing disagreement — the admin dashboard summed savings in, the Pools & Funds ring never did, so the same SACCO had two different "total capital" figures on two screens. `approve_member_transaction` gains the guard that gives the number teeth: a `loan_disbursement` larger than `sacco_capital_on_hand` is refused with the shortfall named, and the `saccos` row is locked first so two admins approving two loans at the same moment cannot each read a balance that ignores the other. `get_sacco_capital_trend` extends to the same category set, since 0027 requires its percentage to reconcile against the figure it sits under. `on_hand` is returned **unclamped** — a negative pot means the SACCO has lent more than it ever collected, which is precisely the condition worth surfacing rather than flooring at zero. The application half is `src/utils/saccoCapital.js`, which both surfaces share so they cannot drift. `verify-schema.sql` check 15 catches a half-applied file, whose worst state leaves the new figure live while approval still disburses past zero. Depends on 0024 and 0027. |
 
 ## Which definition is live
 
@@ -125,10 +126,12 @@ everything the security audit touched, 0017 for the two member-management functi
 | `handle_new_user` (signup trigger) | 0001, 0004, 0010 | 0015 |
 | `register_new_sacco` | 0003, 0009, 0010 | 0015 |
 | `approve_transaction` / `reject_transaction` | 0002, 0011 | 0024 (approve) / 0015 (reject) |
+| `approve_member_transaction` | 0011, 0015, 0024 | 0034 |
 | `calculate_dividend_preview`, `execute_dividend_payout` | 0013 | 0015 |
 | `process_guarantor_response` | 0014 | 0015 |
 | `get_sacco_total_balances` | 0002, 0015 | 0022 |
-| `get_sacco_capital_trend` | — | 0027 |
+| `get_sacco_capital_trend` | 0027 | 0034 |
+| `sacco_capital_on_hand`, `get_sacco_capital_position` | — | 0034 |
 | `get_member_open_loans` | — | 0028 |
 | `log_historical_record`, `meeting_week_of` | 0028 | 0030 |
 | `finalize_historical_onboarding`, `start_new_sacco_cycle`, `sacco_week_of`, `sacco_active_week` | — | 0030 |
@@ -153,11 +156,11 @@ comes from real commit timestamps and is reliable.
 
 ## Adding a new migration
 
-Use the next number and today's date: `0034_YYYYMMDD_short-description.sql`. Write it to be
+Use the next number and today's date: `0035_YYYYMMDD_short-description.sql`. Write it to be
 re-runnable (`IF EXISTS` / `IF NOT EXISTS` / `CREATE OR REPLACE`) — with no migration tool tracking
 what has been applied, assume any file may be run more than once.
 
-End it with `SELECT public.record_migration('0034', 'one line on what it does');` so the ledger
+End it with `SELECT public.record_migration('0035', 'one line on what it does');` so the ledger
 0032 introduced stays current.
 
 If it adds a function, column or policy the app depends on, add it to the corresponding list in

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { lendingNetOf, capitalOnHandOf, outOnLoanOf, formatSignedShs } from "../utils/saccoCapital";
 
 export default function FundDistributionMix() {
   const [loading, setLoading] = useState(true);
@@ -9,6 +10,10 @@ export default function FundDistributionMix() {
     social_fund: 0,
     fines: 0,
   });
+  // Null until /api/sacco-balances answers, and null for good on a database without
+  // migration 0034. The card then reads exactly as it did before: the pools, and their
+  // sum. Every use of it below is guarded on that.
+  const [capital, setCapital] = useState(null);
 
   async function fetchBalances() {
     try {
@@ -34,6 +39,9 @@ export default function FundDistributionMix() {
           }
         });
         setBalances(newBalances);
+      }
+      if (res.ok) {
+        setCapital(data.capital || null);
       }
     } catch (err) {
       console.warn("Error loading distribution mix balances:", err);
@@ -70,8 +78,27 @@ export default function FundDistributionMix() {
     };
   }, []);
 
+  // What the pools add up to: money contributed, by category. The ring divides this, and
+  // it only ever grows -- collecting a contribution adds to it and nothing takes it away.
   const totalCapital =
     balances.shares + balances.development_fund + balances.social_fund + balances.fines;
+
+  // What lending has done to it. Negative while money is out with borrowers, positive
+  // once a book has been repaid with its interest.
+  const lendingNet = lendingNetOf(capital);
+
+  // The headline. This is the number that has to fall when an admin approves a loan --
+  // the whole point of the exercise. Without 0034 there is nothing better to show than
+  // the contributed total, which is what this card has always shown.
+  //
+  // Recomputed from the position rather than read straight off capital.onHand so the
+  // three lines in the strip below are guaranteed to add up on screen: the pools are
+  // clamped at zero per account on their way through the API, and a headline taken from
+  // one source with its parts taken from another is how a card ends up printing an
+  // addition that does not work.
+  const headlineAmount = capital ? capitalOnHandOf(capital) : totalCapital;
+  const contributedTotal = capital ? Number(capital.contributed) || 0 : totalCapital;
+  const headlineLabel = capital ? "ON HAND" : "TOTAL";
 
   // Chart configuration
   const segments = [
@@ -95,7 +122,7 @@ export default function FundDistributionMix() {
   // no matter what the root font-size or the viewport is, so fitting the text is arithmetic
   // rather than a media query.
   const holeWidth = 2 * (radius - strokeWidth / 2); // 94
-  const amountText = loading ? "..." : `Shs ${totalCapital.toLocaleString()}`;
+  const amountText = loading ? "..." : formatSignedShs(headlineAmount);
 
   // 0.6em is a serviceable average advance width for bold digits in a sans-serif face, and
   // 0.88 keeps the string off the curve of the hole rather than touching it. Clamped at 15
@@ -146,7 +173,13 @@ export default function FundDistributionMix() {
               height="100%"
               viewBox="0 0 160 160"
               role="img"
-              aria-label={`Capital asset distribution. Total ${amountText}.`}
+              aria-label={
+                capital
+                  ? `Capital asset distribution. Shs ${contributedTotal.toLocaleString()} contributed, `
+                    + `Shs ${outOnLoanOf(capital).toLocaleString()} out on loan, `
+                    + `${amountText} on hand.`
+                  : `Capital asset distribution. Total ${amountText}.`
+              }
             >
               {/* The quarter turn that starts the first segment at twelve o'clock belongs to
                   the ring alone -- applying it to the whole <svg>, as this once did, would
@@ -196,7 +229,7 @@ export default function FundDistributionMix() {
                   letterSpacing: "0.5px"
                 }}
               >
-                TOTAL
+                {headlineLabel}
               </text>
               <text
                 x="80"
@@ -272,6 +305,81 @@ export default function FundDistributionMix() {
             ))}
           </div>
         </div>
+
+        {/* Where the money actually is.
+         *
+         * The ring above divides what was contributed, and that figure only ever climbs.
+         * It cannot answer the question this strip exists for -- a member looking at a
+         * loan that was just approved should be able to see the pot it came out of. The
+         * three lines always reconcile: contributed + lendingNet = on hand, by
+         * construction in get_sacco_capital_position, including the case where a book has
+         * been repaid with interest and the SACCO now holds more than it collected. */}
+        {capital && (
+          <div style={{
+            marginTop: "2rem",
+            paddingTop: "1.6rem",
+            borderTop: "0.1rem solid rgba(226, 232, 240, 0.8)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.8rem"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "1.2rem" }}>
+              <span style={{ fontSize: "1.25rem", color: "var(--text-light)" }}>
+                Contributed by members
+              </span>
+              <span style={{
+                fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)",
+                flexShrink: 0, whiteSpace: "nowrap"
+              }}>
+                Shs {contributedTotal.toLocaleString()}
+              </span>
+            </div>
+
+            {lendingNet !== 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "1.2rem" }}>
+                <span style={{ fontSize: "1.25rem", color: "var(--text-light)" }}>
+                  {lendingNet < 0 ? "Out on loan with members" : "Returned with interest"}
+                </span>
+                <span style={{
+                  fontSize: "1.3rem",
+                  fontWeight: 700,
+                  // Red is not a warning here. Money out with borrowers is the SACCO
+                  // working exactly as intended; the colour only marks the direction so
+                  // the three lines read as arithmetic at a glance.
+                  color: lendingNet < 0 ? "#ef4444" : "#10b981",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap"
+                }}>
+                  {lendingNet < 0 ? "−" : "+"}Shs {Math.abs(lendingNet).toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "1.2rem",
+              paddingTop: "0.8rem",
+              borderTop: "0.1rem dashed rgba(226, 232, 240, 0.9)"
+            }}>
+              <span style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)" }}>
+                Available to lend
+              </span>
+              <span style={{
+                fontSize: "1.4rem",
+                fontWeight: 800,
+                // A negative pot means the SACCO has lent more than it ever collected.
+                // It is shown rather than floored at zero, because flooring it is how it
+                // goes unnoticed.
+                color: headlineAmount < 0 ? "#ef4444" : "var(--primary-color)",
+                flexShrink: 0,
+                whiteSpace: "nowrap"
+              }}>
+                {formatSignedShs(headlineAmount)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

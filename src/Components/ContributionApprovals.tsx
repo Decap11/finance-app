@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../supabaseClient";
 import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
 import { shareCountOf, shareUnitPriceOf, formatShs } from "../utils/sharePricing";
+import { canFundLoan, loanShortfall, formatSignedShs } from "../utils/saccoCapital";
 import "../styles/contributionApprovals.css";
 
 export interface TransactionApprovalItem {
@@ -45,11 +46,41 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
   const [saccoMeetingDay, setSaccoMeetingDay] = useState<string>("Wednesday");
   const [loading, setLoading] = useState<boolean>(true);
   const [message, setMessage] = useState<string>("");
+  // Cash the SACCO actually holds. Null until it loads, and null for good on a database
+  // without migration 0034 -- in which case this queue behaves exactly as it did before.
+  // A loan disbursement approved from this table is paid out of this number, and until
+  // 0034 there was nowhere in the app an admin could see it before deciding.
+  const [capitalOnHand, setCapitalOnHand] = useState<number | null>(null);
+
+  async function fetchCapital(profileId: string) {
+    const { data, error } = await supabase.rpc('get_sacco_capital_position', {
+      p_profile_id: profileId
+    });
+
+    if (error) {
+      console.warn('Capital position unavailable (is migration 0034 applied?):', error.message);
+      return;
+    }
+
+    if (data?.length) {
+      setCapitalOnHand(Number(data[0].on_hand) || 0);
+    }
+  }
+
+  async function refreshCapital() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await fetchCapital(user.id);
+  }
 
   async function fetchRequests() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Deliberately not awaited into the critical path. The table is the page; the
+      // capital line is context beside it, and a slow or missing RPC must not hold the
+      // approvals queue back.
+      fetchCapital(user.id);
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -206,6 +237,11 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
         ? prev.filter(item => item.id !== id)
         : prev.map(item => item.id === id ? { ...item, status: 'completed' } : item));
 
+      // The money just moved. Approving a loan spends the pot the line above the table
+      // reports, and an admin working through a queue of them needs the next decision
+      // measured against what is left, not against what there was when the page opened.
+      refreshCapital();
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sacco_transaction_updated"));
       }
@@ -267,6 +303,34 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
         </div>
       )}
 
+      {/* Shown only when there is a lending decision on this screen to make. On a queue of
+          ordinary contributions the SACCO's cash position is not what the admin is being
+          asked about, and a permanent money banner over every screen is a banner nobody
+          reads by the time it matters. */}
+      {capitalOnHand !== null && requests.some(
+        r => r.category === 'loan_disbursement' && r.status === 'pending'
+      ) && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          padding: "1.2rem 1.5rem",
+          margin: "1rem 1.5rem 0",
+          borderRadius: "0.8rem",
+          fontSize: "1.3rem",
+          backgroundColor: capitalOnHand > 0 ? "#eff6ff" : "#fef2f2",
+          border: `1px solid ${capitalOnHand > 0 ? "#bfdbfe" : "#fecaca"}`,
+          color: capitalOnHand > 0 ? "#1e40af" : "#b91c1c"
+        }}>
+          <i className="fa-solid fa-vault" style={{ fontSize: "1.6rem", flexShrink: 0 }}></i>
+          <div>
+            <strong>{formatSignedShs(capitalOnHand)} on hand.</strong>{" "}
+            A loan approved here is paid out of this. Contributions and repayments add to
+            it; the pot is not refilled by approving the loan.
+          </div>
+        </div>
+      )}
+
       <div className="table-responsive" style={{ marginTop: "1rem" }}>
         <table className="approvals-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -301,6 +365,12 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
                 if (catLabel === 'shares') catLabel = 'Shares Pool';
                 if (catLabel === 'development_fund' || catLabel === 'devt') catLabel = 'Development Fund';
                 if (catLabel === 'social_fund' || catLabel === 'social') catLabel = 'Social Fund';
+                // Loan rows have always been in this queue (see the category filter in
+                // fetchRequests) but fell through unlabelled, so an admin approving one
+                // read the raw column name. They are the rows that move the most money.
+                if (catLabel === 'loan_disbursement') catLabel = 'Loan Payout';
+                if (catLabel === 'loan_repayment') catLabel = 'Loan Repayment';
+                if (catLabel === 'savings') catLabel = 'Savings';
 
                 const isPending = request.status === 'pending';
                 const isApproved = request.status === 'approved' || request.status === 'completed';
@@ -319,6 +389,19 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
                 // for rows written before the server started pricing shares itself.
                 const shareMismatch = Boolean(
                   shareBreakdown && shareQty * shareUnit! !== Number(request.amount || 0)
+                );
+
+                // The database refuses this outright (0034, approve_member_transaction).
+                // Saying so before the click rather than after is the difference between
+                // a decision and an error message: the admin can chase the contributions
+                // that would cover it instead of discovering the shortfall by hitting a
+                // wall. The button stays enabled deliberately -- the authority to refuse
+                // belongs to the database, and a disabled button here would be a second
+                // copy of that rule, free to disagree with it.
+                const isDisbursement = request.category === 'loan_disbursement';
+                const exceedsCapital = Boolean(
+                  isDisbursement && isPending && capitalOnHand !== null &&
+                  !canFundLoan(request.amount, capitalOnHand)
                 );
 
                 return (
@@ -361,6 +444,18 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
                           )}
                           {shareBreakdown}
                           {shareMismatch && " — does not match the amount"}
+                        </div>
+                      )}
+                      {exceedsCapital && (
+                        <div style={{
+                          fontSize: "1.1rem",
+                          fontWeight: 700,
+                          color: "#b91c1c",
+                          marginTop: "0.2rem"
+                        }}>
+                          <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "0.4rem" }}></i>
+                          More than the SACCO holds — short by Shs{" "}
+                          {formatShs(loanShortfall(request.amount, capitalOnHand ?? 0))}
                         </div>
                       )}
                     </td>

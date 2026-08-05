@@ -16,6 +16,7 @@ import PaymentPlans from "../Components/Payments";
 import SaccoSettings from "../Components/saccoSettings";
 import DividendDistributionPortal from "../Components/DividendDistributionPortal";
 import AdminActionModal from "../Components/AdminActionModal";
+import { formatSignedShs } from "../utils/saccoCapital";
 
 export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
@@ -35,6 +36,7 @@ export default function AdminDashboardPage() {
   const [metrics, setMetrics] = useState({
     pendingApprovals: 0,
     totalCapital: 0,
+    outOnLoan: 0,
     totalMembers: 0,
     activeLoansTotal: 0,
     finesProfit: 0,
@@ -167,13 +169,35 @@ export default function AdminDashboardPage() {
         console.error("Could not count pending approvals:", pendingError);
       }
 
-      // 2. Fetch Sacco Total Balances (capital)
+      // 2. Fetch the SACCO's capital position.
+      //
+      // This used to sum every row get_sacco_total_balances returned, which had two
+      // faults. It counted savings -- members' own money, held on their behalf and not
+      // the SACCO's to lend -- so this card disagreed with the Pools & Funds ring, which
+      // has never counted them. And it counted no loan movement at all, so the figure did
+      // not budge when the SACCO handed money to a borrower.
+      //
+      // get_sacco_capital_position answers both: contributions and fines, plus repayments
+      // received, minus principal disbursed. The same number the ring now shows.
       const { data: { session } } = await supabase.auth.getSession();
       let calculatedCapital = 0;
+      let calculatedOutOnLoan = 0;
       if (session) {
-        const { data: totalBalances } = await supabase.rpc('get_sacco_total_balances', { p_profile_id: session.user.id });
-        if (totalBalances) {
-          calculatedCapital = totalBalances.reduce((sum, item) => sum + (Number(item.balance) || 0), 0);
+        const { data: position, error: positionErr } = await supabase.rpc(
+          'get_sacco_capital_position', { p_profile_id: session.user.id }
+        );
+
+        if (positionErr) {
+          // A database without migration 0034. Fall back to the old sum rather than
+          // showing a confident zero, which on this card reads as "the SACCO is broke".
+          console.warn('Capital position unavailable (is migration 0034 applied?):', positionErr.message);
+          const { data: totalBalances } = await supabase.rpc('get_sacco_total_balances', { p_profile_id: session.user.id });
+          if (totalBalances) {
+            calculatedCapital = totalBalances.reduce((sum, item) => sum + (Number(item.balance) || 0), 0);
+          }
+        } else if (position?.length) {
+          calculatedCapital = Number(position[0].on_hand) || 0;
+          calculatedOutOnLoan = Number(position[0].out_on_loan) || 0;
         }
       }
 
@@ -225,6 +249,7 @@ export default function AdminDashboardPage() {
         ...prev,
         pendingApprovals: pendingError ? prev.pendingApprovals : (pendingCount || 0),
         totalCapital: calculatedCapital,
+        outOnLoan: calculatedOutOnLoan,
         activeLoansTotal: calculatedLoans,
         finesProfit: calculatedFinesProfit,
         interestProfit: calculatedInterestProfit,
@@ -554,13 +579,19 @@ export default function AdminDashboardPage() {
       subInfo: hasWaiting ? "Waiting for your approval" : "All caught up — nothing waiting",
     },
     {
-      title: "Total SACCO Capital",
-      borderColor: "#f59e0b",
-      bgColor: "#fffbe6",
-      iconColor: "#d97706",
-      info: `Shs ${metrics.totalCapital.toLocaleString()}`,
+      // Renamed from "Total SACCO Capital". The figure now falls when a loan is approved
+      // and rises as it is repaid, so "total" was the wrong word for it -- an admin
+      // reading a smaller number under that heading would reasonably think money had
+      // gone missing rather than gone out on loan. The sub-line names where it went.
+      title: "Capital On Hand",
+      borderColor: metrics.totalCapital < 0 ? "#ef4444" : "#f59e0b",
+      bgColor: metrics.totalCapital < 0 ? "#fef2f2" : "#fffbe6",
+      iconColor: metrics.totalCapital < 0 ? "#ef4444" : "#d97706",
+      info: formatSignedShs(metrics.totalCapital),
       icon: "fa-solid fa-vault",
-      subInfo: "Aggregate across all accounts",
+      subInfo: metrics.outOnLoan > 0
+        ? `Shs ${metrics.outOnLoan.toLocaleString()} is out on loan`
+        : "Available to lend right now",
     },
     {
       title: "Total Members",
