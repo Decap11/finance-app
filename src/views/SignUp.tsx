@@ -95,31 +95,26 @@ export default function SignupForm() {
     let targetGroupCode = generatedGroupCode;
     let foundSaccoId: string | null = null;
 
-    // 1. Check if SACCO group already exists in public.saccos
+    // 1. Check if SACCO group already exists.
+    //
+    // Through an RPC rather than a direct read of public.saccos: this runs before signUp()
+    // below, so the caller is still anonymous, and 0035 closed anonymous access to that
+    // table -- it was handing out every SACCO's group code, fee schedule and admin id to
+    // anyone with the publishable key. lookup_sacco_for_signup returns the three columns
+    // this flow actually needs, for one match, and applies the same code-then-name
+    // precedence the query here used to.
     try {
-      const { data: saccoMatches } = await supabase
-        .from('saccos')
-        .select('id, group_code, name')
-        .or(`group_code.ilike.${generatedGroupCode},group_code.ilike.%-${cleanUniqueNumber},group_code.ilike.${cleanUniqueNumber}`)
-        .limit(5);
+      const { data: match } = await supabase
+        .rpc('lookup_sacco_for_signup', {
+          p_group_code: generatedGroupCode,
+          p_unique_number: cleanUniqueNumber,
+          p_name: cleanName || null
+        })
+        .maybeSingle<{ id: string; group_code: string; name: string }>();
 
-      if (saccoMatches && saccoMatches.length > 0) {
-        const exactNameMatch = saccoMatches.find(s => s.name.toLowerCase().includes(cleanName.toLowerCase()));
-        const matchedSacco = exactNameMatch || saccoMatches[0];
-        foundSaccoId = matchedSacco.id;
-        targetGroupCode = matchedSacco.group_code;
-      } else if (cleanName) {
-        const { data: nameMatch } = await supabase
-          .from('saccos')
-          .select('id, group_code, name')
-          .ilike('name', `%${cleanName}%`)
-          .limit(1)
-          .maybeSingle();
-
-        if (nameMatch) {
-          foundSaccoId = nameMatch.id;
-          targetGroupCode = nameMatch.group_code;
-        }
+      if (match) {
+        foundSaccoId = match.id;
+        targetGroupCode = match.group_code;
       }
     } catch (sErr) {
       console.warn("SACCO lookup notice:", sErr);

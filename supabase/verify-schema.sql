@@ -98,7 +98,10 @@ required_functions(fn, mig) as (
          ('staff_sacco_for_caller','0030'), ('apply_sacco_week_anchor','0030'),
          ('finalize_historical_onboarding','0030'), ('start_new_sacco_cycle','0030'),
          ('set_member_join_date','0031'), ('set_all_member_join_dates','0031'),
-         ('sacco_capital_on_hand','0034'), ('get_sacco_capital_position','0034')
+         ('sacco_capital_on_hand','0034'), ('get_sacco_capital_position','0034'),
+         ('my_group_code','0035'), ('is_my_sacco','0035'),
+         ('shares_sacco_with','0035'), ('is_sacco_admin_or_founder','0035'),
+         ('lookup_sacco_for_signup','0035')
 ),
 
 -- Columns whose absence has actually broken a feature in production. 0029 exists solely
@@ -382,6 +385,63 @@ results(sort_key, check_name, status, detail) as (
              || 'the card contradicts the figure above it. Re-run 0034 from STEP 3.'
       else 'a disbursement is measured against sacco_capital_on_hand, and the weekly '
            || 'trend counts lending on the same basis'
+    end
+
+  -- 16 -- The check that would have caught 0015. A policy with no TO clause applies to
+  --       PUBLIC, which includes anon -- so "Users can view all profiles" USING (true)
+  --       read as members seeing each other and behaved as the whole internet reading
+  --       27 people's names, phones and emails. Presence of the right policy proves
+  --       nothing here; what matters is that no policy on these tables reaches anon.
+  --       pg_policies renders a policy with no TO clause as roles = {public}, which is
+  --       the spelling that actually shows up -- 'anon' only appears when named outright.
+  union all
+  select 16, 'Member data is not readable by anonymous callers (0035)',
+    case
+      when exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename in ('profiles','saccos','sacco_memberships','sacco_settings')
+          and ('anon' = any(roles) or 'public' = any(roles))
+      ) then 'FAIL'
+      when exists (
+        select 1 from information_schema.role_table_grants
+        where table_schema = 'public'
+          and table_name in ('profiles','saccos','sacco_memberships','sacco_settings')
+          and grantee = 'anon'
+      ) then 'FAIL'
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'lookup_sacco_for_signup'
+      ) then 'FAIL'
+      else 'PASS'
+    end,
+    case
+      when exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename in ('profiles','saccos','sacco_memberships','sacco_settings')
+          and ('anon' = any(roles) or 'public' = any(roles))
+      ) then 'a policy on one of these tables still applies to anon or to PUBLIC -- every '
+             || 'member''s name, phone and email is readable with the publishable key. '
+             || 'List them: select tablename, policyname, roles, cmd from pg_policies where '
+             || 'schemaname = ''public'' and tablename in (''profiles'',''saccos'','
+             || '''sacco_memberships'',''sacco_settings''); then apply 0035.'
+      when exists (
+        select 1 from information_schema.role_table_grants
+        where table_schema = 'public'
+          and table_name in ('profiles','saccos','sacco_memberships','sacco_settings')
+          and grantee = 'anon'
+      ) then 'policies are scoped but anon still holds a table-level GRANT on one of these '
+             || 'tables, so only the policy stands between the public and the data. '
+             || 'Re-run 0035 from STEP 9.'
+      when not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'lookup_sacco_for_signup'
+      ) then 'HALF-APPLIED 0035: anonymous access is closed but lookup_sacco_for_signup is '
+             || 'missing, so signup can no longer identify the group being joined and every '
+             || 'new member auto-creates a duplicate SACCO. Re-run 0035 from STEP 8.'
+      else 'no policy or grant on profiles, saccos, sacco_memberships or sacco_settings '
+           || 'reaches anon, and signup can still find its SACCO'
     end
 )
 

@@ -32,24 +32,28 @@ async function authorizeSaccoAdmin(request, saccoId) {
 
   const admin = getSupabaseAdmin();
 
-  const { data: profile } = await admin
-    .from('profiles')
+  // Both tests name saccoId. There used to be a third, checked first, which did not:
+  //
+  //     let isAdminOfSacco = profile?.role === 'admin';
+  //
+  // profiles.role is global -- it says the caller administers *a* SACCO, not this one --
+  // and the two scoped tests below only ran when it failed. So any SACCO admin could pass
+  // any sacco_id in the query string and be authorized for it. GET ?action=history then
+  // read that SACCO's dividend_cycles through the service-key client, which bypasses RLS:
+  // a cross-tenant read of another group's payout history by anyone who could edit a URL.
+  // preview and POST happened to survive it only because they forward the caller's JWT and
+  // the RPC guards itself.
+  const { data: membership } = await admin
+    .from('sacco_memberships')
     .select('role')
-    .eq('id', user.id)
+    .eq('sacco_id', saccoId)
+    .eq('profile_id', user.id)
     .maybeSingle();
 
-  let isAdminOfSacco = profile?.role === 'admin';
+  let isAdminOfSacco = membership?.role === 'admin';
 
-  if (!isAdminOfSacco) {
-    const { data: membership } = await admin
-      .from('sacco_memberships')
-      .select('role')
-      .eq('sacco_id', saccoId)
-      .eq('profile_id', user.id)
-      .maybeSingle();
-    isAdminOfSacco = membership?.role === 'admin';
-  }
-
+  // A SACCO whose membership rows never materialised still has a founder, and
+  // resolveAdministeredSacco in sacco-settings treats that as the same authority.
   if (!isAdminOfSacco) {
     const { data: saccoRow } = await admin
       .from('saccos')
