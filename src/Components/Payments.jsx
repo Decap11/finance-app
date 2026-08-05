@@ -56,7 +56,7 @@ export default function PaymentPlans() {
         ) : (
           plans.map((plan) => {
             const isStandard = plan.recommended;
-            const isPremium = plan.id === "premium" || plan.id === "enterprise";
+            const isPremium = plan.id === "premium";
 
             const cardClass = isStandard
               ? "plan-card plan-standard popular"

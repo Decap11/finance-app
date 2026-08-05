@@ -443,6 +443,57 @@ results(sort_key, check_name, status, detail) as (
       else 'no policy or grant on profiles, saccos, sacco_memberships or sacco_settings '
            || 'reaches anon, and signup can still find its SACCO'
     end
+
+  -- 17 -- The database and the price list have to name the same plans. 0016 constrained
+  --       subscription_plan to ('basic','premium','enterprise') while the catalogue in
+  --       src/utils/subscriptionPlans.js sells basic, standard and premium -- so the plan
+  --       most SACCOs belong on could not be stored, and a tier nothing sells could.
+  --       The amount default matters for the same reason: 150,000 is not the price of any
+  --       plan, and register_new_sacco sets no amount, so every tenant inherited it.
+  union all
+  select 17, 'Subscription plans match the price list (0036)',
+    case
+      when not exists (
+        select 1 from pg_constraint
+        where conrelid = 'public.saccos'::regclass
+          and conname = 'saccos_subscription_plan_check'
+          and pg_get_constraintdef(oid) like '%standard%'
+      ) then 'FAIL'
+      when exists (
+        select 1 from public.saccos where subscription_plan = 'enterprise'
+      ) then 'FAIL'
+      when exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'saccos'
+          and column_name = 'subscription_amount'
+          and column_default like '150000%'
+      ) then 'WARN'
+      else 'PASS'
+    end,
+    case
+      when not exists (
+        select 1 from pg_constraint
+        where conrelid = 'public.saccos'::regclass
+          and conname = 'saccos_subscription_plan_check'
+          and pg_get_constraintdef(oid) like '%standard%'
+      ) then 'subscription_plan cannot hold ''standard'' -- the recommended plan on the '
+             || 'payments page -- so activating it fails the CHECK constraint. Apply 0036.'
+      when exists (
+        select 1 from public.saccos where subscription_plan = 'enterprise'
+      ) then 'HALF-APPLIED 0036: rows are still on the retired ''enterprise'' plan, which '
+             || 'the catalogue does not sell and the developer portal cannot price. '
+             || 'Re-run 0036 from STEP 1.'
+      when exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'saccos'
+          and column_name = 'subscription_amount'
+          and column_default like '150000%'
+      ) then 'the constraint is right but subscription_amount still defaults to 150000, a '
+             || 'price no plan charges, so every newly registered SACCO inherits it. '
+             || 'Re-run 0036 from STEP 3.'
+      else 'subscription_plan lists the same plans as the catalogue, nothing is on the '
+           || 'retired enterprise tier, and new tenants no longer inherit a 150000 rate'
+    end
 )
 
 select

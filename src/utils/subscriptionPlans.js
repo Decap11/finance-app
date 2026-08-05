@@ -6,11 +6,11 @@
  * browser posts, so a tampered request cannot buy Premium for a shilling. Anything that
  * needs to know what a plan costs must import this rather than restating a number.
  *
- * `id` matches `saccos.subscription_plan`, whose CHECK constraint (migration 0016) allows
- * 'basic', 'premium' and 'enterprise'. 'standard' is not in that list -- activating it
- * needs the constraint widened first, which is why nothing here writes the column. A
- * checkout records a request; a platform operator activates it. 0016 deliberately revoked
- * the tenant admin's UPDATE grant on every subscription column for exactly this reason.
+ * `id` matches `saccos.subscription_plan`, whose CHECK constraint lists exactly these three
+ * ids as of migration 0036 -- which is also what retired 'enterprise', a tier the app never
+ * sold. Nothing here writes the column even so: a checkout records a request, and a
+ * platform operator activates it. 0016 deliberately revoked the tenant admin's UPDATE grant
+ * on every subscription column for exactly that reason.
  */
 
 export const SUBSCRIPTION_PLANS = [
@@ -75,6 +75,27 @@ export const SUBSCRIPTION_PLANS = [
 
 export function getPlan(planId) {
   return SUBSCRIPTION_PLANS.find((plan) => plan.id === planId) || null;
+}
+
+/**
+ * The catalogue ids, in catalogue order. This is the list `saccos.subscription_plan` is
+ * constrained to (migration 0036), so anything validating that column reads it from here
+ * rather than restating the three strings.
+ */
+export const PLAN_IDS = SUBSCRIPTION_PLANS.map((plan) => plan.id);
+
+/**
+ * What a plan works out at per month.
+ *
+ * `price` is what is charged per billing *term*, and a term is not always a month --
+ * premium is one payment of 200,000 covering three. Anything summing plans into a monthly
+ * figure (the developer portal's platform income metric) has to divide first, or a
+ * quarterly plan is counted at three times what it earns per month.
+ */
+export function planMonthlyPrice(plan) {
+  if (!plan) return 0;
+  const months = Number(plan.durationMonths) || 1;
+  return (Number(plan.price) || 0) / months;
 }
 
 export const PAYMENT_PROVIDERS = [

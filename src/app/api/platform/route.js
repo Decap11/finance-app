@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { PLAN_IDS } from '../../../utils/subscriptionPlans';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,10 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 // A subscription in one of these states is paid up; a billing hold is not justified.
 const GOOD_STANDING = ['trial', 'active'];
 const SUBSCRIPTION_STATUSES = ['trial', 'active', 'past_due', 'expired', 'cancelled'];
-const SUBSCRIPTION_PLANS = ['basic', 'premium', 'enterprise'];
+// The plan catalogue, not a second copy of it. These ids are what
+// saccos_subscription_plan_check allows (migration 0036), so a plan the app does not sell
+// is rejected here rather than by the database.
+const SUBSCRIPTION_PLANS = PLAN_IDS;
 
 // saccos.status_reason is shown verbatim to the tenant admin in the payment reminder, so
 // the default message written on a hold is phrased for them, not for the operator.

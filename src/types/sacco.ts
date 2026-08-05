@@ -23,7 +23,9 @@ export type SaccoStatus = 'active' | 'on_hold' | 'suspended' | 'closed';
 
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'expired' | 'cancelled';
 
-export type SubscriptionPlan = 'basic' | 'premium' | 'enterprise';
+/** The catalogue in src/utils/subscriptionPlans.js, which migration 0036 made the
+ *  saccos_subscription_plan_check constraint agree with. 'enterprise' was retired there. */
+export type SubscriptionPlan = 'basic' | 'standard' | 'premium';
 
 export interface SaccoGroup {
   id: string;
