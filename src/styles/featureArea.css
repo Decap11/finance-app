@@ -85,9 +85,13 @@
   box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.1);
 }
 
-/* Primary Button style */
+/* Primary Button style. Primary blue, like every other action button in the app --
+   .fines-submit, .loan-admin-btn and the attendance save button all use it. The Blue 500
+   this used to be is --admin-sidebar-active, which is the sidebar's active state and not a
+   colour for controls; it left the Register Record and Broadcast buttons as the only two
+   in the features column that did not match their neighbours. */
 .admin-btn-primary {
-  background-color: #3b82f6;
+  background-color: var(--primary-color, #253b8e);
   color: #ffffff;
   border: none;
   border-radius: 0.8rem;
@@ -105,7 +109,7 @@
 }
 
 .admin-btn-primary:hover {
-  background-color: #2563eb;
+  background-color: #1e317a;
 }
 
 .admin-btn-primary:active {

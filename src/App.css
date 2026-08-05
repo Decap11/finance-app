@@ -238,8 +238,10 @@ html {
   box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.1);
 }
 
+/* Kept in step with the .admin-btn-primary in styles/featureArea.css -- which of the two
+   wins depends on import order, so they must not disagree on the colour. */
 .admin-btn-primary {
-  background-color: var(--admin-sidebar-active);
+  background-color: var(--primary-color, #253b8e);
   color: white;
   padding: 1.2rem 2rem;
   border: none;
@@ -255,7 +257,7 @@ html {
 }
 
 .admin-btn-primary:hover {
-  background-color: #2563eb;
+  background-color: #1e317a;
 }
 
 /* Custom Table Layout */
