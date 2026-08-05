@@ -384,16 +384,6 @@
   color: #94a3b8;
 }
 
-.dev-badge-role {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #10b981;
-  padding: 0.6rem 1.4rem;
-  border-radius: 2rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
 /* Metrics Grid */
 .dev-metrics-grid {
   display: grid;
@@ -515,38 +505,78 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-.tenant-status {
+/* The tenant's derived state -- see src/utils/tenantState.js. Coloured by tone rather than
+   by the state's own name, because several states share a meaning: 'cancelled' and
+   'overdue' are both "owes money", and 'suspended' and 'closed' are both "gone". */
+.tenant-state {
   padding: 0.4rem 1rem;
   border-radius: 0.8rem;
   font-size: 1.1rem;
   font-weight: 700;
   display: inline-block;
+  white-space: nowrap;
 }
 
-.tenant-status.active {
+/* Paid up and running. */
+.tenant-state.tone-ok {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
 }
 
-.tenant-status.pending {
-  background: rgba(245, 158, 11, 0.1);
+/* On trial: fine, but finite. */
+.tenant-state.tone-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+}
+
+/* Lapsed, inside the grace window. Nothing has been enforced yet. */
+.tenant-state.tone-warn {
+  background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
 }
 
-.tenant-status.suspended {
+/* Owes money and the grace window has gone. Still running -- this is the state a hold
+   exists for, which is why it is the loudest thing on the row that is not a lockout. */
+.tenant-state.tone-due {
+  background: rgba(249, 115, 22, 0.14);
+  color: #fb923c;
+  box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.3);
+}
+
+/* Held: a developer acted, and members are locked out. */
+.tenant-state.tone-held {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+  box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.45);
+}
+
+/* Suspended or closed. */
+.tenant-state.tone-dead {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
 
-/* Billing hold: restricted, but softer than an administrative suspension. */
-.tenant-status.on_hold {
-  background: rgba(249, 115, 22, 0.12);
-  color: #fb923c;
+/* Marks a state nobody chose -- it followed from the subscription and the date. Its
+   opposite needs no label: a developer decision names the developer instead. */
+.dev-state-origin {
+  display: inline-block;
+  margin-top: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.4rem;
+  background: rgba(148, 163, 184, 0.1);
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06rem;
+  text-transform: uppercase;
 }
 
-.tenant-status.closed {
-  background: rgba(148, 163, 184, 0.12);
-  color: #94a3b8;
+/* A hold this tenant has earned: past grace and still unpaid. Drawn as the suggested next
+   action rather than one of several equal buttons. */
+.btn-dev-action.warn.is-urged {
+  background: rgba(249, 115, 22, 0.14);
+  border-color: rgba(249, 115, 22, 0.4);
+  color: #fdba74;
 }
 
 /* Secondary line under a table cell: billing term, status reason, join date. */
@@ -1078,10 +1108,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1.5rem;
-  }
-
-  .dev-badge-role {
-    align-self: flex-start;
   }
 
   .dev-table th:nth-child(4),

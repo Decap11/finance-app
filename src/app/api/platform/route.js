@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { PLAN_IDS } from '../../../utils/subscriptionPlans';
+import { tenantState, canHold } from '../../../utils/tenantState';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,23 +8,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUP
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// A subscription in one of these states is paid up; a billing hold is not justified.
+// A subscription in one of these states is paid up. Whether that makes the *tenant* in
+// good standing is tenantState's business, not this list's -- a paid-up tenant can still
+// be suspended.
 const GOOD_STANDING = ['trial', 'active'];
 const SUBSCRIPTION_STATUSES = ['trial', 'active', 'past_due', 'expired', 'cancelled'];
 // The plan catalogue, not a second copy of it. These ids are what
 // saccos_subscription_plan_check allows (migration 0036), so a plan the app does not sell
 // is rejected here rather than by the database.
 const SUBSCRIPTION_PLANS = PLAN_IDS;
-
-// saccos.status_reason is shown verbatim to the tenant admin in the payment reminder, so
-// the default message written on a hold is phrased for them, not for the operator.
-const SUBSCRIPTION_LABELS = {
-  trial: 'on trial',
-  active: 'paid up',
-  past_due: 'past due',
-  expired: 'expired',
-  cancelled: 'cancelled'
-};
 
 function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
@@ -64,24 +57,28 @@ async function authorizePlatformAdmin(request) {
   return { user, email: callerEmail };
 }
 
-// A subscription that ran past its expiry date is treated as past_due even if nobody has
-// got round to flipping the stored status yet. This is what "hold based on subscription
-// status" keys off, both here and in the portal UI.
+// The tenant's real condition, derived from the platform decision and the subscription
+// together -- see src/utils/tenantState.js, which is the single definition. Served to the
+// portal so the two cannot disagree about what a row means, and used below to decide
+// whether a hold is allowed at all.
 function subscriptionSnapshot(sacco) {
-  const stored = sacco?.subscription_status || 'trial';
-  const expiresAt = sacco?.subscription_expires_at ? new Date(sacco.subscription_expires_at) : null;
-  const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
-
-  const effective = isExpired && GOOD_STANDING.includes(stored) ? 'past_due' : stored;
-  const daysOverdue = isExpired && expiresAt
-    ? Math.floor((Date.now() - expiresAt.getTime()) / 86400000)
-    : 0;
+  const state = tenantState(sacco);
 
   return {
-    stored,
-    effective,
-    daysOverdue,
-    inGoodStanding: GOOD_STANDING.includes(effective)
+    state: state.id,
+    label: state.label,
+    tone: state.tone,
+    decidedBy: state.decidedBy,
+    detail: state.detail,
+    blocksMembers: state.blocksMembers,
+    needsPayment: state.needsPayment,
+    holdRecommended: state.holdRecommended,
+    // The billing view, kept under the names the portal already reads.
+    stored: state.storedSubscription,
+    daysOverdue: state.daysOverdue,
+    daysLeft: state.daysLeft,
+    graceDaysLeft: state.graceDaysLeft,
+    inGoodStanding: state.inGoodStanding
   };
 }
 
@@ -423,23 +420,31 @@ export async function POST(request) {
       const billing = subscriptionSnapshot(sacco);
 
       // A hold is a billing measure. If the subscription is paid up there is nothing to
-      // hold against -- suspension is the lever for non-billing problems.
-      if (billing.inGoodStanding) {
+      // hold against -- suspension is the lever for non-billing problems. canHold is the
+      // same rule the portal disables the button on, imported rather than restated.
+      if (!canHold(sacco)) {
         return Response.json({
-          error: `Cannot hold ${sacco.name}: its subscription is in good standing (${billing.effective}). A hold requires a past_due, expired or cancelled subscription. Use suspend for non-billing enforcement.`
+          error: `Cannot hold ${sacco.name}: it is ${billing.label.toLowerCase()} (${billing.detail}). A hold requires a lapsed, cancelled or unpaid subscription. Use suspend for non-billing enforcement.`
         }, { status: 409 });
       }
 
       const overdueNote = billing.daysOverdue > 0 ? ` (${billing.daysOverdue} days overdue)` : '';
-      const label = SUBSCRIPTION_LABELS[billing.effective] || billing.effective;
+
+      // Holding a tenant whose date lapsed while the stored label still said 'active' is
+      // the moment to make the column agree with reality -- otherwise the row goes on
+      // claiming it is paid up for as long as the hold lasts.
+      const extraUpdates = GOOD_STANDING.includes(billing.stored)
+        ? { subscription_status: 'past_due' }
+        : {};
+
       const updated = await applyLifecycleChange(supabase, {
         sacco,
         status: 'on_hold',
-        reason: reason || `Your PEWOSA subscription is ${label}${overdueNote}. Settle it to restore access for your members.`,
+        reason: reason || `Your PEWOSA subscription is unpaid${overdueNote}. Settle it to restore access for your members.`,
         actorEmail,
         action: 'HOLD_TENANT',
-        description: `${sacco.name} placed on billing hold by ${actorEmail} -- subscription ${billing.effective}${overdueNote}.`,
-        extraUpdates: billing.effective !== billing.stored ? { subscription_status: billing.effective } : {}
+        description: `${sacco.name} placed on billing hold by ${actorEmail} -- ${billing.label.toLowerCase()}${overdueNote}.`,
+        extraUpdates
       });
 
       return Response.json({

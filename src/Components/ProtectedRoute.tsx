@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../supabaseClient";
 import Loader from "./loader";
 import { Session } from "@supabase/supabase-js";
+import { tenantState } from "../utils/tenantState";
 import "../styles/membershipRevoked.css";
 import "../styles/subscriptionReminder.css";
 
@@ -26,9 +27,16 @@ interface SaccoState {
   name: string;
   status: string;
   reason: string;
+  /** The derived state -- see src/utils/tenantState.js. */
+  state: string;
+  stateLabel: string;
+  stateDetail: string;
+  blocksMembers: boolean;
+  needsPayment: boolean;
   subscriptionStatus: string;
   expiresAt: string | null;
   daysOverdue: number;
+  graceDaysLeft: number;
   amount: number;
   plan: string;
 }
@@ -251,19 +259,23 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         return;
       }
 
-      const expiry = saccoRow.subscription_expires_at
-        ? new Date(saccoRow.subscription_expires_at)
-        : null;
-      const validExpiry = expiry && !Number.isNaN(expiry.getTime()) ? expiry : null;
-      const overdueMs = validExpiry ? Date.now() - validExpiry.getTime() : 0;
+      // One derivation, shared with the developer portal and /api/platform, so the state
+      // this SACCO's admin is told they are in is the same one the operator is looking at.
+      const state = tenantState(saccoRow);
 
       setSaccoState({
         name: saccoRow.name || "Your SACCO",
         status: saccoRow.status || "active",
         reason: saccoRow.status_reason || "",
+        state: state.id,
+        stateLabel: state.label,
+        stateDetail: state.detail,
+        blocksMembers: state.blocksMembers,
+        needsPayment: state.needsPayment,
         subscriptionStatus: saccoRow.subscription_status || "trial",
-        expiresAt: validExpiry ? validExpiry.toISOString() : null,
-        daysOverdue: overdueMs > 0 ? Math.floor(overdueMs / 86400000) : 0,
+        expiresAt: state.expiresAt,
+        daysOverdue: state.daysOverdue,
+        graceDaysLeft: state.graceDaysLeft,
         amount: Number(saccoRow.subscription_amount) || 0,
         plan: saccoRow.subscription_plan || ""
       });
@@ -320,9 +332,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <MembershipRevoked member={memberState} />;
   }
 
-  const status = saccoState?.status;
+  const state = saccoState?.state;
 
-  if (status === "suspended" || status === "closed") {
+  if (state === "suspended" || state === "closed") {
     return <SaccoLockout sacco={saccoState as SaccoState} />;
   }
 
@@ -330,14 +342,21 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   // app entirely -- there is nothing they can do about an unpaid subscription, and letting
   // them browse records they cannot act on reads as the app being broken. The SACCO admin
   // is the one who can settle it, so they keep the app and get the payment reminder.
-  if (status === "on_hold") {
-    if (role !== "admin") {
-      return <SaccoBillingHold sacco={saccoState as SaccoState} />;
-    }
+  if (state === "on_hold" && role !== "admin") {
+    return <SaccoBillingHold sacco={saccoState as SaccoState} />;
+  }
 
+  // The reminder no longer waits for a developer to click Hold. A subscription that lapsed
+  // this morning puts the admin in `grace`, and one past the grace window in `overdue` --
+  // both owe money, and both are states the admin can still do something about. Being told
+  // while it is still fixable is the entire value of telling them.
+  //
+  // Members are deliberately not affected by those two: nothing is enforced until a hold,
+  // so a tenant that quietly lapsed keeps working while its admin is asked to settle up.
+  if (saccoState?.needsPayment) {
     return (
       <>
-        <SubscriptionReminder sacco={saccoState as SaccoState} />
+        {role === "admin" && <SubscriptionReminder sacco={saccoState as SaccoState} />}
         {children}
       </>
     );
@@ -586,15 +605,32 @@ function SubscriptionReminder({ sacco }: { sacco: SaccoState }) {
       })
     : null;
 
+  // Three different situations reach this component, and telling an admin their members
+  // are locked out when they are not would be a lie they would act on.
+  const held = sacco.state === "on_hold";
+  const inGrace = sacco.state === "grace";
+
+  const headline = held
+    ? `${sacco.name} is on a billing hold.`
+    : inGrace
+      ? `${sacco.name}'s subscription has lapsed.`
+      : `${sacco.name}'s subscription is overdue.`;
+
+  const consequence = held
+    ? "Your members cannot sign in and no contributions, loans or approvals can be recorded until the subscription is settled."
+    : inGrace
+      ? `Everything still works for now — ${sacco.graceDaysLeft === 0
+          ? "the grace period ends today"
+          : `you have ${sacco.graceDaysLeft} day${sacco.graceDaysLeft === 1 ? "" : "s"} of grace left`}. Settle it to avoid your members being locked out.`
+      : "The grace period has passed. Your SACCO is still running, but it can be put on hold at any time, which locks your members out.";
+
   return (
     <>
-      {/* Stays after the modal is dismissed, so the hold never becomes invisible. */}
-      <div className="billrem-banner">
+      {/* Stays after the modal is dismissed, so this never becomes invisible. */}
+      <div className={`billrem-banner ${held ? "" : "is-warning"}`}>
         <i className="fa-solid fa-triangle-exclamation"></i>
         <div className="billrem-banner-text">
-          <strong>{sacco.name} is on a billing hold.</strong>{" "}
-          Your members cannot sign in and no contributions, loans or approvals can be
-          recorded until the subscription is settled.
+          <strong>{headline}</strong> {consequence}
         </div>
         <button className="billrem-banner-btn" onClick={goToPayments}>
           Settle now
@@ -615,16 +651,29 @@ function SubscriptionReminder({ sacco }: { sacco: SaccoState }) {
                 <i className="fa-solid fa-file-invoice-dollar"></i>
               </div>
 
-              <span className="billrem-badge">Subscription due</span>
+              <span className="billrem-badge">{sacco.stateLabel}</span>
 
               <h2 className="billrem-title" id="billrem-title">
-                Your subscription payment is due
+                {held
+                  ? "Your SACCO is on a billing hold"
+                  : inGrace
+                    ? "Your subscription has lapsed"
+                    : "Your subscription payment is overdue"}
               </h2>
 
               <p className="billrem-message">
-                <strong>{sacco.name}</strong> has been placed on a temporary billing hold.
-                Your members cannot sign in, and nothing can be recorded, until the
-                subscription is paid.
+                {held ? (
+                  <>
+                    <strong>{sacco.name}</strong> has been placed on a temporary billing
+                    hold. Your members cannot sign in, and nothing can be recorded, until
+                    the subscription is paid.
+                  </>
+                ) : (
+                  <>
+                    <strong>{sacco.name}</strong> — {sacco.stateDetail} Your members are
+                    still working normally, and settling now keeps it that way.
+                  </>
+                )}
               </p>
 
               <dl className="billrem-details">

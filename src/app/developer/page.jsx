@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { SUBSCRIPTION_PLANS, getPlan, planMonthlyPrice } from "../../utils/subscriptionPlans";
+import { tenantState } from "../../utils/tenantState";
 import "../../styles/developerPortal.css";
 
 // Plans and prices come from the catalogue -- the same list /api/subscription-plans serves,
@@ -28,10 +29,9 @@ function formatRate(plan, amount) {
   return `Shs ${amount.toLocaleString()} / ${plan.billingCycle}`;
 }
 
-// A subscription is only "in good standing" while it is a live trial or paid up. Anything
-// else is what justifies a billing hold. Mirrors the same rule in /api/platform, which is
-// the authority -- this copy only covers rows the route didn't enrich.
-const GOOD_STANDING = ["trial", "active"];
+// The billing column stays hand-editable -- an operator confirming a mobile money payment
+// is stating a fact the app has no other way to learn. What that fact *means* for the
+// tenant is derived, not typed: see src/utils/tenantState.js.
 const SUBSCRIPTION_STATUSES = ["trial", "active", "past_due", "expired", "cancelled"];
 
 const SUBSCRIPTION_LABELS = {
@@ -41,28 +41,6 @@ const SUBSCRIPTION_LABELS = {
   expired: "Expired",
   cancelled: "Cancelled"
 };
-
-const STATUS_LABELS = {
-  active: "active",
-  on_hold: "on hold",
-  suspended: "suspended",
-  closed: "closed",
-  pending: "pending"
-};
-
-function subscriptionSnapshot(sacco) {
-  const stored = sacco?.subscription_status || "trial";
-  const expiresAt = sacco?.subscription_expires_at ? new Date(sacco.subscription_expires_at) : null;
-  const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
-  const effective = isExpired && GOOD_STANDING.includes(stored) ? "past_due" : stored;
-
-  return {
-    stored,
-    effective,
-    daysOverdue: isExpired && expiresAt ? Math.floor((Date.now() - expiresAt.getTime()) / 86400000) : 0,
-    inGoodStanding: GOOD_STANDING.includes(effective)
-  };
-}
 
 export default function DeveloperPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -174,9 +152,12 @@ export default function DeveloperPortal() {
         const plan = planOf(sacco.subscription_plan);
         const planPrice = rateFor(plan, sacco.subscription_amount);
 
-        // The route already derives this (an expiry in the past counts as past_due even
-        // if the stored status still says active) -- recompute only as a fallback.
-        const billing = sacco.subscription || subscriptionSnapshot(sacco);
+        // The tenant's real state, combining what a developer last decided with what the
+        // subscription and the clock say. The route derives it server-side and sends it
+        // down; deriving it again here covers a response from an older deployment.
+        const state = sacco.subscription?.state
+          ? sacco.subscription
+          : tenantState(sacco);
 
         return {
           id: sacco.id,
@@ -192,15 +173,25 @@ export default function DeveloperPortal() {
           // platform income metric sums is derived from the term, never stored.
           cost: planPrice,
           monthlyCost: planPrice / (Number(plan.durationMonths) || 1),
+          // The stored lifecycle column, still needed to decide which action buttons apply.
           status: sacco.status || "active",
           statusReason: sacco.status_reason || "",
           statusChangedBy: sacco.status_changed_by || "",
           joined: sacco.created_at ? new Date(sacco.created_at).toISOString().split('T')[0] : "2026-01-01",
           memberLimit: limit,
-          subscriptionStatus: billing.effective,
-          storedSubscriptionStatus: billing.stored,
-          daysOverdue: billing.daysOverdue,
-          inGoodStanding: billing.inGoodStanding,
+          // The derived state -- what the Status column actually shows.
+          state: state.state || state.id,
+          stateLabel: state.label,
+          stateTone: state.tone,
+          stateDetail: state.detail,
+          stateDecidedBy: state.decidedBy,
+          blocksMembers: Boolean(state.blocksMembers),
+          needsPayment: Boolean(state.needsPayment),
+          holdRecommended: Boolean(state.holdRecommended),
+          storedSubscriptionStatus: state.stored || state.storedSubscription,
+          daysOverdue: state.daysOverdue,
+          graceDaysLeft: state.graceDaysLeft,
+          inGoodStanding: state.inGoodStanding,
           expiresAt: sacco.subscription_expires_at
             ? new Date(sacco.subscription_expires_at).toISOString().split('T')[0]
             : null,
@@ -391,16 +382,28 @@ export default function DeveloperPortal() {
   const holdTenant = async (tenant) => {
     if (tenant.inGoodStanding) {
       alert(
-        `Cannot hold '${tenant.name}': its subscription is in good standing (${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}).\n\n` +
-        `A hold requires a past due, expired or cancelled subscription. Use Suspend for non-billing enforcement.`
+        `Cannot hold '${tenant.name}': it is ${tenant.stateLabel.toLowerCase()}.\n\n` +
+        `${tenant.stateDetail}\n\n` +
+        `A hold requires a lapsed, cancelled or unpaid subscription. Use Suspend for ` +
+        `non-billing enforcement.`
       );
       return;
     }
 
-    const overdueNote = tenant.daysOverdue > 0 ? ` - ${tenant.daysOverdue} days overdue` : "";
+    // Holding during the grace period is allowed but rarely meant -- the tenant may simply
+    // not have been credited yet -- so it asks rather than silently going ahead.
+    if (tenant.state === "grace") {
+      const proceed = confirm(
+        `'${tenant.name}' is still inside its grace period.\n\n` +
+        `${tenant.stateDetail}\n\n` +
+        `Holding now locks its members out before the grace window has run. Continue?`
+      );
+      if (!proceed) return;
+    }
+
     const reason = prompt(
       `Place '${tenant.name}' on billing hold?\n\n` +
-      `Subscription: ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}${overdueNote}.\n` +
+      `State: ${tenant.stateLabel} — ${tenant.stateDetail}\n` +
       `Members are held out of the app until it is settled. The SACCO admin keeps access\n` +
       `and is shown a payment reminder. Reversible at any time.\n\n` +
       `Reason (shown to the admin; leave blank for the default billing message):`,
@@ -458,15 +461,21 @@ export default function DeveloperPortal() {
   // billing term: premium is one payment covering three months, and adding its 200,000 to
   // a monthly total would count it at three times what it earns. A tenant on the free
   // trial contributes 0, which is what a trial is.
+  //
+  // Every count below is keyed on the derived state rather than the stored column, so a
+  // tenant that lapsed this morning leaves "paying" and joins "needs attention" without
+  // anybody clicking anything.
   const totalRevenue = Math.round(
     tenants
-      .filter(t => t.status === "active" && t.inGoodStanding)
+      .filter(t => t.state === "paid")
       .reduce((sum, t) => sum + t.monthlyCost, 0)
   );
 
-  const activeCount = tenants.filter(t => t.status === "active").length;
-  const restrictedCount = tenants.filter(t => t.status === "on_hold" || t.status === "suspended").length;
-  const overdueCount = tenants.filter(t => !t.inGoodStanding).length;
+  // Tenants whose members can actually use the app right now.
+  const activeCount = tenants.filter(t => !t.blocksMembers && t.state !== "closed").length;
+  const restrictedCount = tenants.filter(t => t.blocksMembers).length;
+  // Owing money, whether or not anybody has acted on it yet.
+  const overdueCount = tenants.filter(t => t.needsPayment).length;
 
   // Avoid flashing the login screen while the real Supabase session is still being checked.
   if (checkingSession) {
@@ -654,10 +663,6 @@ export default function DeveloperPortal() {
                 <p>Platform Core Engine & Multi-Tenant Billing Coordinator</p>
               </div>
             </div>
-            <div className="dev-badge-role">
-              <i className="fa-solid fa-shield-halved" style={{ marginRight: "0.8rem" }}></i>
-              Core Developer
-            </div>
           </header>
 
           {/* Loader Overlay */}
@@ -782,8 +787,11 @@ export default function DeveloperPortal() {
                             </td>
                             <td>{formatRate(planOf(tenant.plan), tenant.cost)}</td>
                             <td>
-                              <span className={`tenant-status ${tenant.status}`} title={tenant.statusReason}>
-                                {STATUS_LABELS[tenant.status] || tenant.status}
+                              <span
+                                className={`tenant-state tone-${tenant.stateTone}`}
+                                title={tenant.stateDetail}
+                              >
+                                {tenant.stateLabel}
                               </span>
                             </td>
                           </tr>
@@ -887,18 +895,22 @@ export default function DeveloperPortal() {
                             </div>
                           </td>
                           <td>
-                            <span className={`tenant-status ${tenant.status}`}>
-                              {STATUS_LABELS[tenant.status] || tenant.status}
+                            <span className={`tenant-state tone-${tenant.stateTone}`}>
+                              {tenant.stateLabel}
                             </span>
-                            {tenant.statusReason && (
-                              <div
-                                className="dev-cell-sub"
-                                title={tenant.statusChangedBy
-                                  ? `${tenant.statusReason} (set by ${tenant.statusChangedBy})`
-                                  : tenant.statusReason}
-                              >
-                                {tenant.statusReason}
-                              </div>
+                            {/* Whether this state was chosen or simply happened. A
+                                developer decision names who made it; a billing state
+                                explains what the clock did. */}
+                            <div
+                              className="dev-cell-sub"
+                              title={tenant.stateDecidedBy === "platform" && tenant.statusChangedBy
+                                ? `Set by ${tenant.statusChangedBy}`
+                                : tenant.stateDetail}
+                            >
+                              {tenant.stateDetail}
+                            </div>
+                            {tenant.stateDecidedBy === "billing" && (
+                              <div className="dev-state-origin">Automatic</div>
                             )}
                           </td>
                           <td>
@@ -913,11 +925,11 @@ export default function DeveloperPortal() {
                               ) : (
                                 <button
                                   onClick={() => holdTenant(tenant)}
-                                  className="btn-dev-action warn"
+                                  className={`btn-dev-action warn ${tenant.holdRecommended ? "is-urged" : ""}`}
                                   disabled={tenant.inGoodStanding}
                                   title={tenant.inGoodStanding
-                                    ? "Subscription is in good standing - a billing hold does not apply."
-                                    : `Pause member access and remind the admin to pay: subscription ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}`}
+                                    ? `${tenant.stateLabel} — a billing hold does not apply.`
+                                    : `Pause member access and remind the admin to pay. ${tenant.stateDetail}`}
                                 >
                                   Hold
                                 </button>

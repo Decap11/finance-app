@@ -27,6 +27,14 @@
   border-bottom: 1px solid rgba(249, 115, 22, 0.4);
 }
 
+/* Lapsed or overdue but not yet held: nothing has been enforced, so the banner warns
+   rather than announcing a lockout that has not happened. */
+.billrem-banner.is-warning {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border-bottom-color: rgba(245, 158, 11, 0.4);
+  color: #fef3c7;
+}
+
 .billrem-banner > i {
   flex-shrink: 0;
   font-size: 1.8rem;
