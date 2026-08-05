@@ -8,6 +8,41 @@ import { getActiveWeek, WEEKS_PER_CYCLE } from "../utils/meetingDateUtils";
 import { DEFAULT_SHARE_PRICE, shareCountOf } from "../utils/sharePricing";
 import "../styles/saccoSettings.css";
 
+/**
+ * Which SACCO week a ledger row belongs to.
+ *
+ * Extracted rather than repeated: the contributions table, the loans-issued table and the
+ * repayments table all report on "this week", and if any of them attributed a row by a
+ * different rule the same meeting would produce two figures that cannot be reconciled --
+ * a disbursement filed under Week 12 on one page and Week 11 on the next.
+ *
+ * Precedence: the stamped column (migration 0021/0028 write it), then the `| Week N`
+ * suffix the contribution API has always put in the description, then a fall back to the
+ * position of the date within its own month for rows that predate both.
+ */
+function weekNumberOf(tx) {
+  let txWeek = Number(tx.week_number) || Number(tx.week);
+
+  if (!txWeek && tx.description) {
+    const match = tx.description.match(/\|\s*Week\s*(\d+)/i);
+    if (match) txWeek = parseInt(match[1], 10);
+  }
+
+  if (!txWeek && tx.created_at) {
+    txWeek = Math.ceil(new Date(tx.created_at).getDate() / 7);
+  }
+
+  return Number(txWeek) || 0;
+}
+
+/** "12 Aug 2026" -- how a ledger date is printed in the lending tables. */
+function formatLedgerDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 /** "Wed 4 Jun 2025" -- how the anchor is shown next to the week number. */
 function formatAnchor(dateStr) {
   if (!dateStr) return "";
@@ -40,6 +75,9 @@ export default function SaccoSettings() {
 
   const [allMembers, setAllMembers] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
+  // The loan records themselves, for the reference number, type and purpose that the
+  // ledger row only carries as prose.
+  const [allLoans, setAllLoans] = useState([]);
 
   // Filter Period states
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -48,6 +86,9 @@ export default function SaccoSettings() {
 
   // Aggregated Report states
   const [reportRows, setReportRows] = useState([]);
+  // Lending activity for the selected week, exported as the report's second page.
+  const [loanRows, setLoanRows] = useState([]);
+  const [repaymentRows, setRepaymentRows] = useState([]);
   const [reportTotals, setReportTotals] = useState({
     shares: 0,
     devt: 0,
@@ -175,10 +216,14 @@ export default function SaccoSettings() {
       }
 
       if (sacco) {
-        // Parallelize profile list and transaction list lookups
-        const [profilesRes, txsRes] = await Promise.all([
+        // Parallelize profile list, transaction list and loan lookups
+        const [profilesRes, txsRes, loansRes] = await Promise.all([
           supabase.from("profiles").select("*").ilike("group_id", sacco.group_code || cleanGroupCode),
-          supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"])
+          supabase.from("transactions").select("*").eq("sacco_id", sacco.id).in("status", ["approved", "completed", "pending"]),
+          // Every loan, not only the open ones: a loan issued in the reported week may
+          // already have been repaid in full by the time the report is run, and leaving it
+          // out would make that week's lending look smaller than it was.
+          supabase.from("loans").select("*").eq("sacco_id", sacco.id)
         ]);
 
         if (profilesRes.data) {
@@ -193,6 +238,15 @@ export default function SaccoSettings() {
 
         if (txsRes.data) {
           setAllTransactions(txsRes.data);
+        }
+
+        // A database that has not had the loan migrations applied answers with an error
+        // rather than rows. The lending page then reports nothing for the week, which is
+        // the right degradation -- it must not take the contributions report down with it.
+        if (loansRes.data) {
+          setAllLoans(loansRes.data);
+        } else if (loansRes.error) {
+          console.warn("Loan lookup for the weekly report failed:", loansRes.error.message);
         }
       }
     } catch (err) {
@@ -242,31 +296,17 @@ export default function SaccoSettings() {
   useEffect(() => {
     if (allMembers.length === 0) return;
 
+    // The one week test, shared by the contributions rows and both lending tables below.
+    const inSelectedWeek = (tx) => {
+      if (weekNumberOf(tx) !== Number(filterWeek)) return false;
+      return new Date(tx.created_at).getFullYear() === Number(filterYear);
+    };
+
     const rows = allMembers.map((member) => {
       // Find matching transactions for the selected week & year
       const memberTxs = allTransactions.filter((tx) => {
         if (tx.profile_id !== member.id) return false;
-
-        // 1. Extract SACCO Week Number from database row or description text
-        let txWeek = Number(tx.week_number) || Number(tx.week);
-        if (!txWeek && tx.description) {
-          const match = tx.description.match(/\|\s*Week\s*(\d+)/i);
-          if (match) {
-            txWeek = parseInt(match[1], 10);
-          }
-        }
-        if (!txWeek && tx.created_at) {
-          const txDate = new Date(tx.created_at);
-          txWeek = Math.ceil(txDate.getDate() / 7);
-        }
-
-        const txDate = new Date(tx.created_at);
-        const txYear = txDate.getFullYear();
-
-        return (
-          Number(txWeek) === Number(filterWeek) &&
-          txYear === Number(filterYear)
-        );
+        return inSelectedWeek(tx);
       });
 
       let sharesAmt = 0;
@@ -346,7 +386,60 @@ export default function SaccoSettings() {
       fines: totalFines,
       grandTotal,
     });
-  }, [allMembers, allTransactions, filterYear, filterMonth, filterWeek, settings.sharePrice]);
+
+    // ---- Lending activity for the same week -------------------------------------------
+    //
+    // Read off the ledger rather than off `loans.disbursed_at`, for two reasons: the ledger
+    // is what the contributions table above reports from, so both pages agree by
+    // construction; and a loan carries one disbursement but many repayments, which only the
+    // transactions have a row each for.
+    const membersById = new Map(allMembers.map((m) => [m.id, m]));
+    const loansById = new Map(allLoans.map((l) => [l.id, l]));
+
+    const nameFor = (tx) => membersById.get(tx.profile_id)?.name || tx.full_name || "Unknown";
+    const memberIdFor = (tx) => membersById.get(tx.profile_id)?.memberId || "N/A";
+    const loanFor = (tx) => (tx.loan_id ? loansById.get(tx.loan_id) : null);
+
+    const lendingTxs = allTransactions.filter(inSelectedWeek);
+
+    const issued = lendingTxs
+      .filter((tx) => (tx.category || "").toLowerCase() === "loan_disbursement")
+      .map((tx) => {
+        const loan = loanFor(tx);
+        return {
+          memberId: memberIdFor(tx),
+          name: nameFor(tx),
+          loanRef: loan?.loan_number || "-",
+          loanType: loan?.loan_type === "social_fund" ? "Social Fund" : "Normal",
+          purpose: loan?.purpose || tx.description || "-",
+          amount: Number(tx.amount) || 0,
+          status: (tx.status || "").toUpperCase(),
+          date: formatLedgerDate(tx.created_at),
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+
+    const repaid = lendingTxs
+      .filter((tx) => (tx.category || "").toLowerCase() === "loan_repayment")
+      .map((tx) => {
+        const loan = loanFor(tx);
+        return {
+          memberId: memberIdFor(tx),
+          name: nameFor(tx),
+          loanRef: loan?.loan_number || "-",
+          amount: Number(tx.amount) || 0,
+          // Today's balance on that loan, not the balance immediately after this
+          // installment -- nothing stores the latter. The PDF column says "Balance Now".
+          outstanding: loan ? Number(loan.outstanding_balance) || 0 : null,
+          status: (tx.status || "").toUpperCase(),
+          date: formatLedgerDate(tx.created_at),
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+
+    setLoanRows(issued);
+    setRepaymentRows(repaid);
+  }, [allMembers, allTransactions, allLoans, filterYear, filterMonth, filterWeek, settings.sharePrice]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -536,7 +629,9 @@ export default function SaccoSettings() {
       filterWeek,
       reportRows,
       reportTotals,
-      meetingDay: settings.meetingDay || "Wednesday"
+      meetingDay: settings.meetingDay || "Wednesday",
+      loanRows,
+      repaymentRows
     });
   };
 
