@@ -189,59 +189,120 @@ export default function GroupMembers() {
               </p>
             </div>
           ) : (
-            <div className="members-grid">
+            <div className="members-grid" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "2.4rem",
+              marginTop: "2rem"
+            }}>
               {filteredMembers.map((member) => (
-                <div key={member.id} className="member-card">
-                  {/* Card Header: Avatar & Badges */}
-                  <div className="member-card-header">
+                <div key={member.id} className="member-card" style={{
+                  background: "var(--white)",
+                  borderRadius: "1.6rem",
+                  padding: "2.4rem",
+                  boxShadow: "var(--card-shadow)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2rem",
+                  position: "relative",
+                  border: "0.1rem solid rgba(226, 232, 240, 0.8)"
+                }}>
+                  {/* Card Header: Avatar & Name/ID */}
+                  <div className="member-card-header" style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                     {member.avatarUrl ? (
                       <img
                         src={member.avatarUrl}
                         alt={`${member.name} Avatar`}
-                        className="member-avatar"
+                        style={{
+                          width: "5.5rem",
+                          height: "5.5rem",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          boxShadow: "0 0.4rem 1rem rgba(0, 0, 0, 0.1)",
+                          border: "0.2rem solid var(--primary-color)"
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextSibling) {
+                            e.currentTarget.nextSibling.style.display = "flex";
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="member-avatar-initials">
-                        {member.name ? member.name[0].toUpperCase() : "M"}
+                    ) : null}
+                    {(!member.avatarUrl) && (
+                      <div className="member-avatar-initials" style={{
+                        width: "5.5rem",
+                        height: "5.5rem",
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%)",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "2rem",
+                        fontWeight: 700,
+                        boxShadow: "0 0.4rem 1rem rgba(59, 130, 246, 0.15)"
+                      }}>
+                        {member.name ? member.name.charAt(0).toUpperCase() : "M"}
                       </div>
                     )}
-                    <div className="member-identity">
-                      <h3 className="member-name">{member.name}</h3>
-                      <div className="member-badges">
-                        <span className="badge-id">{member.id}</span>
-                        <span className="badge-tier">
-                          {member.tier}
-                        </span>
-                      </div>
+                    <div>
+                      <h3 style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--text-dark)", margin: 0 }}>
+                        {member.name} {member.isCurrentUser ? "(You)" : ""}
+                      </h3>
+                      <p style={{ fontSize: "1.2rem", color: "var(--text-light)", margin: "0.2rem 0 0 0" }}>
+                        ID: {member.id}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Contact & Registration Info */}
-                  <div className="member-contact-info">
-                    <div className="contact-row">
-                      <i className="fa-solid fa-phone" />
-                      <span>
-                        Phone:{" "}
-                        <span className="contact-value">{member.phone}</span>
-                      </span>
+                  {/* Details Section */}
+                  <div className="member-card-details" style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.2rem",
+                    borderTop: "0.1rem solid #f1f5f9",
+                    paddingTop: "1.5rem"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Phone</span>
+                      <span style={{ fontSize: "1.3rem", color: "var(--text-dark)", fontWeight: 600 }}>{member.phone}</span>
                     </div>
                     {member.email && (
-                      <div className="contact-row">
-                        <i className="fa-solid fa-envelope" />
-                        <span>
-                          Email:{" "}
-                          <span className="contact-value">{member.email}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Email</span>
+                        <span style={{ fontSize: "1.3rem", color: "var(--text-dark)", fontWeight: 600, maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {member.email}
                         </span>
                       </div>
                     )}
-                    <div className="contact-row">
-                      <i className="fa-solid fa-calendar-days" />
-                      <span>
-                        Joined:{" "}
-                        <span className="contact-value">
-                          {member.joinedDate}
-                        </span>
-                      </span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Joined</span>
+                      <span style={{ fontSize: "1.3rem", color: "var(--text-dark)", fontWeight: 600 }}>{member.joinedDate}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Role</span>
+                      <span style={{ 
+                        fontSize: "1.1rem", 
+                        fontWeight: 700, 
+                        textTransform: "uppercase",
+                        padding: "0.4rem 0.8rem",
+                        borderRadius: "0.6rem",
+                        background: member.tier === "Admin" ? "#fef2f2" : "#f0fdf4",
+                        color: member.tier === "Admin" ? "#ef4444" : "#22c55e"
+                      }}>{member.tier}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "1.2rem", color: "var(--text-light)", fontWeight: 500 }}>Status</span>
+                      <span style={{ 
+                        fontSize: "1.1rem", 
+                        fontWeight: 700, 
+                        textTransform: "uppercase",
+                        padding: "0.4rem 0.8rem",
+                        borderRadius: "0.6rem",
+                        background: "#f0fdf4",
+                        color: "#22c55e"
+                      }}>Active</span>
                     </div>
                   </div>
                 </div>
