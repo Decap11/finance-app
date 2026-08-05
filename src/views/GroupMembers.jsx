@@ -124,9 +124,13 @@ export default function GroupMembers() {
     };
   }, []);
 
-  const filteredMembers = membersList.filter(
-    (member) => String(member.groupId || "").toLowerCase() === String(selectedGroup || "").toLowerCase()
-  );
+  const filteredMembers = membersList
+    .filter(
+      (member) => String(member.groupId || "").toLowerCase() === String(selectedGroup || "").toLowerCase()
+    )
+    .sort((a, b) =>
+      String(a.id || "").localeCompare(String(b.id || ""), undefined, { numeric: true, sensitivity: "base" })
+    );
 
   return (
     <MemberLayout>

@@ -134,9 +134,11 @@ export default function AdminDashboardPage() {
             isCurrentUser: String(p.id) === String(user.id),
             // saccos.admin_profile_id. 0018 makes unapprove, delete and demote all refuse
             // this account, so its card offers none of the three.
-            isSaccoOwner: !!ownerId && String(p.id) === String(ownerId)
           };
         });
+        mappedMembers.sort((a, b) =>
+          String(a.memberId || "").localeCompare(String(b.memberId || ""), undefined, { numeric: true, sensitivity: "base" })
+        );
         setAllMembers(mappedMembers);
 
         setMetrics((prev) => ({ ...prev, totalMembers: profilesList.length }));
