@@ -2,9 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import { SUBSCRIPTION_PLANS, getPlan, planMonthlyPrice } from "../../utils/subscriptionPlans";
 import "../../styles/developerPortal.css";
 
-const PLAN_PRICES = { basic: 150000, premium: 350000, enterprise: 750000 };
+// Plans and prices come from the catalogue -- the same list /api/subscription-plans serves,
+// the payments page shows members and the checkout prices a request from. This portal used
+// to carry its own table of basic/premium/enterprise at 150k/350k/750k, none of which the
+// app has ever charged anybody.
+const FALLBACK_PLAN_ID = "basic";
+
+function planOf(planId) {
+  return getPlan(planId) || getPlan(FALLBACK_PLAN_ID);
+}
+
+// What the tenant is billed per term. `subscription_amount` is a per-tenant override of the
+// catalogue price (migration 0036); 0, the column's default, means "whatever the plan
+// costs".
+function rateFor(plan, storedAmount) {
+  return Number(storedAmount) || Number(plan?.price) || 0;
+}
+
+function formatRate(plan, amount) {
+  if (!plan) return "—";
+  if (plan.isTrial && amount === 0) return "Free trial";
+  return `Shs ${amount.toLocaleString()} / ${plan.billingCycle}`;
+}
 
 // A subscription is only "in good standing" while it is a live trial or paid up. Anything
 // else is what justifies a billing hold. Mirrors the same rule in /api/platform, which is
@@ -56,13 +78,6 @@ export default function DeveloperPortal() {
   // Database-backed states
   const [tenants, setTenants] = useState([]);
   const [logs, setLogs] = useState([]);
-
-  // Mock Subscription Plans details (adjustable locally)
-  const [plans, setPlans] = useState({
-    basic: { name: "Basic Plan", price: 150000, memberLimit: 50, shareValuation: 2000 },
-    premium: { name: "Premium Plan", price: 350000, memberLimit: 250, shareValuation: 5000 },
-    enterprise: { name: "Enterprise Plan", price: 750000, memberLimit: 1000, shareValuation: 10000 }
-  });
 
   // Restore a session on mount — but a Supabase session on its own is NOT authorization.
   // Any signed-in SACCO member has one, so the portal is only rendered after
@@ -147,13 +162,12 @@ export default function DeveloperPortal() {
         const adminUser = profileData?.find(p => p.id === sacco.admin_profile_id);
         const limit = sacco.member_limit || 50;
 
-        // Prefer the billing plan stored on the tenant; fall back to inferring it from
-        // the member limit for rows registered before subscriptions were tracked.
-        let planType = sacco.subscription_plan;
-        if (!planType) {
-          planType = limit > 500 ? "enterprise" : limit > 50 ? "premium" : "basic";
-        }
-        const planPrice = Number(sacco.subscription_amount) || PLAN_PRICES[planType] || 150000;
+        // The plan stored on the tenant, resolved against the catalogue. The old fallback
+        // guessed a plan from member_limit, which stopped meaning anything once the plans
+        // themselves stopped being sold by member count -- an unset plan is the free
+        // onboarding trial, which is what 0016 backfilled those rows to.
+        const plan = planOf(sacco.subscription_plan);
+        const planPrice = rateFor(plan, sacco.subscription_amount);
 
         // The route already derives this (an expiry in the past counts as past_due even
         // if the stored status still says active) -- recompute only as a fallback.
@@ -522,8 +536,13 @@ export default function DeveloperPortal() {
         {/* Sidebar */}
         <aside className="dev-sidebar">
           <div className="dev-logo">
-            <i className="fa-solid fa-terminal"></i>
-            <h2>Dev Engine</h2>
+            <div className="dev-logo-icon">
+              <i className="fa-solid fa-terminal"></i>
+            </div>
+            <div>
+              <h2>Dev Engine</h2>
+              <span>Platform Portal</span>
+            </div>
           </div>
           <nav>
             <ul className="dev-nav-list">
@@ -532,7 +551,7 @@ export default function DeveloperPortal() {
                   onClick={() => setActiveTab("overview")}
                   className={`dev-nav-item ${activeTab === "overview" ? "active" : ""}`}
                 >
-                  <i className="fa-solid fa-grid-2"></i>
+                  <i className="fa-solid fa-layer-group"></i>
                   <span>System Overview</span>
                 </button>
               </li>
@@ -567,6 +586,17 @@ export default function DeveloperPortal() {
           </nav>
 
           <div className="dev-sidebar-footer">
+            {userEmail && (
+              <div className="dev-user-card">
+                <div className="dev-user-avatar">
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+                <div className="dev-user-info">
+                  <span className="dev-user-email">{userEmail}</span>
+                  <span className="dev-user-role">Platform Admin</span>
+                </div>
+              </div>
+            )}
             <button onClick={handleLogout} className="btn-dev-logout">
               <i className="fa-solid fa-right-from-bracket"></i>
               <span>Exit Portal</span>

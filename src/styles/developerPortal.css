@@ -158,32 +158,57 @@
 
 .dev-sidebar {
   width: 28rem;
-  background: #0f172a;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, #0b1120 0%, #070a12 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   padding: 3rem 2rem;
   position: sticky;
   top: 0;
   height: 100vh;
+  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
 }
 
 .dev-logo {
   display: flex;
   align-items: center;
-  gap: 1.2rem;
-  margin-bottom: 4rem;
+  gap: 1.4rem;
+  margin-bottom: 3.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.dev-logo i {
-  font-size: 2.6rem;
+.dev-logo-icon {
+  width: 4.2rem;
+  height: 4.2rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #3b82f6;
+  font-size: 2rem;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+  flex-shrink: 0;
 }
 
 .dev-logo h2 {
-  font-size: 2rem;
+  font-size: 1.9rem;
   font-weight: 800;
   color: #ffffff;
+  letter-spacing: -0.03rem;
+  margin: 0;
+}
+
+.dev-logo span {
+  font-size: 1.05rem;
+  color: #3b82f6;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  display: block;
+  margin-top: 0.2rem;
 }
 
 .dev-nav-list {
@@ -199,50 +224,136 @@
   display: flex;
   align-items: center;
   gap: 1.4rem;
-  padding: 1.4rem 1.8rem;
+  padding: 1.3rem 1.6rem;
   border-radius: 1.2rem;
   color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  outline: none;
+  width: 100%;
+  text-align: left;
   text-decoration: none;
   font-size: 1.4rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
-.dev-nav-item:hover,
+.dev-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.06);
+  transform: translateX(3px);
+}
+
 .dev-nav-item.active {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.06) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);
+  font-weight: 700;
 }
 
 .dev-nav-item i {
   font-size: 1.6rem;
+  width: 2rem;
+  text-align: center;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.dev-nav-item:hover i {
+  color: #93c5fd;
+}
+
+.dev-nav-item.active i {
+  color: #3b82f6;
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.6));
 }
 
 .dev-sidebar-footer {
   margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.dev-user-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.2rem;
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.dev-user-avatar {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.4rem;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  flex-shrink: 0;
+}
+
+.dev-user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dev-user-email {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dev-user-role {
+  font-size: 1.05rem;
+  color: #10b981;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
 }
 
 .btn-dev-logout {
   display: flex;
   align-items: center;
-  gap: 1.2rem;
-  color: #ef4444;
-  background: none;
-  border: none;
-  font-size: 1.4rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 1rem;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
   width: 100%;
-  padding: 1.2rem 1.8rem;
+  padding: 1.2rem 1.6rem;
   border-radius: 1.2rem;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .btn-dev-logout:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 /* Dashboard Content */
