@@ -74,6 +74,10 @@ export default function DeveloperPortal() {
   const [activeTab, setActiveTab] = useState("overview");
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState("");
+  // Who is signed in, for the sidebar card. Taken from the verified session rather than
+  // from the `email` box above, which is empty on a restored session and cleared on logout.
+  const [userEmail, setUserEmail] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Database-backed states
   const [tenants, setTenants] = useState([]);
@@ -107,6 +111,7 @@ export default function DeveloperPortal() {
           setLoginError(data.error || "This account is not authorized for the developer portal.");
         } else {
           setIsAuthenticated(true);
+          setUserEmail(session.user?.email || "");
         }
       } catch (err) {
         if (!cancelled) {
@@ -178,8 +183,15 @@ export default function DeveloperPortal() {
           name: sacco.name,
           code: sacco.group_code || sacco.acronym,
           admin: adminUser ? adminUser.email : "No admin linked",
-          plan: planType,
+          plan: plan.id,
+          planName: plan.name,
+          billingCycle: plan.billingCycle,
+          durationMonths: plan.durationMonths,
+          isTrial: plan.isTrial,
+          // Per billing term, which is three months on premium. The monthly figure the
+          // platform income metric sums is derived from the term, never stored.
           cost: planPrice,
+          monthlyCost: planPrice / (Number(plan.durationMonths) || 1),
           status: sacco.status || "active",
           statusReason: sacco.status_reason || "",
           statusChangedBy: sacco.status_changed_by || "",
@@ -291,6 +303,7 @@ export default function DeveloperPortal() {
       }
 
       setIsAuthenticated(true);
+      setUserEmail(data.session.user?.email || email.trim());
     } catch (verifyErr) {
       await supabase.auth.signOut();
       setIsAuthenticated(false);
@@ -303,6 +316,7 @@ export default function DeveloperPortal() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
+    setUserEmail("");
     setEmail("");
     setPassword("");
   };
@@ -404,17 +418,30 @@ export default function DeveloperPortal() {
 
   // Recording a payment renews the term and lifts a billing hold automatically. It does
   // not lift a suspension -- that stays an explicit decision.
+  //
+  // Counted in billing terms rather than months, because a term is not always a month:
+  // premium is a single payment of Shs 200,000 covering three. Asking for months and
+  // multiplying the rate by the answer billed a quarterly tenant three times over.
   const recordPayment = async (tenant) => {
-    const monthsInput = prompt(
-      `Record a subscription payment for '${tenant.name}'.\n\nRate: Shs ${tenant.cost.toLocaleString()}/mo.\nHow many months?`,
+    const plan = planOf(tenant.plan);
+    const termMonths = Number(plan.durationMonths) || 1;
+
+    const termsInput = prompt(
+      `Record a subscription payment for '${tenant.name}'.\n\n` +
+      `Plan: ${plan.name} — ${formatRate(plan, tenant.cost)}.\n` +
+      (tenant.isTrial
+        ? `This is the free onboarding trial, so this records a Shs 0 payment and simply extends the term.\n`
+        : "") +
+      `\nHow many terms of ${plan.billingCycle}?`,
       "1"
     );
-    if (monthsInput === null) return;
-    const months = Math.max(1, Number(monthsInput) || 1);
+    if (termsInput === null) return;
+
+    const terms = Math.max(1, Number(termsInput) || 1);
     await runTenantAction("record-payment", {
       sacco_id: tenant.id,
-      months,
-      amount: tenant.cost * months
+      months: terms * termMonths,
+      amount: tenant.cost * terms
     });
   };
 
@@ -426,38 +453,16 @@ export default function DeveloperPortal() {
     });
   };
 
-  // Update plan price setting (Mock plan manager)
-  const updatePlanPrice = (planKey, value) => {
-    const cleanVal = Number(value) || 0;
-    setPlans(prev => ({
-      ...prev,
-      [planKey]: {
-        ...prev[planKey],
-        price: cleanVal
-      }
-    }));
-  };
-
-  const savePlanSettings = async (planKey) => {
-    const planName = plans[planKey].name;
-    const price = plans[planKey].price;
-
-    // Log the event locally
-    const newLog = {
-      id: Date.now(),
-      type: "info",
-      msg: `Billing rate updated for '${planName}' to Shs ${price.toLocaleString()}/mo`,
-      time: "Just now"
-    };
-    setLogs(prev => [newLog, ...prev]);
-    alert(`Success: Subscription plan '${planName}' configurations saved locally!`);
-  };
-
   // Calculate platform totals. Revenue only counts tenants that are both active and paid
-  // up -- a suspended or held tenant is not billing.
-  const totalRevenue = tenants
-    .filter(t => t.status === "active" && t.inGoodStanding)
-    .reduce((sum, t) => sum + t.cost, 0);
+  // up -- a suspended or held tenant is not billing. Summed per month rather than per
+  // billing term: premium is one payment covering three months, and adding its 200,000 to
+  // a monthly total would count it at three times what it earns. A tenant on the free
+  // trial contributes 0, which is what a trial is.
+  const totalRevenue = Math.round(
+    tenants
+      .filter(t => t.status === "active" && t.inGoodStanding)
+      .reduce((sum, t) => sum + t.monthlyCost, 0)
+  );
 
   const activeCount = tenants.filter(t => t.status === "active").length;
   const restrictedCount = tenants.filter(t => t.status === "on_hold" || t.status === "suspended").length;
@@ -533,8 +538,24 @@ export default function DeveloperPortal() {
   return (
     <div className="dev-portal-body">
       <div className="dev-dashboard-wrapper">
+        {/* Dark Backdrop Overlay on Mobile */}
+        <div
+          className={`dev-sidebar-overlay ${sidebarOpen ? "active" : ""}`}
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+
         {/* Sidebar */}
-        <aside className="dev-sidebar">
+        <aside className={`dev-sidebar ${sidebarOpen ? "active" : ""}`}>
+          <button
+            type="button"
+            className="dev-sidebar-close-btn"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close navigation menu"
+          >
+            <i className="fa-solid fa-xmark" />
+          </button>
+
           <div className="dev-logo">
             <div className="dev-logo-icon">
               <i className="fa-solid fa-terminal"></i>
@@ -548,7 +569,10 @@ export default function DeveloperPortal() {
             <ul className="dev-nav-list">
               <li>
                 <button
-                  onClick={() => setActiveTab("overview")}
+                  onClick={() => {
+                    setActiveTab("overview");
+                    setSidebarOpen(false);
+                  }}
                   className={`dev-nav-item ${activeTab === "overview" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-layer-group"></i>
@@ -557,7 +581,10 @@ export default function DeveloperPortal() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("tenants")}
+                  onClick={() => {
+                    setActiveTab("tenants");
+                    setSidebarOpen(false);
+                  }}
                   className={`dev-nav-item ${activeTab === "tenants" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-server"></i>
@@ -566,7 +593,10 @@ export default function DeveloperPortal() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("plans")}
+                  onClick={() => {
+                    setActiveTab("plans");
+                    setSidebarOpen(false);
+                  }}
                   className={`dev-nav-item ${activeTab === "plans" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-credit-card"></i>
@@ -575,7 +605,10 @@ export default function DeveloperPortal() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("logs")}
+                  onClick={() => {
+                    setActiveTab("logs");
+                    setSidebarOpen(false);
+                  }}
                   className={`dev-nav-item ${activeTab === "logs" ? "active" : ""}`}
                 >
                   <i className="fa-solid fa-list-check"></i>
@@ -607,9 +640,19 @@ export default function DeveloperPortal() {
         {/* Main Content Area */}
         <main className="dev-main-content">
           <header className="dev-header">
-            <div className="dev-welcome">
-              <h1>SysAdmin Panel</h1>
-              <p>Platform Core Engine & Multi-Tenant Billing Coordinator</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "1.4rem" }}>
+              <button
+                type="button"
+                className="dev-menu-toggle"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open navigation menu"
+              >
+                <i className="fa-solid fa-bars"></i>
+              </button>
+              <div className="dev-welcome">
+                <h1>SysAdmin Panel</h1>
+                <p>Platform Core Engine & Multi-Tenant Billing Coordinator</p>
+              </div>
             </div>
             <div className="dev-badge-role">
               <i className="fa-solid fa-shield-halved" style={{ marginRight: "0.8rem" }}></i>
@@ -734,10 +777,10 @@ export default function DeveloperPortal() {
                             <td><code>{tenant.code}</code></td>
                             <td>
                               <span className={`tenant-plan ${tenant.plan}`}>
-                                {tenant.plan}
+                                {tenant.planName}
                               </span>
                             </td>
-                            <td>Shs {tenant.cost.toLocaleString()}/mo</td>
+                            <td>{formatRate(planOf(tenant.plan), tenant.cost)}</td>
                             <td>
                               <span className={`tenant-status ${tenant.status}`} title={tenant.statusReason}>
                                 {STATUS_LABELS[tenant.status] || tenant.status}
@@ -816,9 +859,11 @@ export default function DeveloperPortal() {
                           <td>{tenant.admin}</td>
                           <td>
                             <span className={`tenant-plan ${tenant.plan}`}>
-                              {tenant.plan}
+                              {tenant.planName}
                             </span>
-                            <div className="dev-cell-sub">Shs {tenant.cost.toLocaleString()}/mo</div>
+                            <div className="dev-cell-sub">
+                              {formatRate(planOf(tenant.plan), tenant.cost)}
+                            </div>
                           </td>
                           <td>
                             <select
@@ -906,48 +951,76 @@ export default function DeveloperPortal() {
 
           {activeTab === "plans" && (
             <div>
-              <div style={{ fontSize: "1.4rem", color: "#94a3b8", marginBottom: "2.5rem" }}>
-                Platform configurations for the registration packages. Adjusting rates here changes pricing defaults for new tenants.
+              <div className="dev-plans-note">
+                <i className="fa-solid fa-circle-info"></i>
+                <div>
+                  <strong>The live price list.</strong> Exactly what members are shown on the
+                  payments page and what a checkout is priced from — both read the same
+                  catalogue, <code>src/utils/subscriptionPlans.js</code>, which is where a
+                  price is changed. This screen used to carry its own editable copy that
+                  saved nothing, which is how the portal came to quote three tiers at prices
+                  the app has never charged.
+                </div>
               </div>
               <div className="plan-config-grid">
-                {Object.keys(plans).map((key) => {
-                  const plan = plans[key];
+                {SUBSCRIPTION_PLANS.map((plan) => {
+                  const onThisPlan = tenants.filter((t) => t.plan === plan.id).length;
+                  const monthly = Math.round(planMonthlyPrice(plan));
+
                   return (
-                    <div key={key} className={`plan-card ${key}-plan`}>
+                    <div key={plan.id} className={`plan-card ${plan.id}-plan`}>
                       <div className="plan-card-header">
-                        <div className="plan-name">{plan.name}</div>
-                        <div className="plan-desc">Targeted for scaling groups and cooperatives.</div>
+                        <div className="plan-name">
+                          {plan.name}
+                          {plan.recommended && <span className="plan-badge">{plan.badge}</span>}
+                        </div>
+                        <div className="plan-desc">{plan.description}</div>
                       </div>
 
                       <div className="plan-price-block">
-                        <span className="plan-price-currency">Shs</span>
-                        <span className="plan-price-amt">{plan.price.toLocaleString()}</span>
-                        <span className="plan-price-period">/ month</span>
+                        {plan.price === 0 ? (
+                          <span className="plan-price-amt">Free</span>
+                        ) : (
+                          <>
+                            <span className="plan-price-currency">Shs</span>
+                            <span className="plan-price-amt">{plan.price.toLocaleString()}</span>
+                          </>
+                        )}
+                        <span className="plan-price-period">/ {plan.billingCycle}</span>
+                        {plan.originalPrice && (
+                          <span className="plan-price-was">Shs {plan.originalPrice.toLocaleString()}</span>
+                        )}
                       </div>
 
                       <div className="plan-settings">
                         <div className="plan-setting-row">
-                          <span className="plan-setting-label">Max Members Limit</span>
-                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>{plan.memberLimit} Users</span>
+                          <span className="plan-setting-label">Billing term</span>
+                          <span className="plan-setting-value">
+                            {plan.durationMonths} month{plan.durationMonths === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        {/* Premium is billed quarterly, so its monthly equivalent is the
+                            only figure that compares against the other two. */}
+                        <div className="plan-setting-row">
+                          <span className="plan-setting-label">Works out at</span>
+                          <span className="plan-setting-value">
+                            {monthly === 0 ? "No charge" : `Shs ${monthly.toLocaleString()} / month`}
+                          </span>
                         </div>
                         <div className="plan-setting-row">
-                          <span className="plan-setting-label">Share Value Limit</span>
-                          <span style={{ fontWeight: 700, fontSize: "1.35rem" }}>Shs {plan.shareValuation.toLocaleString()}</span>
-                        </div>
-                        <div className="plan-setting-row" style={{ marginTop: "1rem" }}>
-                          <span className="plan-setting-label">Edit Monthly Cost</span>
-                          <input
-                            type="number"
-                            className="plan-setting-input"
-                            value={plan.price}
-                            onChange={(e) => updatePlanPrice(key, e.target.value)}
-                          />
+                          <span className="plan-setting-label">Tenants on this plan</span>
+                          <span className="plan-setting-value">{onThisPlan}</span>
                         </div>
                       </div>
 
-                      <button onClick={() => savePlanSettings(key)} className="btn-update-plan">
-                        Save Plan Rates
-                      </button>
+                      <ul className="plan-feature-list">
+                        {plan.features.map((feature) => (
+                          <li key={feature}>
+                            <i className="fa-solid fa-check"></i>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   );
                 })}
