@@ -450,17 +450,33 @@ results(sort_key, check_name, status, detail) as (
   --       most SACCOs belong on could not be stored, and a tier nothing sells could.
   --       The amount default matters for the same reason: 150,000 is not the price of any
   --       plan, and register_new_sacco sets no amount, so every tenant inherited it.
+  --
+  --       Nothing below names subscription_plan as a column. Postgres resolves every column
+  --       in a statement before running any of it, so `where subscription_plan = ...` does
+  --       not evaluate to false on a database that lacks the column -- it aborts the whole
+  --       script with a parse error, taking the other sixteen checks with it. That is the
+  --       exact database this check exists to describe, and the failure it must survive:
+  --       the RLS checks above are the ones you cannot afford to lose. The row is read
+  --       through to_jsonb instead, which resolves the name at run time and yields NULL for
+  --       a key that is not there, and the table is reached through to_regclass, which
+  --       returns NULL rather than throwing the way '...'::regclass does.
   union all
-  select 17, 'Subscription plans match the price list (0036)',
+  select 17, 'Subscription plans match the price list (0016, 0036)',
     case
+      when to_regclass('public.saccos') is null then 'FAIL'
+      when not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'saccos'
+          and column_name = 'subscription_plan'
+      ) then 'FAIL'
       when not exists (
         select 1 from pg_constraint
-        where conrelid = 'public.saccos'::regclass
+        where conrelid = to_regclass('public.saccos')
           and conname = 'saccos_subscription_plan_check'
           and pg_get_constraintdef(oid) like '%standard%'
       ) then 'FAIL'
       when exists (
-        select 1 from public.saccos where subscription_plan = 'enterprise'
+        select 1 from public.saccos s where to_jsonb(s) ->> 'subscription_plan' = 'enterprise'
       ) then 'FAIL'
       when exists (
         select 1 from information_schema.columns
@@ -471,15 +487,24 @@ results(sort_key, check_name, status, detail) as (
       else 'PASS'
     end,
     case
+      when to_regclass('public.saccos') is null then 'no saccos table'
+      when not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'saccos'
+          and column_name = 'subscription_plan'
+      ) then '0016 NEVER RAN: saccos has no subscription_plan column at all, so nothing '
+             || 'about billing exists on this database -- no plan, status, amount, start or '
+             || 'expiry. Every tenant reads as an expired trial, the developer portal cannot '
+             || 'price anybody, and 0036 has nothing to correct. Apply 0016, then 0036.'
       when not exists (
         select 1 from pg_constraint
-        where conrelid = 'public.saccos'::regclass
+        where conrelid = to_regclass('public.saccos')
           and conname = 'saccos_subscription_plan_check'
           and pg_get_constraintdef(oid) like '%standard%'
       ) then 'subscription_plan cannot hold ''standard'' -- the recommended plan on the '
              || 'payments page -- so activating it fails the CHECK constraint. Apply 0036.'
       when exists (
-        select 1 from public.saccos where subscription_plan = 'enterprise'
+        select 1 from public.saccos s where to_jsonb(s) ->> 'subscription_plan' = 'enterprise'
       ) then 'HALF-APPLIED 0036: rows are still on the retired ''enterprise'' plan, which '
              || 'the catalogue does not sell and the developer portal cannot price. '
              || 'Re-run 0036 from STEP 1.'
