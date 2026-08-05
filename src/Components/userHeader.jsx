@@ -24,6 +24,9 @@ export default function UserHeader() {
   const [selectedNotification, setSelectedNotification] = useState(null);
   
   const notifRef = useRef(null);
+  // Wraps the avatar AND the menu it opens -- the dropdown is rendered inside
+  // .user-profile, so one ref covers both and "outside" means what it says.
+  const profileRef = useRef(null);
 
   useEffect(() => {
     async function loadHeaderProfile() {
@@ -202,16 +205,28 @@ export default function UserHeader() {
     }
   };
 
-  // Close notifications dropdown on click outside
+  // Close either menu when the tap or click lands anywhere else.
+  //
+  // pointerdown rather than mousedown: on a touch screen the browser only synthesises
+  // mousedown once the tap has finished, so a menu dismissed on mousedown visibly lingers
+  // under the finger. pointerdown fires for mouse, touch and pen alike, at the moment
+  // contact is made, which is what makes this feel like every other app.
+  //
+  // Tapping the avatar itself is not an outside click -- it is inside profileRef, and
+  // toggleProfileDropdown below is what closes an already-open menu. Were this to fire on
+  // the avatar too, the two would cancel out and the menu would never open at all.
   useEffect(() => {
-    function handleClickOutside(event) {
+    function handlePointerOutside(event) {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
     }
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handlePointerOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handlePointerOutside);
     };
   }, []);
 
@@ -299,7 +314,7 @@ export default function UserHeader() {
             )}
           </div>
 
-          <div className="user-profile" onClick={toggleProfileDropdown}>
+          <div className="user-profile" ref={profileRef} onClick={toggleProfileDropdown}>
             {avatarUrl ? (
               <img src={avatarUrl} alt="User Avatar" />
             ) : (
