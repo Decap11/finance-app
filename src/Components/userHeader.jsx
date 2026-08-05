@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
 import { supabase } from "../supabaseClient";
+import { MEMBER_VIEW_KEY } from "./ProtectedRoute";
 import Search from "./Search";
 import "../styles/userHeader.css";
 
@@ -333,7 +334,15 @@ export default function UserHeader() {
             >
               {isAdmin && (
                 <>
-                  <Link href="/admin" className="dropdown-item" style={{ fontWeight: 600, color: "var(--primary-color)" }}>
+                  {/* Clearing the flag is what ends member view. Leave it set and the next
+                      visit to /dashboard stays on the member screen instead of routing an
+                      admin to their own. */}
+                  <Link
+                    href="/admin"
+                    className="dropdown-item"
+                    style={{ fontWeight: 600, color: "var(--primary-color)" }}
+                    onClick={() => sessionStorage.removeItem(MEMBER_VIEW_KEY)}
+                  >
                     <i className="fa-solid fa-user-shield" /> Switch to Admin Mode
                   </Link>
                   <div className="dropdown-divider" />

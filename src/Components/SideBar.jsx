@@ -67,8 +67,10 @@ export default function SideBar() {
           })}
 
           <li style={{ marginTop: "2rem", borderTop: "1px solid rgba(226, 232, 240, 0.4)", paddingTop: "2rem" }}>
+            {/* ?view=member -- see the same link in Header.jsx. Without it ProtectedRoute
+                bounces an admin back to /admin the moment they land on /dashboard. */}
             <Link
-              href="/dashboard"
+              href="/dashboard?view=member"
               className="member-switch-btn"
               style={{
                 background: "rgba(15, 23, 42, 0.05)",

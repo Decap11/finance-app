@@ -62,9 +62,17 @@
     font-size: 1.8rem;
   }
 
+  /* One card per row below 440px.
+   *
+   * This used to force two columns, which is where the member cards on both the members
+   * page and the admin dashboard were being squeezed: a name, an avatar, a member number
+   * and a row of actions do not fit in half of a 320px screen, so every card wrapped into
+   * an unreadable stack. The !important is load-bearing rather than lazy -- the admin
+   * dashboard sets grid-template-columns inline, and a stylesheet only outranks an inline
+   * style when it says so. Both views share this class, so one rule settles both. */
   .members-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 1rem !important;
+    grid-template-columns: 1fr !important;
+    gap: 1.2rem !important;
   }
 
   .member-card {

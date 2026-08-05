@@ -325,7 +325,9 @@ export default function Header() {
               className={`profile-dropdown${showDropdown ? " show" : ""}`}
               id="profileDropdown"
             >
-              <Link href="/dashboard" className="dropdown-item" style={{ fontWeight: 600, color: "var(--primary-color)" }}>
+              {/* ?view=member is what makes this work: ProtectedRoute otherwise sends an
+                  admin straight back here from /dashboard, so this item used to do nothing. */}
+              <Link href="/dashboard?view=member" className="dropdown-item" style={{ fontWeight: 600, color: "var(--primary-color)" }}>
                 <i className="fa-solid fa-user" /> Switch to Member View
               </Link>
               <div className="dropdown-divider" />

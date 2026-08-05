@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { MEMBER_VIEW_KEY } from "./ProtectedRoute";
 
 const navItems = [
   { to: "/dashboard", icon: "fa-solid fa-house", label: "Dashboard" },
@@ -104,7 +105,11 @@ export default function UserSideBar() {
                   color: "var(--primary-color)",
                   fontWeight: "700",
                 }}
-                onClick={closeSidebar}
+                onClick={() => {
+                  // See userHeader.jsx: member view persists until this is cleared.
+                  sessionStorage.removeItem(MEMBER_VIEW_KEY);
+                  closeSidebar();
+                }}
               >
                 <i className="fa-solid fa-user-shield" />
                 <span>Switch to Admin</span>

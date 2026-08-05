@@ -11,6 +11,11 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
+// Set when an admin chooses "Switch to Member View", cleared when they switch back.
+// Exported so the two headers and two sidebars agree on the spelling rather than each
+// repeating a string literal.
+export const MEMBER_VIEW_KEY = "pewosa:admin-viewing-as-member";
+
 interface SaccoState {
   name: string;
   status: string;
@@ -101,11 +106,35 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           return;
         }
 
-        // SACCO Admins entering via /dashboard are automatically routed to the Admin Dashboard
+        // SACCO Admins opening the app at /dashboard are routed on to the Admin Dashboard,
+        // which is what 22c0b9a wanted: launching the installed PWA should land an admin on
+        // their own screen rather than the member one.
+        //
+        // Unless they asked to be here. "Switch to Member View" navigates to
+        // /dashboard?view=member, and without the check below this redirect fired straight
+        // afterwards and threw them back to /admin -- so the menu item existed, did nothing
+        // visible, and the two views could not be switched between at all.
+        //
+        // The choice is remembered for the tab rather than read from the URL alone, because
+        // a member-view visit to /savings and back would otherwise arrive at a bare
+        // /dashboard and bounce again. sessionStorage and not localStorage: reopening the
+        // app is exactly when an admin should land on the admin dashboard again.
+        // Read from window rather than useSearchParams(): that hook opts every page this
+        // component wraps out of static prerendering unless each is given its own Suspense
+        // boundary, which failed the build on /loans. This runs inside an effect, so it is
+        // client-side already and window is there to be asked.
         if (pathname === "/dashboard" && role === "admin") {
-          setLoading(false);
-          router.replace("/admin");
-          return;
+          const askedForMemberView =
+            new URLSearchParams(window.location.search).get("view") === "member";
+          if (askedForMemberView) {
+            sessionStorage.setItem(MEMBER_VIEW_KEY, "1");
+          }
+
+          if (!askedForMemberView && sessionStorage.getItem(MEMBER_VIEW_KEY) !== "1") {
+            setLoading(false);
+            router.replace("/admin");
+            return;
+          }
         }
 
         // If user has a group_id or is an admin, they are associated with a SACCO
