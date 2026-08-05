@@ -17,6 +17,13 @@ import SaccoSettings from "../Components/saccoSettings";
 import DividendDistributionPortal from "../Components/DividendDistributionPortal";
 import AdminActionModal from "../Components/AdminActionModal";
 import { formatSignedShs } from "../utils/saccoCapital";
+import {
+  realisedIncomeOf,
+  totalProjectedInterestOf,
+  grossProfitOf,
+  INTEREST_EARNING_LOAN_STATUSES,
+  REALISED_TRANSACTION_STATUSES
+} from "../utils/saccoProfit";
 
 export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
@@ -40,6 +47,7 @@ export default function AdminDashboardPage() {
     totalMembers: 0,
     activeLoansTotal: 0,
     finesProfit: 0,
+    feesProfit: 0,
     interestProfit: 0,
     grossProfit: 0
   });
@@ -215,37 +223,48 @@ export default function AdminDashboardPage() {
         calculatedLoans = activeLoans.reduce((sum, loan) => sum + (Number(loan.outstanding_balance) || 0), 0);
       }
 
-      // 4. Fetch Fines & Penalties Revenue
-      const { data: finesTxs } = await supabase
+      // 4. Fetch what the SACCO has earned, by source.
+      //
+      // Fines and loan application fees in one query -- both are realised income sitting in
+      // the ledger as completed rows, and splitting them is a filter, not a round trip.
+      // 'fine', 'penalty' and 'absenteeism' are gone from the category list: 0021 migrated
+      // 'fine' to 'fines' and the CHECK constraint has never permitted the other two, so
+      // they could only ever match nothing.
+      const { data: incomeTxs } = await supabase
         .from("transactions")
-        .select("amount, direction")
+        .select("amount, direction, category")
         .eq("sacco_id", saccoId)
-        .in("category", ["fines", "fine", "penalty", "absenteeism"])
-        .in("status", ["completed", "approved"]);
+        .in("category", ["fines", "fee"])
+        .in("status", REALISED_TRANSACTION_STATUSES);
 
-      let calculatedFinesProfit = 0;
-      if (finesTxs && finesTxs.length > 0) {
-        calculatedFinesProfit = finesTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
-      }
+      const calculatedFinesProfit = realisedIncomeOf(
+        (incomeTxs || []).filter((tx) => tx.category === "fines")
+      );
+      // Loan application fees. Confirmed by an admin, credited to no member account and,
+      // until now, counted by nothing: the fee is SACCO income and this card is where the
+      // SACCO's income is read.
+      const calculatedFeesProfit = realisedIncomeOf(
+        (incomeTxs || []).filter((tx) => tx.category === "fee")
+      );
 
-      // 5. Fetch Loan Interest Yield
+      // 5. Fetch Loan Interest Yield -- projected over each loan's full term, not received.
+      //
+      // Selected `amount` until now, which is not a column on this table. PostgREST rejects
+      // the whole query when a column does not exist, so `allLoans` came back null and this
+      // figure was a permanent zero. Same mistake, same fix as MemberGuarantorRequests.
       const { data: allLoans } = await supabase
         .from("loans")
-        .select("amount, interest_rate, term_months")
+        .select("amount_requested, amount_approved, interest_rate, term_months")
         .eq("sacco_id", saccoId)
-        .in("status", ["issued", "active", "completed", "repaid"]);
+        .in("status", INTEREST_EARNING_LOAN_STATUSES);
 
-      let calculatedInterestProfit = 0;
-      if (allLoans && allLoans.length > 0) {
-        calculatedInterestProfit = allLoans.reduce((sum, loan) => {
-          const principal = Number(loan.amount) || 0;
-          const rate = Number(loan.interest_rate) || 5;
-          const months = Number(loan.term_months) || 1;
-          return sum + (principal * (rate / 100) * months);
-        }, 0);
-      }
+      const calculatedInterestProfit = totalProjectedInterestOf(allLoans);
 
-      const calculatedGrossProfit = calculatedFinesProfit + calculatedInterestProfit;
+      const calculatedGrossProfit = grossProfitOf({
+        fines: calculatedFinesProfit,
+        applicationFees: calculatedFeesProfit,
+        loanInterest: calculatedInterestProfit
+      });
 
       setMetrics((prev) => ({
         ...prev,
@@ -254,6 +273,7 @@ export default function AdminDashboardPage() {
         outOnLoan: calculatedOutOnLoan,
         activeLoansTotal: calculatedLoans,
         finesProfit: calculatedFinesProfit,
+        feesProfit: calculatedFeesProfit,
         interestProfit: calculatedInterestProfit,
         grossProfit: calculatedGrossProfit
       }));
@@ -645,14 +665,27 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                {/* Categorized Sources Breakdown */}
+                {/* Categorized Sources Breakdown.
+                    "Fines & Penalties", not "Absenteeism Fines": this line has always summed
+                    every fine category, late loan charges included, so naming one fine_type
+                    understated what the reader was actually looking at. */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "1rem", fontSize: "1.2rem", color: "#64748b" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span><i className="fa-solid fa-user-xmark" style={{ color: "#ef4444", marginRight: "0.4rem" }}></i> Absenteeism Fines:</span>
+                    <span><i className="fa-solid fa-user-xmark" style={{ color: "#ef4444", marginRight: "0.4rem" }}></i> Fines &amp; Penalties:</span>
                     <strong style={{ color: "#ef4444" }}>Shs {metrics.finesProfit.toLocaleString()}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span><i className="fa-solid fa-percent" style={{ color: "#253b8e", marginRight: "0.4rem" }}></i> Loan Interest Yield:</span>
+                    <span><i className="fa-solid fa-file-invoice-dollar" style={{ color: "#d97706", marginRight: "0.4rem" }}></i> Loan Application Fees:</span>
+                    <strong style={{ color: "#d97706" }}>Shs {metrics.feesProfit.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>
+                      <i className="fa-solid fa-percent" style={{ color: "#253b8e", marginRight: "0.4rem" }}></i> Loan Interest Yield:
+                      {/* The one source on this card that has not been collected yet. Fines
+                          and fees are ledger rows; this is what the current book will yield
+                          if every loan runs its term and is repaid in full. */}
+                      <span style={{ fontSize: "1rem", fontStyle: "italic", marginLeft: "0.4rem", color: "#94a3b8" }}>projected</span>
+                    </span>
                     <strong style={{ color: "#253b8e" }}>Shs {metrics.interestProfit.toLocaleString()}</strong>
                   </div>
                 </div>
