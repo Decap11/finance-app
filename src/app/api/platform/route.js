@@ -11,6 +11,16 @@ const GOOD_STANDING = ['trial', 'active'];
 const SUBSCRIPTION_STATUSES = ['trial', 'active', 'past_due', 'expired', 'cancelled'];
 const SUBSCRIPTION_PLANS = ['basic', 'premium', 'enterprise'];
 
+// saccos.status_reason is shown verbatim to the tenant admin in the payment reminder, so
+// the default message written on a hold is phrased for them, not for the operator.
+const SUBSCRIPTION_LABELS = {
+  trial: 'on trial',
+  active: 'paid up',
+  past_due: 'past due',
+  expired: 'expired',
+  cancelled: 'cancelled'
+};
+
 function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
 }
@@ -417,10 +427,11 @@ export async function POST(request) {
       }
 
       const overdueNote = billing.daysOverdue > 0 ? ` (${billing.daysOverdue} days overdue)` : '';
+      const label = SUBSCRIPTION_LABELS[billing.effective] || billing.effective;
       const updated = await applyLifecycleChange(supabase, {
         sacco,
         status: 'on_hold',
-        reason: reason || `Subscription ${billing.effective}${overdueNote}. Settle the outstanding balance to resume activity.`,
+        reason: reason || `Your PEWOSA subscription is ${label}${overdueNote}. Settle it to restore access for your members.`,
         actorEmail,
         action: 'HOLD_TENANT',
         description: `${sacco.name} placed on billing hold by ${actorEmail} -- subscription ${billing.effective}${overdueNote}.`,
@@ -430,7 +441,7 @@ export async function POST(request) {
       return Response.json({
         success: true,
         sacco: updated,
-        message: `${sacco.name} placed on billing hold. Members keep read access; all financial writes are blocked.`
+        message: `${sacco.name} placed on billing hold. Its members cannot enter the app, and its admin is now shown a payment reminder.`
       });
     }
 

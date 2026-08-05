@@ -358,7 +358,8 @@ export default function DeveloperPortal() {
   };
 
   // ACTION 2 - Hold: a billing measure, so it is only offered while the subscription is
-  // past due, expired or cancelled. Members keep read access; financial writes are blocked.
+  // past due, expired or cancelled. Members are held out of the app; the SACCO admin keeps
+  // access and gets a payment reminder, since they are the one who can settle it.
   const holdTenant = async (tenant) => {
     if (tenant.inGoodStanding) {
       alert(
@@ -372,8 +373,9 @@ export default function DeveloperPortal() {
     const reason = prompt(
       `Place '${tenant.name}' on billing hold?\n\n` +
       `Subscription: ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}${overdueNote}.\n` +
-      `Members keep read access, but every contribution, loan and approval is blocked.\n\n` +
-      `Reason (leave blank for the default billing message):`,
+      `Members are held out of the app until it is settled. The SACCO admin keeps access\n` +
+      `and is shown a payment reminder. Reversible at any time.\n\n` +
+      `Reason (shown to the admin; leave blank for the default billing message):`,
       ""
     );
     if (reason === null) return;
@@ -747,8 +749,8 @@ export default function DeveloperPortal() {
               <div className="dev-card-header">
                 <span className="dev-card-title">Platform Tenant Directory</span>
                 <span className="dev-actions-legend">
-                  <strong>Hold</strong> restricts a tenant to read-only while its subscription is
-                  unpaid, and is reversible.
+                  <strong>Hold</strong> pauses a tenant while its subscription is unpaid — members
+                  cannot enter the app, its admin gets a payment reminder — and is reversible.
                   <strong className="danger-term"> Suspend</strong> erases the tenant and all of its
                   data permanently.
                 </span>
@@ -840,7 +842,7 @@ export default function DeveloperPortal() {
                                   disabled={tenant.inGoodStanding}
                                   title={tenant.inGoodStanding
                                     ? "Subscription is in good standing - a billing hold does not apply."
-                                    : `Restrict to read-only: subscription ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}`}
+                                    : `Pause member access and remind the admin to pay: subscription ${SUBSCRIPTION_LABELS[tenant.subscriptionStatus]}`}
                                 >
                                   Hold
                                 </button>

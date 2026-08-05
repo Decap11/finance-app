@@ -70,6 +70,14 @@
   color: #ef4444;
 }
 
+/* Billing hold: a tenant-wide pause, not a revoked membership. Orange rather than the
+   amber above so the two are not mistaken for each other, and matching the orange the
+   developer portal and the admin's reminder dialog already use for 'on hold'. */
+.membership-lock-icon.is-billing {
+  background-color: rgba(249, 115, 22, 0.12);
+  color: #ea580c;
+}
+
 .membership-lock-badge {
   display: inline-flex;
   align-items: center;
@@ -91,6 +99,11 @@
 .membership-lock-badge.is-suspended {
   background-color: rgba(239, 68, 68, 0.1);
   color: #b91c1c;
+}
+
+.membership-lock-badge.is-billing {
+  background-color: rgba(249, 115, 22, 0.12);
+  color: #c2410c;
 }
 
 .membership-lock-title {

@@ -1,0 +1,338 @@
+/* Payment reminder shown to a SACCO admin while their tenant is on a billing hold: a
+   sticky banner that never goes away, and a dialog on top of it until dismissed.
+
+   Follows the .aam-* dialog in adminActionModal.css -- same overlay tint, blur, radius,
+   rise animation and breakpoints -- so the two read as one component. Orange rather than
+   that file's tones: a billing hold is neither a warning about something the admin did nor
+   an error, and orange is what the developer portal already uses for 'on hold'.
+
+   Tokens are written var(--name, fallback) because --primary-color and friends live in
+   several feature stylesheets' :root rather than a global one, and which of those the
+   current route bundles is not something this file should depend on. */
+
+/* ---- Sticky banner ------------------------------------------------------------------ */
+
+.billrem-banner {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 2rem;
+  background: linear-gradient(135deg, #7c2d12, #9a3412);
+  color: #ffedd5;
+  font-size: 1.35rem;
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.billrem-banner > i {
+  flex-shrink: 0;
+  font-size: 1.8rem;
+}
+
+.billrem-banner-text {
+  flex: 1;
+}
+
+.billrem-banner-text strong {
+  font-weight: 700;
+}
+
+.billrem-banner-btn {
+  flex-shrink: 0;
+  padding: 0.8rem 1.6rem;
+  border: 1px solid rgba(255, 237, 213, 0.45);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffedd5;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.billrem-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: #ffedd5;
+}
+
+/* ---- Dialog ------------------------------------------------------------------------- */
+
+.billrem-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: billremFade 0.2s ease-out;
+  overscroll-behavior: contain;
+}
+
+.billrem-dialog {
+  width: 100%;
+  max-width: 46rem;
+  /* Bounded so the detail list scrolls inside the card rather than pushing the buttons
+     off a short viewport. */
+  max-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--white, #ffffff);
+  border-radius: 2rem;
+  box-shadow: 0 2rem 5rem rgba(15, 23, 42, 0.25);
+  animation: billremRise 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes billremFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes billremRise {
+  from { opacity: 0; transform: translateY(1.6rem) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .billrem-overlay,
+  .billrem-dialog {
+    animation: none;
+  }
+}
+
+.billrem-body {
+  padding: 3rem 3rem 2.4rem;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.billrem-icon {
+  width: 6.4rem;
+  height: 6.4rem;
+  margin: 0 auto 1.8rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  background: rgba(249, 115, 22, 0.12);
+  color: #ea580c;
+}
+
+.billrem-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.2rem;
+  margin-bottom: 1.4rem;
+  border-radius: 10rem;
+  background: rgba(249, 115, 22, 0.12);
+  color: #c2410c;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08rem;
+  text-transform: uppercase;
+}
+
+.billrem-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--text-dark, #1e293b);
+  margin-bottom: 1rem;
+}
+
+.billrem-message {
+  font-size: 1.4rem;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.billrem-message strong {
+  color: var(--text-dark, #1e293b);
+  font-weight: 700;
+}
+
+/* Invoice-style summary of what is owed. Left-aligned inside a centred card: figures are
+   read down a column, not across a paragraph. */
+.billrem-details {
+  margin: 2.2rem 0 0;
+  text-align: left;
+  border: 1px solid var(--input-border, #e2e8f0);
+  border-radius: 1.2rem;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.billrem-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.6rem;
+  padding: 1.2rem 1.8rem;
+}
+
+.billrem-detail-row + .billrem-detail-row {
+  border-top: 1px solid #eef2f7;
+}
+
+.billrem-detail-row dt {
+  font-size: 1.3rem;
+  color: var(--text-light, #64748b);
+}
+
+.billrem-detail-row dd {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark, #1e293b);
+  text-align: right;
+}
+
+.billrem-detail-row dd.billrem-amount {
+  font-size: 1.7rem;
+  color: #c2410c;
+}
+
+.billrem-detail-row dd.billrem-overdue {
+  color: #dc2626;
+}
+
+/* Whatever the platform operator typed as the hold reason. Free text, so it wraps. */
+.billrem-reason {
+  margin-top: 1.6rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: 1rem;
+  background: rgba(249, 115, 22, 0.07);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  font-size: 1.3rem;
+  line-height: 1.6;
+  text-align: left;
+  color: #9a3412;
+  overflow-wrap: anywhere;
+}
+
+.billrem-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 2rem 3rem 2.4rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.billrem-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-width: 12rem;
+  padding: 1.2rem 2rem;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.35rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.billrem-btn-ghost {
+  border: 1.5px solid var(--input-border, #e2e8f0);
+  background: var(--white, #ffffff);
+  color: var(--text-light, #64748b);
+}
+
+.billrem-btn-ghost:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: var(--text-dark, #1e293b);
+}
+
+.billrem-btn-solid {
+  border: none;
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 0.6rem 1.6rem rgba(234, 88, 12, 0.25);
+}
+
+.billrem-btn-solid:hover {
+  transform: translateY(-0.1rem);
+  filter: brightness(0.94);
+}
+
+/* ---- Responsive --------------------------------------------------------------------- */
+
+@media (max-width: 44rem) {
+  .billrem-banner {
+    flex-wrap: wrap;
+    padding: 1.2rem 1.6rem;
+    font-size: 1.25rem;
+  }
+
+  .billrem-banner-btn {
+    width: 100%;
+  }
+
+  .billrem-overlay {
+    padding: 1.4rem;
+    /* Keeps the dialog clear of a phone's home indicator. */
+    padding-bottom: max(1.4rem, env(safe-area-inset-bottom));
+  }
+
+  .billrem-dialog {
+    max-height: calc(100vh - 2.8rem);
+    border-radius: 1.6rem;
+  }
+
+  .billrem-body {
+    padding: 2.4rem 2rem 1.8rem;
+  }
+
+  .billrem-icon {
+    width: 5.4rem;
+    height: 5.4rem;
+    font-size: 2.2rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .billrem-title {
+    font-size: 1.7rem;
+  }
+
+  .billrem-message {
+    font-size: 1.3rem;
+  }
+
+  .billrem-footer {
+    flex-direction: column-reverse;
+    padding: 1.6rem 2rem 2rem;
+  }
+
+  .billrem-btn {
+    width: 100%;
+    min-width: 0;
+    padding: 1.4rem 2rem;
+  }
+}
+
+/* Landscape phones: drop the decorative icon rather than let the dialog become a
+   scrolling sliver. */
+@media (max-height: 30rem) {
+  .billrem-icon {
+    display: none;
+  }
+
+  .billrem-body {
+    padding: 2rem 2.4rem 1.4rem;
+  }
+
+  .billrem-footer {
+    flex-direction: row;
+    padding: 1.4rem 2.4rem 1.6rem;
+  }
+}

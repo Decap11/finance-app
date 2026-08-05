@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient";
 import Loader from "./loader";
 import { Session } from "@supabase/supabase-js";
 import "../styles/membershipRevoked.css";
+import "../styles/subscriptionReminder.css";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,10 +17,20 @@ interface ProtectedRouteProps {
 // repeating a string literal.
 export const MEMBER_VIEW_KEY = "pewosa:admin-viewing-as-member";
 
+// A billing hold is a reminder to the admin, not a lockout, so the modal has to be
+// dismissible -- otherwise it would sit on top of the very page they were sent to pay on.
+// sessionStorage and not localStorage: closing the app and coming back should ask again.
+const BILLING_REMINDER_KEY = "pewosa:billing-reminder-dismissed";
+
 interface SaccoState {
   name: string;
   status: string;
   reason: string;
+  subscriptionStatus: string;
+  expiresAt: string | null;
+  daysOverdue: number;
+  amount: number;
+  plan: string;
 }
 
 interface MemberState {
@@ -33,6 +44,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isOrphan, setIsOrphan] = useState<boolean>(false);
   const [saccoState, setSaccoState] = useState<SaccoState | null>(null);
   const [memberState, setMemberState] = useState<MemberState | null>(null);
+  // Which side of a billing hold this user lands on: the admin is the one who can settle
+  // the subscription, so they get the reminder while everyone else is held out.
+  const [role, setRole] = useState<string>("member");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -98,6 +112,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         const profileGroupId = (profile?.group_id || "").trim();
         const groupId = (profileGroupId || session.user.user_metadata?.group_id || "").trim();
         const role = profile?.role || session.user.user_metadata?.role || "member";
+        setRole(role);
 
         // Non-admins may never reach admin-only routes, regardless of SACCO membership.
         if (pathname.startsWith("/admin") && role !== "admin") {
@@ -214,19 +229,43 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       }
     }
 
-    // The platform developer portal controls this: 'suspended'/'closed' lock the SACCO
-    // out entirely, 'on_hold' is a billing restriction that leaves the app readable.
-    // The matching write block is enforced in the database by trg_sacco_access_state.
-    function applySaccoState(saccoRow: { name?: string; status?: string; status_reason?: string } | null) {
+    // The platform developer portal controls this: 'suspended'/'closed' lock the SACCO out
+    // entirely and permanently, 'on_hold' is the reversible billing measure -- members are
+    // held out of the app until the subscription is settled, while the admin gets a payment
+    // reminder instead so they can act on it. The matching write block is enforced in the
+    // database by trg_sacco_access_state.
+    //
+    // The subscription columns come along because the reminder has to state what is owed.
+    // Every caller reads the row with select("*"), so they are already there.
+    function applySaccoState(saccoRow: {
+      name?: string;
+      status?: string;
+      status_reason?: string;
+      subscription_status?: string;
+      subscription_plan?: string;
+      subscription_amount?: number | string;
+      subscription_expires_at?: string;
+    } | null) {
       if (!saccoRow) {
         setSaccoState(null);
         return;
       }
 
+      const expiry = saccoRow.subscription_expires_at
+        ? new Date(saccoRow.subscription_expires_at)
+        : null;
+      const validExpiry = expiry && !Number.isNaN(expiry.getTime()) ? expiry : null;
+      const overdueMs = validExpiry ? Date.now() - validExpiry.getTime() : 0;
+
       setSaccoState({
         name: saccoRow.name || "Your SACCO",
         status: saccoRow.status || "active",
-        reason: saccoRow.status_reason || ""
+        reason: saccoRow.status_reason || "",
+        subscriptionStatus: saccoRow.subscription_status || "trial",
+        expiresAt: validExpiry ? validExpiry.toISOString() : null,
+        daysOverdue: overdueMs > 0 ? Math.floor(overdueMs / 86400000) : 0,
+        amount: Number(saccoRow.subscription_amount) || 0,
+        plan: saccoRow.subscription_plan || ""
       });
     }
 
@@ -287,10 +326,18 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <SaccoLockout sacco={saccoState as SaccoState} />;
   }
 
+  // A billing hold pauses the tenant rather than ending it. Members are held out of the
+  // app entirely -- there is nothing they can do about an unpaid subscription, and letting
+  // them browse records they cannot act on reads as the app being broken. The SACCO admin
+  // is the one who can settle it, so they keep the app and get the payment reminder.
   if (status === "on_hold") {
+    if (role !== "admin") {
+      return <SaccoBillingHold sacco={saccoState as SaccoState} />;
+    }
+
     return (
       <>
-        <BillingHoldBanner sacco={saccoState as SaccoState} />
+        <SubscriptionReminder sacco={saccoState as SaccoState} />
         {children}
       </>
     );
@@ -447,29 +494,183 @@ function SaccoLockout({ sacco }: { sacco: SaccoState }) {
   );
 }
 
-function BillingHoldBanner({ sacco }: { sacco: SaccoState }) {
+// What a member sees while the SACCO is on a billing hold. Deliberately a pause and not a
+// lockout in tone: nothing has been lost, and the person reading it cannot fix it -- the
+// only useful thing it can tell them is who can.
+function SaccoBillingHold({ sacco }: { sacco: SaccoState }) {
   return (
-    <div style={{
-      position: "sticky",
-      top: 0,
-      zIndex: 900,
-      display: "flex",
-      alignItems: "center",
-      gap: "1.2rem",
-      padding: "1.2rem 2rem",
-      background: "linear-gradient(135deg, #7c2d12, #9a3412)",
-      color: "#ffedd5",
-      fontSize: "1.35rem",
-      lineHeight: 1.5,
-      borderBottom: "1px solid rgba(249, 115, 22, 0.4)"
-    }}>
-      <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "1.8rem", flexShrink: 0 }}></i>
-      <div>
-        <strong>{sacco.name} is on a billing hold.</strong>{" "}
-        {sacco.reason || "The subscription is unpaid."}{" "}
-        Records stay readable, but contributions, loans and approvals are blocked until the
-        subscription is settled.
+    <div className="membership-lock">
+      <div className="membership-lock-card">
+        <img
+          src="/images/sacco logo.png"
+          alt="SACCO Logo"
+          className="membership-lock-logo"
+          onError={(e) => {
+            (e.target as HTMLImageElement).onerror = null;
+            (e.target as HTMLImageElement).src =
+              "https://placehold.co/100x100/253b8e/ffffff?text=Logo";
+          }}
+        />
+
+        <div className="membership-lock-icon is-billing">
+          <i className="fa-solid fa-hourglass-half"></i>
+        </div>
+
+        <span className="membership-lock-badge is-billing">Temporarily paused</span>
+
+        <h1 className="membership-lock-title">{sacco.name} is temporarily paused</h1>
+
+        <p className="membership-lock-text">
+          This SACCO&apos;s PEWOSA subscription is due, so access has been paused until it is
+          settled. This is temporary — everything comes back the moment payment goes through.
+        </p>
+
+        <div className="membership-lock-note">
+          <i className="fa-solid fa-shield-halved"></i>
+          <span>
+            Your savings, contributions and loan records are safe and unchanged. Your SACCO
+            administrator has been notified and can settle the subscription to restore access.
+          </span>
+        </div>
+
+        <div className="membership-lock-actions">
+          {/* The status is only read on mount, so a reload is what brings the dashboard
+              back once the hold is released. */}
+          <button
+            className="membership-lock-btn is-primary"
+            onClick={() => window.location.reload()}
+          >
+            <i className="fa-solid fa-rotate-right"></i>
+            Check again
+          </button>
+          <button
+            className="membership-lock-btn is-secondary"
+            onClick={() => supabase.auth.signOut()}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+// What the SACCO admin gets instead of the lockout: the app, plus a reminder of what is
+// owed and a way to pay it. Dismissible on purpose -- "Settle subscription" leads to
+// /payments, and a modal that could not be closed would cover that page too.
+function SubscriptionReminder({ sacco }: { sacco: SaccoState }) {
+  const router = useRouter();
+  const [open, setOpen] = useState<boolean>(false);
+
+  // Read in an effect rather than during render: sessionStorage does not exist while this
+  // page is being prerendered, and seeding state from it would desync hydration.
+  useEffect(() => {
+    setOpen(sessionStorage.getItem(BILLING_REMINDER_KEY) !== "1");
+  }, []);
+
+  const close = () => {
+    sessionStorage.setItem(BILLING_REMINDER_KEY, "1");
+    setOpen(false);
+  };
+
+  const goToPayments = () => {
+    close();
+    router.push("/payments");
+  };
+
+  const dueDate = sacco.expiresAt
+    ? new Date(sacco.expiresAt).toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      })
+    : null;
+
+  return (
+    <>
+      {/* Stays after the modal is dismissed, so the hold never becomes invisible. */}
+      <div className="billrem-banner">
+        <i className="fa-solid fa-triangle-exclamation"></i>
+        <div className="billrem-banner-text">
+          <strong>{sacco.name} is on a billing hold.</strong>{" "}
+          Your members cannot sign in and no contributions, loans or approvals can be
+          recorded until the subscription is settled.
+        </div>
+        <button className="billrem-banner-btn" onClick={goToPayments}>
+          Settle now
+        </button>
+      </div>
+
+      {open && (
+        <div className="billrem-overlay" onClick={close}>
+          <div
+            className="billrem-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="billrem-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="billrem-body">
+              <div className="billrem-icon">
+                <i className="fa-solid fa-file-invoice-dollar"></i>
+              </div>
+
+              <span className="billrem-badge">Subscription due</span>
+
+              <h2 className="billrem-title" id="billrem-title">
+                Your subscription payment is due
+              </h2>
+
+              <p className="billrem-message">
+                <strong>{sacco.name}</strong> has been placed on a temporary billing hold.
+                Your members cannot sign in, and nothing can be recorded, until the
+                subscription is paid.
+              </p>
+
+              <dl className="billrem-details">
+                {sacco.amount > 0 && (
+                  <div className="billrem-detail-row">
+                    <dt>Amount due</dt>
+                    <dd className="billrem-amount">Shs {sacco.amount.toLocaleString()}</dd>
+                  </div>
+                )}
+                {sacco.plan && (
+                  <div className="billrem-detail-row">
+                    <dt>Plan</dt>
+                    <dd style={{ textTransform: "capitalize" }}>{sacco.plan}</dd>
+                  </div>
+                )}
+                {dueDate && (
+                  <div className="billrem-detail-row">
+                    <dt>{sacco.daysOverdue > 0 ? "Was due" : "Due"}</dt>
+                    <dd>{dueDate}</dd>
+                  </div>
+                )}
+                {sacco.daysOverdue > 0 && (
+                  <div className="billrem-detail-row">
+                    <dt>Overdue by</dt>
+                    <dd className="billrem-overdue">
+                      {sacco.daysOverdue} day{sacco.daysOverdue === 1 ? "" : "s"}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {sacco.reason && <p className="billrem-reason">{sacco.reason}</p>}
+            </div>
+
+            <div className="billrem-footer">
+              <button className="billrem-btn billrem-btn-ghost" onClick={close}>
+                Remind me later
+              </button>
+              <button className="billrem-btn billrem-btn-solid" onClick={goToPayments}>
+                <i className="fa-solid fa-credit-card"></i>
+                Settle subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
