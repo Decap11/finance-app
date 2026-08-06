@@ -778,15 +778,18 @@ export default function DeveloperPortal() {
                       ) : (
                         tenants.slice(0, 3).map((tenant) => (
                           <tr key={tenant.id}>
-                            <td><strong>{tenant.name}</strong></td>
-                            <td><code>{tenant.code}</code></td>
-                            <td>
+                            {/* data-label carries the column heading down into the stacked
+                                card layout below 440px, where the thead is hidden and each
+                                cell has to name itself. See developerPortal.css. */}
+                            <td data-label=""><strong>{tenant.name}</strong></td>
+                            <td data-label="Identifier"><code>{tenant.code}</code></td>
+                            <td data-label="Billing Tier">
                               <span className={`tenant-plan ${tenant.plan}`}>
                                 {tenant.planName}
                               </span>
                             </td>
-                            <td>{formatRate(planOf(tenant.plan), tenant.cost)}</td>
-                            <td>
+                            <td data-label="Subscription Rate">{formatRate(planOf(tenant.plan), tenant.cost)}</td>
+                            <td data-label="Account Status">
                               <span
                                 className={`tenant-state tone-${tenant.stateTone}`}
                                 title={tenant.stateDetail}
@@ -859,13 +862,16 @@ export default function DeveloperPortal() {
                     ) : (
                       tenants.map((tenant) => (
                         <tr key={tenant.id}>
-                          <td>
+                          {/* data-label carries the column heading down into the stacked
+                              card layout below 440px. The name cell is deliberately left
+                              unlabelled -- it becomes the card's heading. */}
+                          <td data-label="">
                             <strong>{tenant.name}</strong>
                             <div className="dev-cell-sub">Joined {tenant.joined}</div>
                           </td>
-                          <td><code>{tenant.code}</code></td>
-                          <td>{tenant.admin}</td>
-                          <td>
+                          <td data-label="Group Code"><code>{tenant.code}</code></td>
+                          <td data-label="Administrator">{tenant.admin}</td>
+                          <td data-label="Plan Type">
                             <span className={`tenant-plan ${tenant.plan}`}>
                               {tenant.planName}
                             </span>
@@ -873,7 +879,7 @@ export default function DeveloperPortal() {
                               {formatRate(planOf(tenant.plan), tenant.cost)}
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Subscription">
                             <select
                               className={`sub-select ${tenant.inGoodStanding ? "ok" : "due"}`}
                               value={tenant.storedSubscriptionStatus}
@@ -894,7 +900,7 @@ export default function DeveloperPortal() {
                                   : "No billing term set"}
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Status">
                             <span className={`tenant-state tone-${tenant.stateTone}`}>
                               {tenant.stateLabel}
                             </span>
@@ -913,7 +919,7 @@ export default function DeveloperPortal() {
                               <div className="dev-state-origin">Automatic</div>
                             )}
                           </td>
-                          <td>
+                          <td data-label="Actions">
                             <div className="dev-actions" style={{ justifyContent: "flex-end" }}>
                               {tenant.status === "on_hold" || tenant.status === "suspended" || tenant.status === "closed" ? (
                                 <button

@@ -1140,3 +1140,313 @@
     font-size: 16px;
   }
 }
+
+/* ====================================================================================
+   Small phones: 440px and below.
+
+   responsive.css sets html { font-size: 48% } here, so 1rem is 7.68px and every rem
+   size in this file collapses -- .dev-state-origin lands at 7.3px, the table body at
+   10.4px, and the action buttons at roughly 21px tall against a 44px touch target.
+   Sizes below are therefore in px on purpose, matching the 480px block above.
+
+   The tables are the structural problem rather than the type. Seven columns cannot be
+   made to fit 440px, and the 670px rules "solve" it by hiding the administrator and
+   the plan -- on the directory screen whose whole job is to show them. So the rows are
+   restacked as cards instead: thead goes away, each row becomes a bordered block, and
+   each cell names itself from the data-label set in page.jsx. Nothing is hidden, and
+   nothing scrolls sideways.
+   ==================================================================================== */
+@media (max-width: 440px) {
+  /* Reclaim width. The 850px rule leaves 1.6rem here, which is 12px of side padding
+     that the cards below do not need. */
+  .dev-main-content {
+    padding: 1.6rem 1rem 3rem !important;
+  }
+
+  .dev-card-wrapper {
+    padding: 1.6rem 1.2rem;
+    border-radius: 1.4rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .dev-welcome h1 {
+    font-size: 21px;
+    letter-spacing: -0.03rem;
+  }
+
+  .dev-welcome p {
+    font-size: 12px;
+  }
+
+  .dev-card-title {
+    font-size: 15px;
+  }
+
+  /* Metric cards: one per row, with the number readable at a glance. */
+  .dev-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .dev-metric-card {
+    padding: 1.4rem;
+    gap: 1.2rem;
+    border-radius: 1.4rem;
+  }
+
+  .dev-metric-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 17px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .dev-metric-label {
+    font-size: 11px;
+  }
+
+  .dev-metric-value {
+    font-size: 19px;
+  }
+
+  /* ---- Tables restacked as cards ---- */
+  .dev-table-container {
+    overflow-x: visible;
+  }
+
+  .dev-table,
+  .dev-table tbody,
+  .dev-table tr,
+  .dev-table td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Hidden rather than removed: the headings still exist for screen readers, and the
+     visible label now comes from each cell's data-label. */
+  .dev-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .dev-table tr {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 1.2rem;
+    padding: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .dev-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .dev-table tr:hover {
+    background: rgba(15, 23, 42, 0.4);
+  }
+
+  .dev-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.2rem;
+    padding: 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: right;
+  }
+
+  .dev-table td:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .dev-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+  }
+
+  /* The SACCO name carries no label -- it is the card's heading, so it spans the row. */
+  .dev-table td[data-label='']::before {
+    display: none;
+  }
+
+  .dev-table td[data-label=''] {
+    display: block;
+    text-align: left;
+    padding-top: 0;
+    font-size: 15px;
+  }
+
+  /* The empty-state row ("No Saccos registered...") is a single colSpan cell. */
+  .dev-table td[colspan] {
+    display: block;
+    text-align: center;
+    padding: 2rem 0 !important;
+  }
+
+  .dev-table td[colspan]::before {
+    display: none;
+  }
+
+  /* Restored here. They are hidden at 670px because seven columns will not fit a
+     narrow viewport -- but in a stacked card there are no columns to fit, and the
+     administrator's email is the first thing an operator needs when a tenant calls. */
+  .dev-table th:nth-child(4),
+  .dev-table td:nth-child(4),
+  .dev-table th:nth-child(5),
+  .dev-table td:nth-child(5) {
+    display: flex;
+  }
+
+  /* ---- Cell contents ---- */
+  .dev-cell-sub {
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  .tenant-state,
+  .tenant-plan {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .dev-state-origin {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  /* 16px stops iOS zooming the page when the select takes focus, and this one changes
+     a tenant's billing status -- not somewhere to fat-finger. */
+  .sub-select {
+    font-size: 16px;
+    padding: 8px 10px;
+    min-height: 40px;
+    width: 100%;
+    max-width: 190px;
+  }
+
+  /* ---- Actions ---- */
+  /* Full width and stacked. These buttons put a tenant on hold or delete it and all of
+     its data permanently, so they get a real touch target rather than the ~21px the rem
+     sizing leaves them with. The inline justifyContent on .dev-actions is harmless once
+     the direction is column. */
+  .dev-table td[data-label='Actions'] {
+    display: block;
+    text-align: left;
+    padding-top: 12px;
+  }
+
+  .dev-table td[data-label='Actions']::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .dev-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-dev-action {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  /* In a card header it sits beside a title and should not stretch across the screen. */
+  .dev-card-header .btn-dev-action {
+    min-height: 38px;
+    padding: 8px 12px;
+  }
+
+  .dev-card-header {
+    gap: 1rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .dev-actions-legend {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  /* ---- Operations feed ---- */
+  .sys-log-item {
+    gap: 1rem;
+    padding-bottom: 1.2rem;
+  }
+
+  .sys-log-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .sys-log-msg {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .sys-log-time {
+    font-size: 10px;
+  }
+
+  /* ---- Plan configuration ---- */
+  .plan-config-grid {
+    grid-template-columns: 1fr;
+    gap: 1.4rem;
+  }
+
+  .plan-setting-row {
+    gap: 1rem;
+  }
+
+  .plan-setting-label,
+  .plan-setting-value {
+    font-size: 12px;
+  }
+
+  .dev-plans-note {
+    font-size: 11px;
+    padding: 1.2rem 1.4rem;
+  }
+
+  .dev-data-error {
+    font-size: 12px;
+    padding: 1.2rem 1.4rem;
+  }
+
+  /* ---- Sign-in card ---- */
+  .dev-portal-auth-container {
+    padding: 1.6rem 1.2rem;
+  }
+
+  .dev-auth-card {
+    padding: 2.4rem 1.6rem;
+    border-radius: 1.6rem;
+  }
+
+  .dev-auth-title {
+    font-size: 18px;
+  }
+
+  .dev-auth-subtitle {
+    font-size: 12px;
+  }
+
+  .btn-dev-login {
+    min-height: 46px;
+    font-size: 15px;
+  }
+}
