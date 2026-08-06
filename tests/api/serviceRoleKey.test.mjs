@@ -79,6 +79,27 @@ describe('the service-role key never degrades to a public key', () => {
         `${file}: service-role key falls back to a publishable key -- ${expr}`
       );
     });
+
+    // The assertion above reads the declaration only, and that is exactly how four routes
+    // kept the defect after it was supposedly fixed: platform, admin/dividends,
+    // loans/guarantors and user-vaults each declared `... || ''` correctly and then wrote
+    // `createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey)` inside a
+    // getSupabaseAdmin() helper. The declaration was clean, the client was still anonymous,
+    // and the suite was green. Whatever the key is called, the downgrade must not reappear
+    // anywhere in the file.
+    test(`${file} does not degrade the key at the point of use`, () => {
+      const withoutComments = source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+
+      assert.doesNotMatch(
+        withoutComments,
+        /\w*[Ss]erviceKey\s*\|\|/,
+        `${file}: a service-role client falls back to another key at its call site. An `
+        + 'anonymous client is refused by RLS rather than erroring, so the route answers '
+        + 'with nothing and the screen reports empty instead of broken.'
+      );
+    });
   }
 });
 

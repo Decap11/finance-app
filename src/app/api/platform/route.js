@@ -19,7 +19,20 @@ const SUBSCRIPTION_STATUSES = ['trial', 'active', 'past_due', 'expired', 'cancel
 const SUBSCRIPTION_PLANS = PLAN_IDS;
 
 function getSupabaseAdmin() {
-  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  // No fallback to the anon key. The constant above stopped falling back when that was
+  // fixed in the settings routes, but the downgrade had simply moved here, which is why
+  // it survived: an unset service key produced an anonymous client that RLS then answered
+  // with nothing. This route reads and writes every tenant on the platform, so that shows
+  // an operator an empty or partial SACCO list and reports suspensions as applied when
+  // the write was refused. Refusing outright is the only honest answer.
+  if (!supabaseServiceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not set. The platform portal reads across every tenant, '
+      + 'which no anonymous client can do; without it this endpoint would report an empty '
+      + 'platform rather than a broken one.'
+    );
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
 function getAllowedEmails() {

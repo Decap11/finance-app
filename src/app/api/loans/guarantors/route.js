@@ -8,7 +8,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function getSupabaseAdmin() {
-  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  // No fallback to the anon key -- see the note on the same function in platform/route.js.
+  // A guarantor request names a member other than the caller, so it has to be read outside
+  // the caller's own RLS scope; an anonymous client reads none of it and the request looks
+  // like it was never made.
+  if (!supabaseServiceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not set. Guarantor records name members other than the '
+      + 'caller and cannot be read anonymously.'
+    );
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
 async function authenticate(request) {

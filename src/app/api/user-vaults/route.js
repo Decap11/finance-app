@@ -8,7 +8,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function getSupabaseAdmin() {
-  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  // No fallback to the anon key -- see the note on the same function in platform/route.js.
+  // Vault balances are money. An anonymous client reads no rows, so every vault would
+  // render as empty rather than as failed, and a member would be told their savings are
+  // zero by a page that looked like it worked.
+  if (!supabaseServiceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not set. Vault balances would read as empty rather '
+      + 'than as unavailable, which shows a member the wrong savings figure.'
+    );
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
 async function authenticate(request) {

@@ -8,7 +8,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function getSupabaseAdmin() {
-  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  // No fallback to the anon key -- see the note on the same function in platform/route.js.
+  // The stake here is the authorization check below: this client answers "is the caller
+  // the admin of this SACCO", and an anonymous one reads no sacco_memberships rows, so it
+  // would answer "no" for everybody and lock admins out of their own dividend cycles.
+  if (!supabaseServiceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not set. Dividend authorization checks membership rows '
+      + 'that only the service role can read across a SACCO.'
+    );
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
 // Answers "who is this", and nothing about what they may touch.
