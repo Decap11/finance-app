@@ -43,8 +43,15 @@ const PUBLIC_ROUTES = new Map([
   [
     'register-sacco',
     'Sign-up. There is no session yet by definition -- this is the route that creates one. '
-    + 'It is also the app\'s only unauthenticated write, which is why it is the first place '
-    + 'rate limiting should land.'
+    + 'It is rate limited for that reason: it is unauthenticated and it creates auth users '
+    + 'with the service role.'
+  ],
+  [
+    'client-errors',
+    'Error intake. A failure on the login page is exactly the kind worth hearing about, so '
+    + 'requiring a session would filter out the reports that matter most. It reads nothing, '
+    + 'answers 204 regardless, truncates and scrubs everything it records, and is rate '
+    + 'limited because it is a public write.'
   ]
 ]);
 

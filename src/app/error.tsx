@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import FailureNotice, { failureActionStyle } from "../Components/FailureNotice";
+import { reportClientError } from "../utils/reportClientError";
 
 /**
  * The boundary for everything below the root layout.
@@ -25,9 +26,12 @@ export default function ErrorBoundary({
   retry: () => void;
 }) {
   useEffect(() => {
-    // The app has no error-tracking service wired up yet, so this console is the only record
-    // that the failure happened. When one is added, it goes here.
+    // The console keeps the full object for anyone with DevTools open. reportClientError
+    // carries the digest to the server, which is what makes the reference shown below
+    // something an operator can actually look up rather than a number the member reads out
+    // to nobody.
     console.error("Unhandled render error:", error);
+    reportClientError(error, "segment");
   }, [error]);
 
   return (

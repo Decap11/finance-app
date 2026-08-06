@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import FailureNotice, { failureActionStyle } from "../Components/FailureNotice";
+import { reportClientError } from "../utils/reportClientError";
 
 /**
  * The last boundary: errors thrown by the root layout itself, which error.tsx cannot catch
@@ -28,6 +29,10 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("Unhandled error in the root layout:", error);
+    // Marked 'global' because these are the worst class of failure in the app -- the root
+    // layout itself threw, so nothing rendered at all -- and they should be separable from
+    // segment errors when reading the log.
+    reportClientError(error, "global");
   }, [error]);
 
   return (
