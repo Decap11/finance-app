@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient";
 import Loader from "./loader";
 import { Session } from "@supabase/supabase-js";
 import { tenantState } from "../utils/tenantState";
+import { routeRedirect, MEMBER_VIEW_KEY } from "../utils/routeAccess";
 import "../styles/membershipRevoked.css";
 import "../styles/subscriptionReminder.css";
 
@@ -13,10 +14,9 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-// Set when an admin chooses "Switch to Member View", cleared when they switch back.
-// Exported so the two headers and two sidebars agree on the spelling rather than each
-// repeating a string literal.
-export const MEMBER_VIEW_KEY = "pewosa:admin-viewing-as-member";
+// Defined in routeAccess alongside the rules that read it, and re-exported here because
+// the two headers and two sidebars already import it from this module.
+export { MEMBER_VIEW_KEY };
 
 // A billing hold is a reminder to the admin, not a lockout, so the modal has to be
 // dismissible -- otherwise it would sit on top of the very page they were sent to pay on.
@@ -122,42 +122,33 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         const role = profile?.role || session.user.user_metadata?.role || "member";
         setRole(role);
 
-        // Non-admins may never reach admin-only routes, regardless of SACCO membership.
-        if (pathname.startsWith("/admin") && role !== "admin") {
-          setLoading(false);
-          router.replace("/dashboard");
-          return;
+        // The rules themselves live in src/utils/routeAccess.js so they can be tested
+        // against the shipped source rather than a copy. Everything that cannot be pure --
+        // reading the URL, remembering the choice for the tab, driving the router -- stays
+        // here.
+        //
+        // sessionStorage and not localStorage: reopening the app is exactly when an admin
+        // should land on the admin dashboard again. Read from window rather than
+        // useSearchParams(): that hook opts every page this component wraps out of static
+        // prerendering unless each is given its own Suspense boundary, which failed the
+        // build on /loans. This runs inside an effect, so window is there to be asked.
+        const askedForMemberView =
+          new URLSearchParams(window.location.search).get("view") === "member";
+        if (pathname === "/dashboard" && role === "admin" && askedForMemberView) {
+          sessionStorage.setItem(MEMBER_VIEW_KEY, "1");
         }
 
-        // SACCO Admins opening the app at /dashboard are routed on to the Admin Dashboard,
-        // which is what 22c0b9a wanted: launching the installed PWA should land an admin on
-        // their own screen rather than the member one.
-        //
-        // Unless they asked to be here. "Switch to Member View" navigates to
-        // /dashboard?view=member, and without the check below this redirect fired straight
-        // afterwards and threw them back to /admin -- so the menu item existed, did nothing
-        // visible, and the two views could not be switched between at all.
-        //
-        // The choice is remembered for the tab rather than read from the URL alone, because
-        // a member-view visit to /savings and back would otherwise arrive at a bare
-        // /dashboard and bounce again. sessionStorage and not localStorage: reopening the
-        // app is exactly when an admin should land on the admin dashboard again.
-        // Read from window rather than useSearchParams(): that hook opts every page this
-        // component wraps out of static prerendering unless each is given its own Suspense
-        // boundary, which failed the build on /loans. This runs inside an effect, so it is
-        // client-side already and window is there to be asked.
-        if (pathname === "/dashboard" && role === "admin") {
-          const askedForMemberView =
-            new URLSearchParams(window.location.search).get("view") === "member";
-          if (askedForMemberView) {
-            sessionStorage.setItem(MEMBER_VIEW_KEY, "1");
-          }
+        const redirectTo = routeRedirect({
+          pathname,
+          role,
+          askedForMemberView,
+          memberViewRemembered: sessionStorage.getItem(MEMBER_VIEW_KEY) === "1"
+        });
 
-          if (!askedForMemberView && sessionStorage.getItem(MEMBER_VIEW_KEY) !== "1") {
-            setLoading(false);
-            router.replace("/admin");
-            return;
-          }
+        if (redirectTo) {
+          setLoading(false);
+          router.replace(redirectTo);
+          return;
         }
 
         // If user has a group_id or is an admin, they are associated with a SACCO
