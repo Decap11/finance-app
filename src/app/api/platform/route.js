@@ -308,9 +308,13 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'tenants';
-  const supabase = getSupabaseAdmin();
 
   try {
+    // Inside the try on purpose. This throws when SUPABASE_SERVICE_ROLE_KEY is unset, and
+    // outside the try that surfaced as a bare 500 with no body -- so the portal showed a
+    // blank failure and the one sentence naming the missing variable never reached anyone.
+    const supabase = getSupabaseAdmin();
+
     if (action === 'tenants') {
       const { data: saccos, error: saccoErr } = await supabase
         .from('saccos')
@@ -361,10 +365,12 @@ export async function POST(request) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  const supabase = getSupabaseAdmin();
   const actorEmail = auth.email;
 
   try {
+    // See the note in GET: outside the try, a missing service key became an empty 500.
+    const supabase = getSupabaseAdmin();
+
     const body = await request.json();
     const { searchParams } = new URL(request.url);
 
