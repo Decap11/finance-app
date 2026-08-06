@@ -919,82 +919,10 @@ html {
   margin-top: 3.5rem;
   font-size: 1.4rem;
   color: #94a3b8;
-  font-style: italic;
-}
-
-/* --- Engineering & Tech Stack Section --- */
-.tech-stack-section {
-  padding: 8rem 6%;
-  background: var(--bg-color);
-  border-top: 0.1rem solid rgba(226, 232, 240, 0.8);
-}
-
-.tech-stack-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
-  gap: 2.5rem;
-  max-width: 118rem;
-  margin: 0 auto;
-}
-
-.tech-card {
-  background: var(--white);
-  border: 0.1rem solid rgba(226, 232, 240, 0.9);
-  border-radius: var(--border-radius);
-  padding: 3rem 2.4rem;
-  transition: var(--transition);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-shadow: 0 0.4rem 1.5rem rgba(15, 23, 42, 0.03);
-}
-
-.tech-card:hover {
-  transform: translateY(-0.4rem);
-  box-shadow: var(--card-shadow);
-  border-color: rgba(37, 59, 142, 0.2);
-}
-
-.tech-icon-badge {
-  width: 5.6rem;
-  height: 5.6rem;
-  border-radius: 1.4rem;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.8rem;
-  transition: transform 0.2s ease;
-  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.15);
-}
-
-.tech-card:hover .tech-icon-badge {
-  transform: scale(1.08);
-}
-
-.tech-card h3 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--text-dark);
-  margin-bottom: 0.4rem;
-}
-
-.tech-card .tech-tag {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--primary-color);
-  background: rgba(37, 59, 142, 0.08);
-  padding: 0.2rem 0.8rem;
-  border-radius: 0.6rem;
-  margin-bottom: 1.2rem;
-  display: inline-block;
-}
-
-.tech-card p {
-  font-size: 1.35rem;
-  color: var(--text-light);
-  line-height: 1.6;
+  line-height: 1.7;
+  max-width: 68rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* --- Capability Checklist --- */
