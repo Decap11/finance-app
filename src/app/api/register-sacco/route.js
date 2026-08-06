@@ -74,7 +74,9 @@ export async function POST(request) {
         if (!createErr && newUser?.user) {
           userId = newUser.user.id;
           
-          const [profileRes, saccoRes] = await Promise.all([
+          // The profile upsert's result is not inspected -- it is awaited for ordering, and
+          // the SACCO row below is what the response is built from.
+          const [, saccoRes] = await Promise.all([
             supabaseAdmin.from('profiles').upsert({
               id: userId,
               full_name: fullName.trim(),
@@ -201,7 +203,7 @@ export async function POST(request) {
       : { auth: { persistSession: false } };
     const authenticatedClient = createClient(supabaseUrl, supabaseAnonKey, clientOptions);
 
-    const [profileRes, rpcRes] = await Promise.all([
+    const [, rpcRes] = await Promise.all([
       authenticatedClient.from('profiles').upsert({
         id: userId,
         full_name: fullName.trim(),

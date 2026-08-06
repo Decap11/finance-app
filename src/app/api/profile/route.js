@@ -94,7 +94,9 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { action, email, phone, avatar_url } = body;
+    // avatar_url is deliberately not read from the body: the handler below stores an empty
+    // string in user metadata regardless, to keep base64 image data out of the JWT.
+    const { action, email, phone } = body;
 
     if (action === 'update_avatar') {
       const { data: updateData, error: updateErr } = await supabase.auth.updateUser({

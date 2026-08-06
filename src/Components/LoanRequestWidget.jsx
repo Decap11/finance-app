@@ -58,31 +58,35 @@ export default function LoanRequestWidget() {
 
   const INTEREST_RATE = 0.05; // 5% per month for normal loan
 
-  async function loadSharesBalance() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/user-balances", {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      const data = await res.json();
-      if (res.ok && data.accounts) {
-        const sharesAcc = data.accounts.find(acc => acc.account_type === "shares");
-        if (sharesAcc) {
-          setSharesBalance(Number(sharesAcc.balance) || 0);
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to load shares balance:", err);
-    } finally {
-      setLoadingBalance(false);
-    }
-  }
-
   useEffect(() => {
+    // Defined inside the effect that owns it. Outside, it was a function the effect called
+    // synchronously, which the compiler reports as a cascading render regardless of the
+    // await inside. The initial load, both realtime handlers and the refresh listener are
+    // all in here; nothing else calls it.
+    async function loadSharesBalance() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch("/api/user-balances", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data.accounts) {
+          const sharesAcc = data.accounts.find(acc => acc.account_type === "shares");
+          if (sharesAcc) {
+            setSharesBalance(Number(sharesAcc.balance) || 0);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load shares balance:", err);
+      } finally {
+        setLoadingBalance(false);
+      }
+    }
+
     loadSharesBalance();
 
     const channel = supabase
@@ -167,7 +171,7 @@ export default function LoanRequestWidget() {
       return;
     }
 
-    let total = amount;
+    let total;
     const today = new Date();
     let dueDateTime = new Date();
 
@@ -219,10 +223,6 @@ export default function LoanRequestWidget() {
   const handlePeriodChange = (selectedPeriod) => {
     setRepaymentPeriod(selectedPeriod);
     calculateLoan(parseFloat(loanAmount) || "", loanType, selectedPeriod);
-  };
-
-  const handleReasonChange = (selectedReason) => {
-    setLoanReason(selectedReason);
   };
 
   const maxAllowedAmount = loanType === "social_fund" ? 50000 : sharesBalance * 2;
@@ -400,7 +400,11 @@ export default function LoanRequestWidget() {
             <CustomSelect
               value={loanType === "social_fund" ? "2w" : repaymentPeriod}
               options={loanType === "social_fund" ? socialPeriodOptions : periodOptions}
-              onChange={(val) => setRepaymentPeriod(val)}
+              // handlePeriodChange, not a bare setRepaymentPeriod. This was wired straight to
+              // the setter, so choosing 3 months instead of 1 changed the term without
+              // recalculating: the member was shown the one-month total repayable and the
+              // one-month due date, and only a further edit to the amount corrected them.
+              onChange={handlePeriodChange}
               disabled={loanType === "social_fund"}
             />
           </div>

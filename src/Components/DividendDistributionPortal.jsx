@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -56,7 +56,11 @@ export default function DividendDistributionPortal() {
     loadSaccoContext();
   }, []);
 
-  const loadHistory = async (sId) => {
+  // A function declaration, not a const arrow: the effect above calls this before this line
+  // is reached, and only an intervening await keeps that out of the temporal dead zone. That
+  // is a runtime ReferenceError waiting for someone to remove an await, so the declaration is
+  // hoisted instead of relying on the timing.
+  async function loadHistory(sId) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -71,7 +75,7 @@ export default function DividendDistributionPortal() {
     } catch (err) {
       console.warn("Failed to load dividend cycles history:", err);
     }
-  };
+  }
 
   const handleCalculatePreview = async () => {
     if (!saccoId || !profitPool || Number(profitPool) <= 0) {

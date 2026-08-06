@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
 import "../styles/adminsidebar.css";
 
@@ -16,7 +16,7 @@ const navItems = [
 
 export default function SideBar() {
   const { isOpen, closeSidebar } = useSidebar();
-  const pathname = usePathname();
+  // Navigation is keyed on ?tab=, not on the path -- the dashboard is one route.
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") || "overview";
 

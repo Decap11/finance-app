@@ -70,7 +70,11 @@ export default function MemberFinesManager({ allMembers = [] }) {
   }, []);
 
   useEffect(() => {
-    loadFines();
+    // Deferred past the current render rather than run inside it. loadFines stays a callback
+    // because handleIssue and handleAction both await it after acting; calling it from the
+    // effect body is what the compiler reports, since it cannot see that every setState in
+    // it sits behind an await. The fetch dominates either way, so nothing is slower.
+    const initial = setTimeout(loadFines, 0);
 
     // Sent with the session token: /api/sacco-settings refuses an unauthenticated read, and
     // refuses a group code the caller does not belong to.
@@ -115,6 +119,8 @@ export default function MemberFinesManager({ allMembers = [] }) {
       }
     }
     loadSaccoDefaults();
+
+    return () => clearTimeout(initial);
   }, [loadFines]);
 
   // Picking a reason pre-fills its configured amount, which the admin can then override.

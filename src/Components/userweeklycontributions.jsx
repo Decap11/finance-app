@@ -44,7 +44,11 @@ export default function WeeklyContributions() {
       if (cached) {
         try {
           return JSON.parse(cached);
-        } catch (e) {}
+        } catch {
+          // A corrupt cache is not an error worth reporting: this is a display-time
+          // shortcut, the defaults below are correct, and the authoritative figures arrive
+          // from /api/sacco-settings moments later. Falling through is the whole plan.
+        }
       }
     }
     return {

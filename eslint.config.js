@@ -17,5 +17,11 @@ export default defineConfig([
       globals: { ...globals.browser, ...globals.node },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // `const { meeting_day, ...rest } = payload` is how this codebase drops a key before
+      // a write. The named binding is the point of the line and is meant to go unread, so
+      // reporting it trains people to ignore this rule rather than to read it.
+      'no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
   },
 ])

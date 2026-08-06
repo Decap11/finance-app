@@ -82,7 +82,10 @@ export default function Settings({ isAdminView = false }) {
         try {
           data = JSON.parse(text);
         } catch (e) {
-          throw new Error(text || "Server returned a non-JSON profile response.");
+          // The parse failure is the cause; the response body is what a human can act on.
+          // Keeping both means the console shows which one it actually was -- an HTML error
+          // page from a proxy reads very differently from a truncated JSON body.
+          throw new Error(text || "Server returned a non-JSON profile response.", { cause: e });
         }
 
         if (!res.ok) {
@@ -207,7 +210,7 @@ export default function Settings({ isAdminView = false }) {
           await supabase.auth.updateUser({
             data: { avatar_url: finalUrl }
           });
-        } catch (e) {
+        } catch {
           // Ignore metadata update errors
         }
       }

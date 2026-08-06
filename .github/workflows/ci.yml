@@ -11,9 +11,12 @@
 # a credential landing in the tree has to fail loudly even when the build is already broken
 # for unrelated reasons.
 #
-# `npm run lint` is deliberately NOT a gate yet: the tree has pre-existing errors (unused
-# catch bindings and react-hooks findings) and turning it on today would fail every PR
-# regardless of its contents. Fix those and add it here.
+# `npm run lint` is now a gate. It was held back while the tree carried 51 pre-existing
+# errors, which would have failed every PR regardless of its contents; those are cleared.
+# It earns its place: among them were six use-before-declaration faults that only worked
+# because an await happened to sit in the right spot, a repayment-period selector wired
+# straight to its setter so the loan total never recalculated, and a heat map that stored
+# load failures in state it never rendered.
 name: CI
 
 on:
@@ -63,6 +66,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Unit and route tests
         run: npm test

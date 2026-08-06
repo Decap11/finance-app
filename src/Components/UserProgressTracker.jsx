@@ -13,14 +13,14 @@ export default function UserProgressTracker() {
     social_fund: 0,
   });
 
-  // 5,000 here against 25,000 everywhere else was its own quiet fault: this screen sizes a
-  // member's default shares target at ten shares, so before the settings loaded it showed
-  // them a target a fifth of what the contribution form was charging.
-  const [settings, setSettings] = useState({
-    sharePrice: DEFAULT_SHARE_PRICE,
-    devtFund: 1000,
-    socialFund: 2000,
-  });
+  // The fetched share price and fund amounts are NOT held in state. They are read straight
+  // into locals in loadData and used there to size the default targets, which is the only
+  // thing this screen does with them. They were also being written to a `settings` state
+  // that nothing ever read -- redundant, not load-bearing, and removed.
+  //
+  // DEFAULT_SHARE_PRICE still matters: at 5,000 against the 25,000 charged everywhere else,
+  // this screen showed a member a default target a fifth of what the contribution form was
+  // asking, for as long as the settings request took.
 
   // Custom saving targets state
   const [customTargets, setCustomTargets] = useState({
@@ -36,82 +36,81 @@ export default function UserProgressTracker() {
   const [editSocial, setEditSocial] = useState("");
   const [savingTargets, setSavingTargets] = useState(false);
 
-  async function loadData() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  useEffect(() => {
+    // Defined inside the effect that owns it. Outside, it was a function the effect called
+    // synchronously, which the compiler reports as a cascading render whether or not the
+    // first statement is an await. The initial load, the realtime handler and the refresh
+    // listener are all in here; nothing else calls it.
+    async function loadData() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      // Fetch balances
-      const balanceRes = await fetch("/api/user-balances", {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      const balanceData = await balanceRes.json();
-      
-      let fetchedBalances = { shares: 0, development_fund: 0, social_fund: 0 };
-      if (balanceRes.ok && balanceData.accounts) {
-        balanceData.accounts.forEach((acc) => {
-          if (acc.account_type in fetchedBalances) {
-            fetchedBalances[acc.account_type] = Number(acc.balance) || 0;
+        // Fetch balances
+        const balanceRes = await fetch("/api/user-balances", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
           }
         });
-      }
-
-      // Fetch settings with authorization and no-store policy
-      const settingsRes = await fetch("/api/sacco-settings", {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        cache: "no-store"
-      });
-      const settingsData = await settingsRes.json();
+        const balanceData = await balanceRes.json();
       
-      let currentSharePrice = DEFAULT_SHARE_PRICE;
-      let currentDevtFund = 1000;
-      let currentSocialFund = 2000;
+        let fetchedBalances = { shares: 0, development_fund: 0, social_fund: 0 };
+        if (balanceRes.ok && balanceData.accounts) {
+          balanceData.accounts.forEach((acc) => {
+            if (acc.account_type in fetchedBalances) {
+              fetchedBalances[acc.account_type] = Number(acc.balance) || 0;
+            }
+          });
+        }
 
-      if (settingsRes.ok && settingsData) {
-        currentSharePrice = Number(settingsData.sharePrice) || DEFAULT_SHARE_PRICE;
-        currentDevtFund = Number(settingsData.devtFund) || 1000;
-        currentSocialFund = Number(settingsData.socialFund) || 2000;
-        setSettings({
-          sharePrice: currentSharePrice,
-          devtFund: currentDevtFund,
-          socialFund: currentSocialFund,
+        // Fetch settings with authorization and no-store policy
+        const settingsRes = await fetch("/api/sacco-settings", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          cache: "no-store"
         });
+        const settingsData = await settingsRes.json();
+      
+        let currentSharePrice = DEFAULT_SHARE_PRICE;
+        let currentDevtFund = 1000;
+        let currentSocialFund = 2000;
+
+        if (settingsRes.ok && settingsData) {
+          currentSharePrice = Number(settingsData.sharePrice) || DEFAULT_SHARE_PRICE;
+          currentDevtFund = Number(settingsData.devtFund) || 1000;
+          currentSocialFund = Number(settingsData.socialFund) || 2000;
+        }
+
+        // Fetch custom targets from profile table
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('shares_target, devt_target, social_target')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) {
+          setCustomTargets({
+            shares: profileData.shares_target !== null ? Number(profileData.shares_target) : (10 * currentSharePrice),
+            devt: profileData.devt_target !== null ? Number(profileData.devt_target) : (10 * currentDevtFund),
+            social: profileData.social_target !== null ? Number(profileData.social_target) : (5 * currentSocialFund),
+          });
+        } else {
+          setCustomTargets({
+            shares: 10 * currentSharePrice,
+            devt: 10 * currentDevtFund,
+            social: 5 * currentSocialFund,
+          });
+        }
+
+        setBalances(fetchedBalances);
+      } catch (err) {
+        console.warn("Error loading progress tracker data:", err);
+      } finally {
+        setLoading(false);
       }
-
-      // Fetch custom targets from profile table
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('shares_target, devt_target, social_target')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profileData) {
-        setCustomTargets({
-          shares: profileData.shares_target !== null ? Number(profileData.shares_target) : (10 * currentSharePrice),
-          devt: profileData.devt_target !== null ? Number(profileData.devt_target) : (10 * currentDevtFund),
-          social: profileData.social_target !== null ? Number(profileData.social_target) : (5 * currentSocialFund),
-        });
-      } else {
-        setCustomTargets({
-          shares: 10 * currentSharePrice,
-          devt: 10 * currentDevtFund,
-          social: 5 * currentSocialFund,
-        });
-      }
-
-      setBalances(fetchedBalances);
-    } catch (err) {
-      console.warn("Error loading progress tracker data:", err);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  useEffect(() => {
     loadData();
 
     // Subscribe to transactions real-time channel to reload progress tracker on approvals

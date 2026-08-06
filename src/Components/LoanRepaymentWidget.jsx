@@ -11,7 +11,8 @@ export default function LoanRepaymentWidget() {
   // tracks the whole set and which of them the form is currently pointed at.
   const [loans, setLoans] = useState([]);
   const [selectedLoanId, setSelectedLoanId] = useState("");
-  const [savingsBalance, setSavingsBalance] = useState(0);
+  // No savingsBalance state: it was fetched and stored, and nothing on this widget ever
+  // read it. Repayment is validated against the loan, not against savings.
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -36,7 +37,6 @@ export default function LoanRepaymentWidget() {
         setSelectedLoanId((current) =>
           open.some((l) => l.id === current) ? current : (open[0]?.id || "")
         );
-        setSavingsBalance(data.savingsBalance || 0);
       } catch (err) {
         console.warn("Error loading loan data:", err);
       } finally {

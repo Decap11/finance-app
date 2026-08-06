@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
 import { exportWeeklyReportPDF } from "../utils/pdfExportUtils";
@@ -60,7 +60,11 @@ export default function SaccoSettings() {
       if (cached) {
         try {
           return JSON.parse(cached);
-        } catch (e) {}
+        } catch {
+          // A corrupt cache is not an error worth reporting: this is a display-time
+          // shortcut, the defaults below are correct, and the authoritative figures arrive
+          // from /api/sacco-settings moments later. Falling through is the whole plan.
+        }
       }
     }
     return {
@@ -84,21 +88,22 @@ export default function SaccoSettings() {
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
   const [filterWeek, setFilterWeek] = useState(1);
 
-  // Aggregated Report states
-  const [reportRows, setReportRows] = useState([]);
-  // Lending activity for the selected week, exported as the report's second page.
-  const [loanRows, setLoanRows] = useState([]);
-  const [repaymentRows, setRepaymentRows] = useState([]);
-  const [reportTotals, setReportTotals] = useState({
+  // The aggregated report is NOT state. Every figure in it is a pure function of the loaded
+  // members, transactions and loans and the selected week -- it was being recomputed in an
+  // effect and written back with four setState calls, which is a second render pass per
+  // change and one where the table briefly disagreed with the week selector above it. It is
+  // a useMemo further down instead, and these are its empty values.
+  //
+  // Absence fines and every other fine are reported in their own columns -- they are
+  // separate offences and a single "fines" figure would hide which is which.
+  const EMPTY_TOTALS = {
     shares: 0,
     devt: 0,
     social: 0,
-    // Absence fines and every other fine are reported in their own columns -- they are
-    // separate offences and a single "fines" figure would hide which is which.
     absent: 0,
     fines: 0,
     grandTotal: 0,
-  });
+  };
 
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
@@ -197,7 +202,7 @@ export default function SaccoSettings() {
               localStorage.setItem("sacco_settings_cache", JSON.stringify(formatted));
             }
           }
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -258,7 +263,11 @@ export default function SaccoSettings() {
   }
 
   useEffect(() => {
-    loadDatabaseData();
+    // Deferred past the current render rather than called inside it. loadDatabaseData stays
+    // outside the effect because the settings form awaits it after a successful save; the
+    // compiler cannot see that its setState calls all sit behind an await, so calling it
+    // from an effect body reads as a cascading render.
+    const initial = setTimeout(loadDatabaseData, 0);
 
     // Realtime WebSocket listener for SACCO Settings updates
     const channel = supabase
@@ -288,13 +297,16 @@ export default function SaccoSettings() {
       .subscribe();
 
     return () => {
+      clearTimeout(initial);
       supabase.removeChannel(channel);
     };
   }, []);
 
   // Compute Weekly Table and overall totals dynamically
-  useEffect(() => {
-    if (allMembers.length === 0) return;
+  const { reportRows, reportTotals, loanRows, repaymentRows } = useMemo(() => {
+    if (allMembers.length === 0) {
+      return { reportRows: [], reportTotals: EMPTY_TOTALS, loanRows: [], repaymentRows: [] };
+    }
 
     // The one week test, shared by the contributions rows and both lending tables below.
     const inSelectedWeek = (tx) => {
@@ -377,15 +389,14 @@ export default function SaccoSettings() {
       grandTotal += r.rowTotal;
     });
 
-    setReportRows(rows);
-    setReportTotals({
+    const totals = {
       shares: totalShares,
       devt: totalDev,
       social: totalSocial,
       absent: totalAbsent,
       fines: totalFines,
       grandTotal,
-    });
+    };
 
     // ---- Lending activity for the same week -------------------------------------------
     //
@@ -437,8 +448,8 @@ export default function SaccoSettings() {
       })
       .sort((a, b) => b.amount - a.amount);
 
-    setLoanRows(issued);
-    setRepaymentRows(repaid);
+    return { reportRows: rows, reportTotals: totals, loanRows: issued, repaymentRows: repaid };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- EMPTY_TOTALS is a constant shape
   }, [allMembers, allTransactions, allLoans, filterYear, filterMonth, filterWeek, settings.sharePrice]);
 
   const handleChange = (e) => {
@@ -518,7 +529,7 @@ export default function SaccoSettings() {
       let data = {};
       try {
         data = JSON.parse(text);
-      } catch (err) {
+      } catch {
         data = {};
       }
 

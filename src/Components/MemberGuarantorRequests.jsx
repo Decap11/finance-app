@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
 export default function MemberGuarantorRequests() {
@@ -28,7 +28,11 @@ export default function MemberGuarantorRequests() {
     loadUserSession();
   }, []);
 
-  const fetchGuarantorRequests = async (pId) => {
+  // A function declaration, not a const arrow: the effect above calls this before this line
+  // is reached, and only an intervening await keeps that out of the temporal dead zone. That
+  // is a runtime ReferenceError waiting for someone to remove an await, so the declaration is
+  // hoisted instead of relying on the timing.
+  async function fetchGuarantorRequests(pId) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -47,7 +51,7 @@ export default function MemberGuarantorRequests() {
       // asked to sign needs to know the list failed, not assume nobody asked.
       setStatusMessage({ type: "error", text: err.message });
     }
-  };
+  }
 
   const handleResponse = async (guarantorId, responseChoice) => {
     setProcessingId(guarantorId);

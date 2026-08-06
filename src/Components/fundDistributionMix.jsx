@@ -15,43 +15,51 @@ export default function FundDistributionMix() {
   // sum. Every use of it below is guarded on that.
   const [capital, setCapital] = useState(null);
 
-  async function fetchBalances() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/sacco-balances", {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      const data = await res.json();
-      if (res.ok && data.accounts) {
-        const newBalances = {
-          shares: 0,
-          development_fund: 0,
-          social_fund: 0,
-          fines: 0,
-        };
-        data.accounts.forEach((acc) => {
-          if (newBalances[acc.account_type] !== undefined) {
-            newBalances[acc.account_type] = Number(acc.balance) || 0;
-          }
-        });
-        setBalances(newBalances);
-      }
-      if (res.ok) {
-        setCapital(data.capital || null);
-      }
-    } catch (err) {
-      console.warn("Error loading distribution mix balances:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchBalances();
+    // Defined inside the effect that owns it. Sitting outside, it was a function the effect
+    // called synchronously, which the compiler cannot see past -- it reports a cascading
+    // render whether or not the first statement is an await. Nothing else calls it: the
+    // initial load, both realtime handlers and the refresh listener are all in here.
+    async function fetchBalances() {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+
+          const res = await fetch("/api/sacco-balances", {
+            headers: {
+              "Authorization": `Bearer ${session.access_token}`
+            }
+          });
+          const data = await res.json();
+          if (res.ok && data.accounts) {
+            const newBalances = {
+              shares: 0,
+              development_fund: 0,
+              social_fund: 0,
+              fines: 0,
+            };
+            data.accounts.forEach((acc) => {
+              if (newBalances[acc.account_type] !== undefined) {
+                newBalances[acc.account_type] = Number(acc.balance) || 0;
+              }
+            });
+            setBalances(newBalances);
+          }
+          if (res.ok) {
+            setCapital(data.capital || null);
+          }
+        } catch (err) {
+          console.warn("Error loading distribution mix balances:", err);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+    // Defined inside the effect that owns it. Sitting outside, it was a function the effect
+    // called synchronously, which the compiler cannot see past -- it reports a cascading
+    // render whether or not the first statement is an await. Nothing else calls it: the
+    // initial load, both realtime handlers and the refresh listener are all in here.
+      fetchBalances();
 
     // Subscribe to WebSockets and custom events for instant chart updates
     const channel = supabase

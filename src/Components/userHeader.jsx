@@ -30,6 +30,67 @@ export default function UserHeader() {
   const profileRef = useRef(null);
 
   useEffect(() => {
+    // Declared inside the effect, above its only caller. It lived below the effect and was
+    // reached only because an await sat between, which is a ReferenceError waiting for
+    // someone to remove that await. Nothing else calls it, so it belongs in here.
+    async function fetchBroadcasts(userProfile, userId) {
+      try {
+        if (!userProfile?.group_id) return;
+
+        // 1. Get Sacco UUID from group_code
+        const { data: sacco } = await supabase
+          .from('saccos')
+          .select('id')
+          .eq('group_code', userProfile.group_id)
+          .maybeSingle();
+
+        if (!sacco) return;
+
+        // 2. Fetch broadcasts from public.audit_events
+        const { data: events } = await supabase
+          .from('audit_events')
+          .select('*')
+          .eq('sacco_id', sacco.id)
+          .eq('entity_type', 'broadcast')
+          .order('created_at', { ascending: false });
+
+        if (!events) return;
+
+        // 3. Load read list from localStorage
+        const readKey = `sacco_read_broadcasts_${userId}`;
+        const readIds = JSON.parse(localStorage.getItem(readKey) || "[]");
+
+        // 4. Map events to notifications
+        let unreads = 0;
+        const mapped = events.map(evt => {
+          const isRead = readIds.includes(evt.id);
+          if (!isRead) unreads++;
+
+          const date = new Date(evt.created_at);
+          const minDiff = Math.floor((Date.now() - date.getTime()) / 60000);
+          let timeStr = `${minDiff} min ago`;
+          if (minDiff > 59) {
+            const hours = Math.floor(minDiff / 60);
+            timeStr = hours > 23 ? `${Math.floor(hours / 24)} days ago` : `${hours} hours ago`;
+          }
+
+          return {
+            id: evt.id,
+            title: evt.metadata?.title || "SACCO Announcement",
+            content: evt.metadata?.content || "No details provided.",
+            unread: !isRead,
+            time: timeStr
+          };
+        });
+
+        setNotifications(mapped);
+        setUnreadCount(unreads);
+
+      } catch (err) {
+        console.warn("Failed to fetch announcements:", err);
+      }
+    }
+
     async function loadHeaderProfile() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -83,65 +144,6 @@ export default function UserHeader() {
       subscription?.unsubscribe();
     };
   }, []);
-
-  // Fetch broadcasts matching user Sacco
-  const fetchBroadcasts = async (userProfile, userId) => {
-    try {
-      if (!userProfile?.group_id) return;
-
-      // 1. Get Sacco UUID from group_code
-      const { data: sacco } = await supabase
-        .from('saccos')
-        .select('id')
-        .eq('group_code', userProfile.group_id)
-        .maybeSingle();
-
-      if (!sacco) return;
-
-      // 2. Fetch broadcasts from public.audit_events
-      const { data: events } = await supabase
-        .from('audit_events')
-        .select('*')
-        .eq('sacco_id', sacco.id)
-        .eq('entity_type', 'broadcast')
-        .order('created_at', { ascending: false });
-
-      if (!events) return;
-
-      // 3. Load read list from localStorage
-      const readKey = `sacco_read_broadcasts_${userId}`;
-      const readIds = JSON.parse(localStorage.getItem(readKey) || "[]");
-
-      // 4. Map events to notifications
-      let unreads = 0;
-      const mapped = events.map(evt => {
-        const isRead = readIds.includes(evt.id);
-        if (!isRead) unreads++;
-
-        const date = new Date(evt.created_at);
-        const minDiff = Math.floor((Date.now() - date.getTime()) / 60000);
-        let timeStr = `${minDiff} min ago`;
-        if (minDiff > 59) {
-          const hours = Math.floor(minDiff / 60);
-          timeStr = hours > 23 ? `${Math.floor(hours / 24)} days ago` : `${hours} hours ago`;
-        }
-
-        return {
-          id: evt.id,
-          title: evt.metadata?.title || "SACCO Announcement",
-          content: evt.metadata?.content || "No details provided.",
-          unread: !isRead,
-          time: timeStr
-        };
-      });
-
-      setNotifications(mapped);
-      setUnreadCount(unreads);
-
-    } catch (err) {
-      console.warn("Failed to fetch announcements:", err);
-    }
-  };
 
   const toggleProfileDropdown = (event) => {
     event.stopPropagation();

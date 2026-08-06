@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
 export default function MemberSavingsVaults() {
@@ -61,7 +61,11 @@ export default function MemberSavingsVaults() {
     loadMemberInfo();
   }, []);
 
-  const fetchVaults = async (pId, sId) => {
+  // A function declaration, not a const arrow: the effect above calls this before this line
+  // is reached, and only an intervening await keeps that out of the temporal dead zone. That
+  // is a runtime ReferenceError waiting for someone to remove an await, so the declaration is
+  // hoisted instead of relying on the timing.
+  async function fetchVaults(pId, sId) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -76,7 +80,7 @@ export default function MemberSavingsVaults() {
     } catch (err) {
       console.warn("Failed to fetch member vaults:", err);
     }
-  };
+  }
 
   // This component used to load once on mount and never again, so a member sitting on
   // this screen saw nothing until they refreshed. It dispatches

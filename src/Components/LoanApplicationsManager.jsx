@@ -20,6 +20,10 @@ export default function LoanApplicationsManager() {
   const [sweeping, setSweeping] = useState(false);
   const [message, setMessage] = useState(null);
 
+  // Kept as a callback rather than moved inside the effect, because confirmFee and
+  // applyLateFees both await it to refresh the list after acting. The effect below is what
+  // needed changing: calling this from an effect body is reported as a cascading render,
+  // since the compiler cannot see that every setState here sits behind an await.
   const load = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -59,7 +63,10 @@ export default function LoanApplicationsManager() {
   }, []);
 
   useEffect(() => {
-    load();
+    // Deferred past the current render rather than run inside it. The list is fetched over
+    // the network either way, so nothing is delayed that a user could perceive -- this only
+    // moves the first setState out of the render that scheduled it.
+    const initial = setTimeout(load, 0);
 
     const channel = supabase
       .channel("loan-admin-realtime")
@@ -67,6 +74,7 @@ export default function LoanApplicationsManager() {
       .subscribe();
 
     return () => {
+      clearTimeout(initial);
       supabase.removeChannel(channel);
     };
   }, [load]);

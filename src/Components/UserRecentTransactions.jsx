@@ -23,60 +23,63 @@ export default function UserRecentTransactions() {
   const [loading, setLoading] = useState(true);
   const { showSuccess, showError } = useToast();
 
-  async function fetchTransactions() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Fetch user's sacco group settings
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('group_id')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profile?.group_id) {
-        const activeGroupCode = profile.group_id.trim();
-        const [saccoRes, settingsRes] = await Promise.all([
-          supabase
-            .from('saccos')
-            .select('current_week')
-            .ilike('group_code', activeGroupCode)
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from('sacco_settings')
-            .select('meeting_day')
-            .ilike('group_code', activeGroupCode)
-            .limit(1)
-            .maybeSingle()
-        ]);
-
-        if (saccoRes.data?.current_week) {
-          setSaccoCurrentWeek(Number(saccoRes.data.current_week) || 1);
-        }
-        if (settingsRes.data?.meeting_day) {
-          setSaccoMeetingDay(settingsRes.data.meeting_day);
-        }
-      }
-
-      const res = await fetch("/api/user-transactions?limit=10", {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      const data = await res.json();
-      if (res.ok && data.transactions) {
-        setTransactions(data.transactions);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch transactions:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
+    // Defined inside the effect that owns it. The approve/reject handlers no longer call
+    // it directly -- they announce sacco_transaction_updated, which the listener below
+    // picks up along with every other component showing a balance.
+    async function fetchTransactions() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // Fetch user's sacco group settings
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('group_id')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile?.group_id) {
+          const activeGroupCode = profile.group_id.trim();
+          const [saccoRes, settingsRes] = await Promise.all([
+            supabase
+              .from('saccos')
+              .select('current_week')
+              .ilike('group_code', activeGroupCode)
+              .limit(1)
+              .maybeSingle(),
+            supabase
+              .from('sacco_settings')
+              .select('meeting_day')
+              .ilike('group_code', activeGroupCode)
+              .limit(1)
+              .maybeSingle()
+          ]);
+
+          if (saccoRes.data?.current_week) {
+            setSaccoCurrentWeek(Number(saccoRes.data.current_week) || 1);
+          }
+          if (settingsRes.data?.meeting_day) {
+            setSaccoMeetingDay(settingsRes.data.meeting_day);
+          }
+        }
+
+        const res = await fetch("/api/user-transactions?limit=10", {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data.transactions) {
+          setTransactions(data.transactions);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch transactions:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchTransactions();
 
     const channel = supabase
@@ -130,7 +133,10 @@ export default function UserRecentTransactions() {
       });
       if (error) throw error;
       showSuccess("Transaction approved successfully!");
-      fetchTransactions();
+      // Announced rather than refetched directly. An approval moves a balance, and the
+      // summary cards and progress tracker all listen for this -- calling the local loader
+      // refreshed this list alone and left every other figure on the page stale.
+      window.dispatchEvent(new Event("sacco_transaction_updated"));
     } catch (err) {
       showError("Failed to approve transaction: " + err.message);
     }
@@ -143,7 +149,7 @@ export default function UserRecentTransactions() {
       });
       if (error) throw error;
       showSuccess("Transaction rejected successfully.");
-      fetchTransactions();
+      window.dispatchEvent(new Event("sacco_transaction_updated"));
     } catch (err) {
       showError("Failed to reject transaction: " + err.message);
     }
