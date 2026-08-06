@@ -11,9 +11,17 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
 }
 
-// Verifies the caller is authenticated AND is the admin of the target SACCO.
+// Answers "who is this", and nothing about what they may touch.
+//
+// Split from the authorization check below so a handler can establish identity before it
+// validates input. Both handlers used to check their parameters first, which meant an
+// anonymous caller sending a malformed request was told which parameters it should have
+// sent instead of being told to sign in. Not a hole -- a well-formed anonymous request
+// was still refused with 401 -- but it put the input validation in front of the auth
+// check, and every other route in the app answers 401 first.
+//
 // Returns a JWT-forwarding client so RPC calls resolve auth.uid() correctly.
-async function authorizeSaccoAdmin(request, saccoId) {
+async function authenticate(request) {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.split(' ')[1];
 
@@ -30,6 +38,11 @@ async function authorizeSaccoAdmin(request, saccoId) {
     return { error: authErr?.message || 'Authentication failed.', status: 401 };
   }
 
+  return { user, jwtClient };
+}
+
+// Verifies an already-authenticated caller is the admin of this particular SACCO.
+async function authorizeSaccoAdmin(user, saccoId) {
   const admin = getSupabaseAdmin();
 
   // Both tests name saccoId. There used to be a third, checked first, which did not:
@@ -68,7 +81,7 @@ async function authorizeSaccoAdmin(request, saccoId) {
     return { error: 'Unauthorized. Only the admin of this SACCO can manage dividends.', status: 403 };
   }
 
-  return { user, jwtClient };
+  return {};
 }
 
 export async function GET(request) {
@@ -78,13 +91,18 @@ export async function GET(request) {
     const profitPool = searchParams.get('profit_pool');
     const action = searchParams.get('action') || 'preview';
 
+    const auth = await authenticate(request);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     if (!saccoId) {
       return NextResponse.json({ error: 'sacco_id is required' }, { status: 400 });
     }
 
-    const auth = await authorizeSaccoAdmin(request, saccoId);
-    if (auth.error) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const authz = await authorizeSaccoAdmin(auth.user, saccoId);
+    if (authz.error) {
+      return NextResponse.json({ error: authz.error }, { status: authz.status });
     }
 
     if (action === 'preview') {
@@ -118,6 +136,13 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    // Ahead of reading the body: an anonymous caller sending malformed JSON should be told
+    // to sign in, not have the parse failure surface as a 500 from the catch below.
+    const auth = await authenticate(request);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { sacco_id, cycle_year, profit_pool, distribution_mode } = body;
 
@@ -125,9 +150,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Valid sacco_id and profit_pool > 0 are required' }, { status: 400 });
     }
 
-    const auth = await authorizeSaccoAdmin(request, sacco_id);
-    if (auth.error) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const authz = await authorizeSaccoAdmin(auth.user, sacco_id);
+    if (authz.error) {
+      return NextResponse.json({ error: authz.error }, { status: authz.status });
     }
 
     const currentYear = cycle_year || new Date().getFullYear();

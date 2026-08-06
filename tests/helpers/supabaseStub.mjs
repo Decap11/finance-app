@@ -26,8 +26,25 @@ export function likeToRegex(pattern) {
   return new RegExp(`${out}$`, 'i');
 }
 
-function makeClient(db, token, state) {
+function makeClient(db, token, state, keyKind) {
   return {
+    /**
+     * Records who called what, and crucially which client it was called on.
+     *
+     * Security invariant 4 (ai-context.md §10) is that a route forwards the caller's JWT
+     * into an RPC rather than reaching for the service role: every one of these functions
+     * is SECURITY DEFINER and re-checks the caller through auth.uid(), so a service-role
+     * client leaves auth.uid() NULL and the function's own authorization check has nothing
+     * to check. That is invisible from the route's return value -- it is a property of
+     * which client the call went out on, which is why it is captured here.
+     */
+    rpc(fn, args) {
+      state.rpcs.push({ fn, args, keyKind, token });
+      const handler = (db.__rpcs || {})[fn];
+      if (typeof handler === 'function') return Promise.resolve(handler(args, { token }));
+      return Promise.resolve({ data: null, error: null });
+    },
+
     from(table) {
       state.queries.push(table);
       const preds = [];
@@ -99,30 +116,40 @@ function makeClient(db, token, state) {
  * single stub serve both the service-role client (no token) and the caller-scoped one.
  */
 export function stubClientFactory(db) {
-  const state = { queries: [], upserts: [], updates: [], patterns: [] };
+  const state = { queries: [], upserts: [], updates: [], patterns: [], rpcs: [], clients: [] };
 
   const factory = (url, key, opts) => {
     const token = opts?.global?.headers?.Authorization?.split(' ')[1] || null;
-    return makeClient(db, token, state);
+    // routeModule.mjs sets SUPABASE_SERVICE_ROLE_KEY to this sentinel, so which key a route
+    // reached for is recoverable from the call rather than having to be inferred.
+    const keyKind = key === 'stub-service-key' ? 'service' : 'anon';
+    state.clients.push({ keyKind, token });
+    return makeClient(db, token, state, keyKind);
   };
 
   factory.state = state;
   factory.reset = () => {
-    state.queries.length = 0;
-    state.upserts.length = 0;
-    state.updates.length = 0;
-    state.patterns.length = 0;
+    for (const bucket of Object.values(state)) bucket.length = 0;
   };
 
   return factory;
 }
 
-/** A Request-alike carrying just what these handlers read. */
-export function fakeRequest(url, token = null) {
+/**
+ * A Request-alike carrying just what these handlers read.
+ *
+ * `body` is what a POST/PATCH handler gets back from `await request.json()`. Passing none
+ * leaves json() rejecting the way the real thing does on an empty body, which is the case
+ * a handler has to survive rather than throw a 500 over.
+ */
+export function fakeRequest(url, token = null, body = undefined) {
   return {
     url,
     headers: {
       get: (h) => (h.toLowerCase() === 'authorization' && token ? `Bearer ${token}` : null)
-    }
+    },
+    json: () => (body === undefined
+      ? Promise.reject(new SyntaxError('Unexpected end of JSON input'))
+      : Promise.resolve(body))
   };
 }
