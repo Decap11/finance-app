@@ -273,7 +273,8 @@ export default function RegisterSacco() {
   }
 
   return (
-    <div className="auth-container" style={{ margin: "2rem auto" }}>
+    <div className="auth-page">
+      <div className="auth-container">
       <div className="auth-header">
         <h1 className="auth-title">Register Your SACCO</h1>
         <p className="auth-subtitle">
@@ -520,5 +521,6 @@ export default function RegisterSacco() {
         </Link>
       </div>
     </div>
-  );
+  </div>
+);
 }

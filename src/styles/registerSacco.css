@@ -18,9 +18,21 @@
   --input-radius: 1.2rem;
 }
 
+.auth-page {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
 .auth-container {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   width: min(100%, 52rem);
-  margin: 2rem auto;
+  margin: 0 auto;
   background-color: var(--white);
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);
