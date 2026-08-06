@@ -438,103 +438,101 @@
 }
 
 /* ========================================================
-   RESPONSIVE MEDIA QUERIES (100% UNIFORM WITH OTHER PAGES)
+   RESPONSIVE MEDIA QUERIES (SLEEK, COMPACT & PROFESSIONAL)
    ======================================================== */
 
 @media (max-width: 48rem) {
   .auth-container {
     max-width: 95vw;
-    padding: 3rem 2rem;
+    padding: 3rem 2.2rem;
   }
   .auth-title {
     font-size: 2.4rem;
   }
 }
 
-@media (max-width: 440px) {
-  /* Compensate for html { font-size: 48% } at <= 440px */
+@media (max-width: 480px) {
   .auth-container {
-    max-width: 96vw;
-    padding: 3.2rem 2.2rem !important;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.5rem auto;
+    padding: 2.5rem 1.8rem !important;
     border-radius: 1.6rem;
+    box-shadow: 0 0.4rem 2rem rgba(112, 144, 176, 0.08);
+  }
+
+  .auth-header {
+    margin-bottom: 2rem;
+  }
+
+  .auth-logo {
+    width: 4.8rem;
+    margin-bottom: 1rem;
   }
 
   .auth-title {
-    font-size: 3.4rem !important;
+    font-size: 2.1rem !important;
+    letter-spacing: -0.03rem;
+    margin-bottom: 0.4rem;
   }
 
   .auth-subtitle {
-    font-size: 2.2rem !important;
+    font-size: 1.3rem !important;
+    line-height: 1.45;
   }
 
   .sacco-stepper {
-    margin-bottom: 2.4rem;
+    margin-bottom: 2rem;
+    padding: 0 0.5rem;
   }
 
   .sacco-step-num {
-    width: 4.8rem;
-    height: 4.8rem;
-    font-size: 2.2rem;
+    width: 3.4rem;
+    height: 3.4rem;
+    font-size: 1.3rem;
   }
 
   .sacco-step-label {
-    font-size: 1.8rem;
+    font-size: 1.15rem;
   }
 
   .sacco-preview-card {
-    padding: 2.2rem;
-    border-radius: 1.4rem;
-    margin-bottom: 2.5rem;
+    padding: 1.4rem;
+    border-radius: 1.2rem;
+    margin-bottom: 1.8rem;
   }
 
   .sacco-preview-title {
-    font-size: 1.8rem;
+    font-size: 1.15rem;
   }
 
   .sacco-preview-acronym {
-    font-size: 1.7rem;
-    padding: 0.4rem 1.2rem;
+    font-size: 1.05rem;
+    padding: 0.2rem 0.6rem;
   }
 
   .sacco-preview-label {
-    font-size: 1.6rem;
+    font-size: 1.1rem;
   }
 
   .sacco-preview-value {
-    font-size: 2rem;
+    font-size: 1.3rem;
+  }
+
+  .sacco-section-heading {
+    font-size: 1.45rem;
+    margin-bottom: 1.4rem;
   }
 
   .form-group {
-    margin-bottom: 2.2rem;
+    margin-bottom: 1.6rem;
   }
 
   .form-label {
-    font-size: 2.1rem !important;
+    font-size: 1.25rem !important;
+    margin-bottom: 0.6rem;
   }
 
-  .sacco-button-group {
-    flex-direction: column;
-    gap: 1.4rem;
-  }
-
-  .btn-secondary,
-  .btn-submit {
-    width: 100%;
-    padding: 2.2rem !important;
-    font-size: 2.5rem !important;
-    border-radius: 1.4rem;
-  }
-
-  .auth-footer {
-    font-size: 2.2rem !important;
-  }
-}
-
-/* Fields are sized in px on small screens. responsive.css takes the root font size down
-   to 53% below 480px and 48% below 440px, which leaves a rem-sized field about 20px tall
-   with 7px text -- unreadable, and too small to tap accurately. A 16px input also stops
-   iOS from zooming the page when the field takes focus. */
-@media (max-width: 480px) {
   .form-input-container {
     width: 100%;
     min-height: 46px;
@@ -554,5 +552,44 @@
   .pwd-toggle {
     width: 44px;
     font-size: 15px;
+  }
+
+  .terms-checkbox {
+    font-size: 1.25rem;
+    margin: 1.6rem 0;
+  }
+
+  .sacco-button-group {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .btn-secondary {
+    padding: 1.3rem !important;
+    font-size: 1.4rem !important;
+    border-radius: 1rem;
+  }
+
+  .btn-submit {
+    padding: 1.3rem !important;
+    font-size: 1.4rem !important;
+    border-radius: 1rem;
+  }
+
+  .auth-footer {
+    margin-top: 2.5rem;
+    font-size: 1.3rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .sacco-button-group {
+    flex-direction: column;
+  }
+  .btn-secondary,
+  .btn-submit {
+    width: 100%;
   }
 }
