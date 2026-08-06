@@ -1,6 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
+import { clientIp, checkRateLimit, tooManyRequests } from '../../../utils/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+// This route is unauthenticated by necessity -- it is the one that creates the session --
+// and it calls auth.admin.createUser() with the service role. That combination is why it is
+// the first place a limit belongs: anyone who can POST can mint auth users and SACCO rows
+// as fast as they can send requests, and auth users are a billed metric.
+//
+// Five an hour per address. Registering a SACCO is a once-ever act for a real operator, and
+// the ceiling only has to sit above a genuine person retrying a form that rejected their
+// group code a few times.
+const REGISTRATION_LIMIT = 5;
+const REGISTRATION_WINDOW_SECONDS = 3600;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -8,6 +20,30 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 
 export async function POST(request) {
   try {
+    // Ahead of reading the body, so a flood costs the limiter one RPC rather than a parse
+    // plus everything downstream of it.
+    //
+    // The limiter needs the service role, and this route already refuses to do anything
+    // useful without it further down. If it is absent the check is skipped rather than
+    // failing the request, because the registration attempt below is what should produce
+    // the error a caller can act on.
+    if (supabaseServiceKey && !supabaseServiceKey.startsWith('sb_publishable_')) {
+      const limiter = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { persistSession: false }
+      });
+
+      const { allowed } = await checkRateLimit(limiter, {
+        bucket: 'register-sacco',
+        identifier: clientIp(request),
+        limit: REGISTRATION_LIMIT,
+        windowSeconds: REGISTRATION_WINDOW_SECONDS
+      });
+
+      if (!allowed) {
+        return tooManyRequests(REGISTRATION_WINDOW_SECONDS);
+      }
+    }
+
     const body = await request.json();
     const {
       email,
