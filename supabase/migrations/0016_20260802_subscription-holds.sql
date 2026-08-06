@@ -3,6 +3,22 @@
 -- Branch: Additional-features
 -- ====================================================================================
 --
+-- !! RE-RUNNING THIS FILE UNDOES 0036. RUN 0036 AGAIN AFTERWARDS. !!
+--
+-- STEP 2 below drops and recreates saccos_subscription_plan_check with the plan list as
+-- it stood in 0016: ('basic', 'premium', 'enterprise'). 0036 replaces that constraint with
+-- the catalogue the app actually sells, ('basic', 'standard', 'premium'). The DROP ... ADD
+-- pair runs unconditionally, so a later re-run of this file silently reinstates the old
+-- list and the database stops accepting 'standard' -- the recommended plan, and the one
+-- most tenants are meant to be on. It surfaces as check 17 of verify-schema.sql failing
+-- with "subscription_plan cannot hold 'standard'", and in the app as a plan change that
+-- will not save.
+--
+-- This happened once, in exactly that order. Everything else here is guarded by
+-- IF NOT EXISTS or OR REPLACE and is genuinely safe to repeat -- in particular the column
+-- defaults on STEP 1, because ADD COLUMN IF NOT EXISTS is a no-op on a column that already
+-- exists and therefore does NOT reset subscription_amount to 150,000.
+--
 -- Gives the platform developer two distinct levers over a tenant SACCO:
 --
 --   SUSPEND  (status = 'suspended')  Administrative lockout. Nobody in the SACCO can

@@ -50,22 +50,41 @@ forbidden_policies(p) as (
          ('Authenticated users access sacco_settings')
 ),
 
--- The policy set that should be live once 0015, 0019 and 0022 have all run. Note
+-- The policy set that should be live once 0015, 0019, 0022 and 0035 have all run. Note
 -- transactions_insert_staff_fines is deliberately absent: 0015 creates it and 0022 drops it.
+--
+-- Four names here changed in 0035 and this list did not follow, so the check reported
+-- profiles_select_all, saccos_select_all, sacco_settings_select_all and
+-- sacco_memberships_select_own_or_staff as MISSING on a database where everything was
+-- correct. That is a dangerous way to be wrong: the message names 0015 as the file to run,
+-- and re-running 0015 would recreate exactly the four policies 0035 exists to remove --
+-- each written without a TO clause, so each applying to anon, which is how every member's
+-- full_name, phone and email was readable by anyone holding the publishable key.
+--
+-- Their replacements are scoped to the caller's own SACCO rather than to everyone:
+--
+--   profiles_select_all                   -> profiles_select_same_sacco
+--   saccos_select_all                     -> saccos_select_own
+--   sacco_settings_select_all             -> sacco_settings_select_own
+--   sacco_memberships_select_own_or_staff -> sacco_memberships_select_same_sacco
+--
+-- If this check ever fails naming the 0035 policies, the database is genuinely behind and
+-- 0035 is the file to run. It is safe to re-run: it drops every policy on those four
+-- tables by catalogue lookup and rebuilds the set from scratch.
 required_policies(p, mig) as (
-  values ('profiles_select_all','0015'), ('profiles_insert_own','0015'),
-         ('profiles_update_own','0015'), ('saccos_select_all','0015'),
-         ('saccos_update_admin_only','0015'), ('accounts_select_own_or_staff','0015'),
-         ('sacco_settings_select_all','0015'), ('sacco_settings_write_admin_only','0015'),
+  values ('profiles_select_same_sacco','0035'), ('profiles_insert_own','0035'),
+         ('profiles_update_own','0035'), ('saccos_select_own','0035'),
+         ('saccos_update_admin_only','0035'), ('accounts_select_own_or_staff','0015'),
+         ('sacco_settings_select_own','0035'), ('sacco_settings_write_admin_only','0035'),
          ('loan_repayments_select_own_or_staff','0015'),
          ('loan_guarantors_select_involved','0015'), ('loan_guarantors_insert_by_borrower','0015'),
          ('audit_events_select_members','0015'), ('audit_events_insert_staff','0015'),
          ('dividend_cycles_select_members','0015'),
          ('dividend_allocations_select_own_or_staff','0015'),
          ('savings_vaults_owner_all','0015'),
-         ('sacco_memberships_select_own_or_staff','0019'),
-         ('sacco_memberships_insert_self_or_admin','0019'),
-         ('sacco_memberships_update_admin_only','0019'),
+         ('sacco_memberships_select_same_sacco','0035'),
+         ('sacco_memberships_insert_self_or_admin','0035'),
+         ('sacco_memberships_update_admin_only','0035'),
          ('transactions_select_own_or_staff','0019'),
          ('transactions_insert_own_pending_contribution','0019'),
          ('loans_select_own_or_staff','0019')
