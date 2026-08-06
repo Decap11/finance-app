@@ -2,7 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// No fallback to the anon key -- see the note on the same constant in sacco-settings. The
+// consequence differs here: the service client below backs an authorization decision, and an
+// anonymous client reads no sacco_memberships rows at all, so the staff check silently
+// answered "not staff" for everyone and admins lost access to member habits entirely. That
+// direction is safe, but it is indistinguishable from a real permission denial, so it is a
+// misconfiguration that presents as a working app behaving inexplicably.
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export async function GET(request) {
   try {
@@ -32,6 +38,21 @@ export async function GET(request) {
     // Only admins/loan_officers of the target member's own SACCO may view someone
     // else's contribution habits. Do not rely on RLS alone for this -- verify explicitly.
     if (targetMemberId !== user.id) {
+      // Only this branch needs the service role; a member reading their own habits does not,
+      // so the check sits here rather than at the top of the handler. Refusing outright,
+      // because the alternative is a 403 that says the caller is not staff when the truth is
+      // that the server cannot tell either way.
+      if (!supabaseServiceKey) {
+        console.error(
+          'SUPABASE_SERVICE_ROLE_KEY is not set; cannot verify whether the caller is staff of '
+          + "the target member's SACCO."
+        );
+        return Response.json(
+          { error: 'Server is not configured to check staff permissions.' },
+          { status: 500 }
+        );
+      }
+
       const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
       const { data: targetMembership } = await supabaseAdmin

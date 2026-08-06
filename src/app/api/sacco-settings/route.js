@@ -4,7 +4,15 @@ import { getActiveWeek, WEEKS_PER_CYCLE } from '../../../utils/meetingDateUtils'
 export const dynamic = 'force-dynamic';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// No fallback to the anon key. This used to read
+// `SUPABASE_SERVICE_ROLE_KEY || NEXT_PUBLIC_SUPABASE_ANON_KEY || ...`, so a service key that
+// was unset or misspelled in the deploy environment did not fail -- getActiveSaccoSettings
+// simply ran as an anonymous caller, and since 0035 closed anonymous reads it matched no
+// sacco_settings row and no saccos row, fell through to defaultSettings(), and returned a
+// 25,000 share price to a group that charges 30,000. Every arrears figure on every screen is
+// computed from these numbers, so the whole app quietly described a SACCO that does not
+// exist. Empty is checked for at the point of use below.
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -109,6 +117,19 @@ const normaliseCode = (value) => String(value || '').trim().toUpperCase();
  * an unmatched code returns the defaults, flagged as such.
  */
 export async function getActiveSaccoSettings(groupCodeInput = null) {
+  // Checked here rather than at module load because the production build runs without
+  // secrets -- CI supplies placeholder public values and nothing else -- so a throw at import
+  // time would fail the build instead of the misconfigured deployment. Every caller either
+  // lets this propagate to a 500 or records that the read failed; none of them treats a
+  // thrown error as an absent SACCO, which is the confusion the old fallback created.
+  if (!supabaseServiceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not set. Settings are read with the service role because '
+      + 'this runs for callers who are not members of the group being read; without it every '
+      + 'group would silently resolve to this app\'s default share price and fund amounts.'
+    );
+  }
+
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const targetGroupCode = String(groupCodeInput || '').trim().toUpperCase();
@@ -145,7 +166,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         groupCode: setRow.group_code
       });
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -180,7 +201,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
           onboarding_date: saccoRow.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, { onConflict: 'group_code' });
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -201,7 +222,7 @@ export async function getActiveSaccoSettings(groupCodeInput = null) {
         groupCode: saccoRow.group_code
       });
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -364,7 +385,7 @@ export async function GET(request) {
     // The defaults render the screen without describing anybody, so this is answered rather
     // than refused.
     return Response.json(defaultSettings());
-  } catch (err) {
+  } catch {
     // Not the defaults: a failure here used to be indistinguishable from a group that really
     // has none, which is how the old fallback stayed invisible. Every caller checks res.ok.
     return Response.json({ error: 'Could not load settings.' }, { status: 500 });
