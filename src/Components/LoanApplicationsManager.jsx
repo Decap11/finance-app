@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../supabaseClient";
+import { summariseLoan } from "../utils/loanSchedule";
 import "../styles/loanAdmin.css";
 
 /**
@@ -48,9 +49,15 @@ export default function LoanApplicationsManager() {
 
       const { data, error } = await supabase
         .from("loans")
-        .select("id, loan_number, profile_id, amount_requested, total_repayable, term_months, purpose, status, application_fee, due_date, outstanding_balance, late_fee_months_charged, requested_at, borrower:profiles!profile_id(full_name, member_number)")
+        // disbursed_at and approved_at drive the repayment schedule: loanSchedule counts
+        // the monthly checkpoints from the day the money actually went out.
+        .select("id, loan_number, profile_id, amount_requested, total_repayable, term_months, purpose, status, application_fee, due_date, outstanding_balance, late_fee_months_charged, requested_at, approved_at, disbursed_at, borrower:profiles!profile_id(full_name, member_number)")
         .eq("sacco_id", sacco.id)
-        .in("status", ["pending_fee", "pending_guarantors", "overdue"])
+        // disbursed/issued/active were missing, which meant no admin screen anywhere in
+        // the app listed a loan that was actually being repaid -- they appeared when the
+        // fee was pending and then vanished until they went overdue. That gap is why
+        // nobody could tell how long a member had left to clear a loan.
+        .in("status", ["pending_fee", "pending_guarantors", "overdue", "disbursed", "issued", "active"])
         .order("requested_at", { ascending: false });
 
       if (error) throw new Error(error.message);
@@ -142,10 +149,24 @@ export default function LoanApplicationsManager() {
   const awaitingFee = loans.filter((l) => l.status === "pending_fee");
   const overdue = loans.filter((l) => l.status === "overdue");
 
+  // The repayment schedule for each row, keyed by loan id. Recomputed only when the list
+  // changes -- this walks every checkpoint of every loan and the table re-renders on each
+  // realtime event.
+  const schedules = useMemo(() => {
+    const map = {};
+    loans.forEach((l) => { map[l.id] = summariseLoan(l); });
+    return map;
+  }, [loans]);
+
+  const dueToday = loans.filter((l) => schedules[l.id]?.dueToday);
+
   const statusLabel = {
     pending_fee: "Awaiting fee",
     pending_guarantors: "With guarantors",
-    overdue: "Overdue"
+    overdue: "Overdue",
+    disbursed: "Repaying",
+    issued: "Repaying",
+    active: "Repaying"
   };
 
   return (
@@ -182,6 +203,13 @@ export default function LoanApplicationsManager() {
           <span>Awaiting fee</span>
           <strong>{awaitingFee.length}</strong>
         </div>
+        {/* The reminder, in the strip that already exists rather than a panel of its own.
+            A loan taken on the 28th reaches a checkpoint on the 28th of every following
+            month until it is cleared, and this is the count of those falling today. */}
+        <div>
+          <span>Checkpoint today</span>
+          <strong className={dueToday.length > 0 ? "loan-admin-due" : ""}>{dueToday.length}</strong>
+        </div>
         <div>
           <span>Overdue</span>
           <strong className={overdue.length > 0 ? "loan-admin-bad" : ""}>{overdue.length}</strong>
@@ -207,8 +235,11 @@ export default function LoanApplicationsManager() {
             ) : loans.length === 0 ? (
               <tr><td colSpan={7} className="loan-admin-empty">No applications need attention.</td></tr>
             ) : (
-              loans.map((loan) => (
-                <tr key={loan.id}>
+              loans.map((loan) => {
+                const plan = schedules[loan.id];
+
+                return (
+                <tr key={loan.id} className={plan?.dueToday ? "loan-admin-row-due" : ""}>
                   <td className="loan-admin-number">{loan.loan_number || "—"}</td>
                   <td>
                     <strong>{loan.borrower?.full_name || "Member"}</strong>
@@ -218,7 +249,19 @@ export default function LoanApplicationsManager() {
                     Shs {Number(loan.amount_requested || 0).toLocaleString()}
                     <div className="loan-admin-sub">{loan.purpose || "—"}</div>
                   </td>
-                  <td>{loan.term_months ? `${loan.term_months} mo` : "—"}</td>
+                  <td>
+                    {loan.term_months ? `${loan.term_months} mo` : "—"}
+                    {/* How long the member still has. This is the figure that did not
+                        exist anywhere in the app before -- the term was shown, but never
+                        how much of it was left. */}
+                    {plan?.schedulable && plan.isLive && (
+                      <div className="loan-admin-sub">
+                        {plan.monthsRemaining > 0
+                          ? `${plan.monthsRemaining} left`
+                          : "term elapsed"}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={`loan-admin-badge badge-${loan.status}`}>
                       {statusLabel[loan.status] || loan.status}
@@ -228,6 +271,27 @@ export default function LoanApplicationsManager() {
                     {loan.due_date
                       ? new Date(loan.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
                       : "—"}
+
+                    {/* The reminder itself, on the row it concerns. */}
+                    {plan?.dueToday && (
+                      <div className="loan-admin-due-flag">
+                        <i className="fa-solid fa-bell"></i> Checkpoint today
+                      </div>
+                    )}
+                    {!plan?.dueToday && plan?.isLive && plan?.nextCheckpoint && (
+                      <div className="loan-admin-sub">
+                        next{" "}
+                        {new Date(`${plan.nextCheckpoint.date}T00:00:00Z`).toLocaleDateString("en-GB", {
+                          day: "numeric", month: "short", timeZone: "UTC"
+                        })}
+                      </div>
+                    )}
+                    {plan?.isOverdue && (
+                      <div className="loan-admin-sub loan-admin-bad">
+                        {plan.daysOverdue} day(s) past term
+                      </div>
+                    )}
+
                     {loan.status === "overdue" && loan.late_fee_months_charged > 0 && (
                       <div className="loan-admin-sub">
                         {loan.late_fee_months_charged} charge(s) applied
@@ -251,7 +315,8 @@ export default function LoanApplicationsManager() {
                     )}
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

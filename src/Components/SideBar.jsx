@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
+import { useLoanAlerts } from "../context/useLoanAlerts";
+import AlertDot from "./AlertDot";
 import "../styles/adminsidebar.css";
 
 const navItems = [
@@ -19,6 +21,8 @@ export default function SideBar() {
   // Navigation is keyed on ?tab=, not on the path -- the dashboard is one route.
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") || "overview";
+  // Loans live on the Verifications tab, so that is where the reminder dot goes.
+  const { needingAttention } = useLoanAlerts();
 
   const handleImageError = (event) => {
     event.currentTarget.src = "https://placehold.co/40x40/0f172a/ffffff?text=A";
@@ -52,6 +56,8 @@ export default function SideBar() {
           {navItems.map((item) => {
             const itemTab = item.to.split("tab=")[1] || "overview";
             const isActive = currentTab === itemTab;
+            const alerts = itemTab === "verifications" ? needingAttention : 0;
+
             return (
               <li key={`${item.to}-${item.label}`}>
                 <Link
@@ -61,6 +67,12 @@ export default function SideBar() {
                 >
                   <i className={item.icon} />
                   <span>{item.label}</span>
+                  <AlertDot
+                    count={alerts}
+                    showCount
+                    inline
+                    label="Loans reaching a repayment checkpoint today or already overdue"
+                  />
                 </Link>
               </li>
             );

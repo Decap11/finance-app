@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Search from "./Search";
 import { useSidebar } from "../context/useSidebar";
+import { useLoanAlerts } from "../context/useLoanAlerts";
+import AlertDot from "./AlertDot";
 import { supabase } from "../supabaseClient";
 import "../styles/userHeader.css";
 
 export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isOpen, toggleSidebar } = useSidebar();
+  const { needingAttention } = useLoanAlerts();
   const [profile, setProfile] = useState(null);
   const [sessionUser, setSessionUser] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -237,15 +240,26 @@ export default function Header() {
     <>
       <header style={{ position: "relative" }}>
         <div className="header-left">
-          <button
-            type="button"
-            className="menu-toggle"
-            onClick={toggleSidebar}
-            aria-label="Toggle navigation menu"
-            aria-expanded={isOpen}
-          >
-            <i className={`fa-solid ${isOpen ? "fa-xmark" : "fa-bars"}`} />
-          </button>
+          {/* On a phone the sidebar is closed, so the Verifications dot is out of sight.
+              This carries it to the only navigation showing. Dropped once the menu is
+              open, where the dot on Verifications itself takes over. */}
+          <span className="alert-dot-anchor">
+            <button
+              type="button"
+              className="menu-toggle"
+              onClick={toggleSidebar}
+              aria-label="Toggle navigation menu"
+              aria-expanded={isOpen}
+            >
+              <i className={`fa-solid ${isOpen ? "fa-xmark" : "fa-bars"}`} />
+            </button>
+            {!isOpen && (
+              <AlertDot
+                count={needingAttention}
+                label="Loans reaching a repayment checkpoint today or already overdue"
+              />
+            )}
+          </span>
           <div className="welcome-text">
             <h1>Admin Overview</h1>
             <p>System statistics and pending actions.</p>

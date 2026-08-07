@@ -1,0 +1,73 @@
+/* The "something needs you" dot.
+ *
+ * One stylesheet for both places it is used -- a member's pending guarantee requests and
+ * an admin's loans needing attention today -- so the two cannot drift into meaning
+ * different things by looking different.
+ *
+ * Green rather than red on purpose. Red in this app is money already lost: an overdue
+ * loan badge, a fine, a failed action. This dot means "act on this", not "something has
+ * gone wrong", and a member asked to guarantee a friend has not been penalised. */
+
+.alert-dot-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.alert-dot {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  min-width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #10b981;
+  /* Reads against both the white hamburger button and the dark sidebar. */
+  box-shadow: 0 0 0 0.2rem var(--alert-dot-ring, #ffffff);
+  animation: alertDotBounce 1.1s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* With a count in it the pill has to grow, and the ring has to stop cutting the digits. */
+.alert-dot.has-count {
+  min-width: 1.7rem;
+  height: 1.7rem;
+  top: -0.7rem;
+  right: -0.7rem;
+  padding: 0 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-family: inherit;
+}
+
+/* Sits after a label rather than over an icon -- used on the sidebar link, where there is
+   room on the line and an overlapping dot would land on the text. */
+.alert-dot.inline {
+  position: static;
+  margin-left: auto;
+  box-shadow: none;
+}
+
+@keyframes alertDotBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-0.35rem); }
+}
+
+/* A bouncing dot is exactly the kind of motion that triggers vestibular symptoms, and
+   this one never stops on its own. Pulse the ring instead -- still an attention cue, no
+   movement. */
+@media (prefers-reduced-motion: reduce) {
+  .alert-dot {
+    animation: alertDotPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes alertDotPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+  }
+}

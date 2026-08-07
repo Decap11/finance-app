@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { GUARANTOR_RESOLVED_EVENT } from "../context/GuarantorAlertProvider";
 
 export default function MemberGuarantorRequests() {
   const [profileId, setProfileId] = useState("");
@@ -86,6 +87,11 @@ export default function MemberGuarantorRequests() {
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("sacco_transaction_updated"));
+        // Clears the bouncing dot on the hamburger and the Loans link straight away,
+        // whichever way they answered. Accepting and declining both mean "this is no
+        // longer waiting on you", so both fire it -- the dot marks an unanswered request,
+        // not an unapproved one.
+        window.dispatchEvent(new Event(GUARANTOR_RESOLVED_EVENT));
       }
     } catch (err) {
       setStatusMessage({ type: "error", text: "Response failed: " + err.message });

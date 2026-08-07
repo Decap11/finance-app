@@ -4,9 +4,11 @@ import "../UserSideBar.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
+import { useGuarantorAlerts } from "../context/useGuarantorAlerts";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { MEMBER_VIEW_KEY } from "./ProtectedRoute";
+import AlertDot from "./AlertDot";
 
 const navItems = [
   { to: "/dashboard", icon: "fa-solid fa-house", label: "Dashboard" },
@@ -20,6 +22,9 @@ export default function UserSideBar() {
   const { isOpen, closeSidebar } = useSidebar();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  // Guarantee requests are answered on the Loans page, so the dot goes on that link and
+  // nowhere else -- a marker on a link that does not lead to the action is just noise.
+  const { pendingCount } = useGuarantorAlerts();
 
   useEffect(() => {
     async function checkRole() {
@@ -81,6 +86,8 @@ export default function UserSideBar() {
         <ul className="nav-links">
           {navItems.map((item) => {
             const isActive = pathname === item.to;
+            const alerts = item.to === "/loans" ? pendingCount : 0;
+
             return (
               <li key={item.to}>
                 <Link
@@ -90,6 +97,15 @@ export default function UserSideBar() {
                 >
                   <i className={item.icon} />
                   <span>{item.label}</span>
+                  {/* Inline, pushed to the end of the row: over the icon it would land on
+                      the label, and there is room on a full-width nav line to show the
+                      number as well as the dot. */}
+                  <AlertDot
+                    count={alerts}
+                    showCount
+                    inline
+                    label="Loan guarantee requests waiting for your decision"
+                  />
                 </Link>
               </li>
             );

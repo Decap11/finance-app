@@ -4,14 +4,18 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "../context/useSidebar";
+import { useGuarantorAlerts } from "../context/useGuarantorAlerts";
 import { supabase } from "../supabaseClient";
 import { MEMBER_VIEW_KEY } from "./ProtectedRoute";
 import Search from "./Search";
+import AlertDot from "./AlertDot";
 import "../styles/userHeader.css";
 
 export default function UserHeader() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isOpen, toggleSidebar } = useSidebar();
+  // Safe without the provider -- returns 0. See guarantorAlertContext.ts.
+  const { pendingCount } = useGuarantorAlerts();
   const router = useRouter();
 
   const [profile, setProfile] = useState(null);
@@ -241,15 +245,28 @@ export default function UserHeader() {
     <>
       <header style={{ position: "relative" }}>
         <div className="header-left">
-          <button
-            type="button"
-            className="menu-toggle"
-            onClick={toggleSidebar}
-            aria-label="Toggle navigation menu"
-            aria-expanded={isOpen}
-          >
-            <i className={`fa-solid ${isOpen ? "fa-xmark" : "fa-bars"}`} />
-          </button>
+          {/* The hamburger is the only navigation a member has on a phone, so a request
+              waiting behind it is invisible until they happen to open the menu. The dot
+              is what makes it visible without opening anything. Hidden once the sidebar
+              is open -- at that point the marker on the Loans link is doing the work, and
+              two dots for one request reads as two requests. */}
+          <span className="alert-dot-anchor">
+            <button
+              type="button"
+              className="menu-toggle"
+              onClick={toggleSidebar}
+              aria-label="Toggle navigation menu"
+              aria-expanded={isOpen}
+            >
+              <i className={`fa-solid ${isOpen ? "fa-xmark" : "fa-bars"}`} />
+            </button>
+            {!isOpen && (
+              <AlertDot
+                count={pendingCount}
+                label="Loan guarantee requests waiting for your decision"
+              />
+            )}
+          </span>
           <div className="welcome-text">
             <h1>Member Overview</h1>
             <p>

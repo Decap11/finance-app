@@ -114,6 +114,35 @@
 
 .loan-admin-bad { color: #dc2626; }
 
+/* Amber, not red. A loan reaching its monthly checkpoint is on schedule -- the admin is
+   being reminded to collect, not told something has gone wrong. Red is reserved for the
+   overdue count beside it, where the term has actually run out. */
+.loan-admin-due { color: #d97706; }
+
+.loan-admin-due-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The row the admin should act on today, findable without reading the Due column of
+   every line. Left border rather than a fill, so the status badges keep their contrast. */
+.loan-admin-row-due > td {
+  background: #fffbeb;
+}
+
+.loan-admin-row-due > td:first-child {
+  box-shadow: inset 0.3rem 0 0 #f59e0b;
+}
+
 .loan-admin-table-wrap {
   overflow-x: auto;
   border: 1px solid #e2e8f0;
