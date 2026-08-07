@@ -72,6 +72,67 @@
   white-space: nowrap;
 }
 
+/* Per transaction type.
+ *
+ * Every pair below is lifted from the typeStyles map in UserRecentTransactions.jsx, which
+ * is the card this page is the "View All" of. Those two lists showing the same row in two
+ * different colours would be worse than no colour at all, so they are kept identical --
+ * change one and change the other.
+ *
+ * The badge used to be given .badge-shares / .badge-dev / .badge-social, which are defined
+ * in NO stylesheet this page loads. Every row therefore fell through to the bare
+ * .transaction-badge above, and the only thing telling the types apart was an icon. */
+.transaction-badge.type-shares {
+  background-color: #ebf0fe;
+  color: #253b8e;
+}
+
+.transaction-badge.type-development {
+  background-color: #10b9811a;
+  color: #10b981;
+}
+
+.transaction-badge.type-social {
+  background-color: #ef44441a;
+  color: #ef4444;
+}
+
+.transaction-badge.type-savings {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+/* Money going out to the member, and money coming back. Kept apart because these are the
+   two rows on a statement most worth not confusing with each other. */
+.transaction-badge.type-loan {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.transaction-badge.type-repayment {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+/* Absence keeps the red it has always had; every other fine takes the fines-pool violet,
+   so the two are distinguishable at a glance -- the same split the card makes. */
+.transaction-badge.type-fine {
+  background-color: #8b5cf61a;
+  color: #8b5cf6;
+}
+
+.transaction-badge.type-fine-absence {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* Anything the map does not know. Neutral rather than borrowing another type's colour,
+   which is what the old default did by falling back to the savings badge. */
+.transaction-badge.type-default {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
 .transaction-badge.deposit {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--success);

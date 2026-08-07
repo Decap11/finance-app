@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+const PAYOUT_MODE_OPTIONS = [
+  { value: "shares", label: "Reinvest into Shares Account" },
+  { value: "savings", label: "Credit General Savings Account" }
+];
 
 export default function DividendDistributionPortal() {
   const [saccoId, setSaccoId] = useState("");
@@ -272,14 +278,11 @@ export default function DividendDistributionPortal() {
           <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 700, color: "#334155", marginBottom: "0.6rem" }}>
             Payout Mode
           </label>
-          <select
+          <CustomSelect
             value={distributionMode}
-            onChange={(e) => setDistributionMode(e.target.value)}
-            style={{ width: "100%", padding: "1rem 1.2rem", borderRadius: "0.8rem", border: "1px solid #cbd5e1", fontSize: "1.3rem", fontWeight: 600, backgroundColor: "#ffffff" }}
-          >
-            <option value="shares">Reinvest into Shares Account</option>
-            <option value="savings">Credit General Savings Account</option>
-          </select>
+            options={PAYOUT_MODE_OPTIONS}
+            onChange={(val) => setDistributionMode(val)}
+          />
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-end" }}>

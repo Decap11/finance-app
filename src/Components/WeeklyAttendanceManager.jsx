@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import { getMeetingDateForWeek } from "../utils/meetingDateUtils";
 import {
   cycleKeyOf,
@@ -259,6 +260,16 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
   const cycleKey = useMemo(
     () => cycleKeyOf(weekAnchorDate, meetingDay),
     [weekAnchorDate, meetingDay]
+  );
+
+  // Built once rather than on every render: this is 52 objects, and the picker above it
+  // re-renders on every attendance toggle in the register below.
+  const weekOptions = useMemo(
+    () => Array.from({ length: WEEKS_PER_CYCLE }, (_, i) => ({
+      value: i + 1,
+      label: `Week ${i + 1}`
+    })),
+    []
   );
 
   // The date of the meeting this register covers. Null for a SACCO with no anchor, whose
@@ -593,15 +604,13 @@ export default function WeeklyAttendanceManager({ allMembers = [] }) {
         {/* Meeting Week Selector */}
         <div className="attendance-week-selector" style={{ display: "flex", alignItems: "center", gap: "1rem", background: "#f8fafc", padding: "0.6rem 1.4rem", borderRadius: "1rem", border: "1px solid #e2e8f0" }}>
           <label style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--text-dark)" }}>Meeting Week:</label>
-          <select
+          <CustomSelect
             value={currentWeek}
-            onChange={(e) => setCurrentWeek(Number(e.target.value))}
+            options={weekOptions}
+            onChange={(val) => setCurrentWeek(Number(val))}
             className="attendance-week-select"
-          >
-            {Array.from({ length: WEEKS_PER_CYCLE }, (_, i) => i + 1).map(w => (
-              <option key={w} value={w}>Week {w}</option>
-            ))}
-          </select>
+            minWidth="13rem"
+          />
         </div>
       </div>
 

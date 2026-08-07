@@ -35,27 +35,48 @@ interface Transaction {
   week_number?: number;
 }
 
-function TransactionTypeBadge({ type }: { type: string }) {
-  let badgeClass = "badge-savings";
-  let iconClass = "fa-vault";
+/**
+ * Colour per transaction type, keyed on the raw category rather than the display label.
+ *
+ * Keyed that way because the label is not stable: a fine renders as whatever FINE_LABELS
+ * calls its reason, so matching on text would leave every fine but the absence one
+ * uncoloured. The legacy 'devt' and 'social' spellings are folded in here for the same
+ * reason they are folded in everywhere else -- an old row must not lose its colour.
+ *
+ * These are the same six pairs contributionApprovals.css uses, so a member and an admin
+ * looking at the same contribution see the same colour.
+ */
+const TYPE_CLASS: Record<string, string> = {
+  shares: "type-shares",
+  development_fund: "type-development",
+  devt: "type-development",
+  social_fund: "type-social",
+  social: "type-social",
+  savings: "type-savings",
+  loan_disbursement: "type-loan",
+  loan_repayment: "type-repayment",
+  fines: "type-fine",
+  fine: "type-fine",
+  penalty: "type-fine",
+  absenteeism: "type-fine"
+};
 
-  if (type === "Shares") {
-    badgeClass = "badge-shares";
-    iconClass = "fa-chart-pie";
-  } else if (type === "Development") {
-    badgeClass = "badge-dev";
-    iconClass = "fa-building-shield";
-  } else if (type === "Social Fund") {
-    badgeClass = "badge-social";
-    iconClass = "fa-hand-holding-heart";
+function TransactionTypeBadge({
+  category,
+  fineType,
+  label
+}: { category: string; fineType?: string | null; label: string }) {
+  let modifier = TYPE_CLASS[String(category || "").trim().toLowerCase()] || "type-default";
+
+  // An absence fine is red and every other fine is violet, matching the card. Split here
+  // rather than in the map because both come through as the same category.
+  if (modifier === "type-fine" && String(fineType || "absenteeism").trim().toLowerCase() === "absenteeism") {
+    modifier = "type-fine-absence";
   }
 
   return (
     <td className="type-cell">
-      <span className={`transaction-badge ${badgeClass}`}>
-        <i className={`fa-solid ${iconClass}`}></i>
-        {type}
-      </span>
+      <span className={`transaction-badge ${modifier}`}>{label}</span>
     </td>
   );
 }
@@ -211,7 +232,11 @@ function TransactionsList() {
                     <td style={{ whiteSpace: "nowrap" }}>
                       {formattedDate}
                     </td>
-                    <TransactionTypeBadge type={displayType} />
+                    <TransactionTypeBadge
+                      category={transaction.category}
+                      fineType={transaction.fine_type}
+                      label={displayType}
+                    />
                     <td className="amount-cell">{Number(transaction.amount).toLocaleString()}</td>
                     <td>
                       <span style={{ fontWeight: 600, color: "var(--text-dark)" }}>

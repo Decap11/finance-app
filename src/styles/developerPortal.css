@@ -637,14 +637,50 @@
   color: #fee2e2;
 }
 
+/* Deliberately still a native <select>, unlike every other picker in the app, which uses
+   CustomSelect. This one sits in a table cell inside .dev-table-container, and that
+   container is overflow-x: auto -- an absolutely positioned dropdown panel opened from
+   here would be clipped by it. So the control is styled to match .custom-select-trigger
+   instead: same radius, same weight, same chevron, drawn dark for this portal.
+
+   appearance: none is what removes the OS control entirely -- without it the browser
+   paints its own arrow on top of the one below, and Windows ignores the border radius. */
 .sub-select {
-  padding: 0.5rem 0.8rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 0.5rem 2.4rem 0.5rem 0.8rem;
   border-radius: 0.6rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(15, 23, 42, 0.6);
+  background-color: rgba(15, 23, 42, 0.6);
+  /* Chevron, matching the fa-chevron-down CustomSelect uses. Inlined as a data URI
+     rather than an icon font because a background-image cannot be a glyph. */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1.1rem;
+  font-family: inherit;
   font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sub-select:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.sub-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* The open list is drawn by the OS, so these two are the only properties it honours --
+   without them the panel is white-on-white system chrome hanging off a dark table. */
+.sub-select option {
+  background-color: #1e293b;
+  color: #f8fafc;
 }
 
 .sub-select.ok {

@@ -19,7 +19,11 @@ async function fetchAllTransactions(supabase, saccoId) {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, profile_id, amount, category, status, direction, created_at')
+      // week_number carries an admin's statement that this money settles a NAMED week --
+      // see settle_mandatory_weeks (0038). Without it in the select the dues engine falls
+      // back to inferring the week from the date, which is exactly what it does for every
+      // ordinary contribution, so an arrears payment would silently lose its attribution.
+      .select('id, profile_id, amount, category, status, direction, created_at, week_number')
       .eq('sacco_id', saccoId)
       .in('status', ['completed', 'approved', 'pending'])
       // Ordered by the primary key, not by created_at. created_at is a DATE, so a busy
@@ -199,15 +203,23 @@ export async function GET(request) {
         meetingDay,
         joinedOn: member.joinedOn,
         fallbackStart,
+        weekAnchor: settings.weekAnchorDate || null,
         today
       });
+
+      // The full ledger is one entry per elapsed week per member -- for a SACCO deep into
+      // its cycle that is tens of thousands of objects across a roster, and staff screens
+      // only ever draw the short weeks. A member reading their own row gets the whole
+      // thing, because their history is one member long and the banner explains it.
+      const { weeks, ...totals } = dues;
 
       return {
         profileId: member.id,
         name: member.name,
         memberNumber: member.memberNumber,
         joinedOn: member.joinedOn || null,
-        ...dues
+        ...totals,
+        ...(isStaff ? {} : { weeks })
       };
     });
 
@@ -226,5 +238,105 @@ export async function GET(request) {
     });
   } catch (err) {
     return Response.json({ error: err.message || 'Server error computing dues.' }, { status: 500 });
+  }
+}
+
+/** Postgres cannot find the function, or PostgREST cannot find it in its schema cache. */
+function isMissingFunction(error) {
+  if (!error) return false;
+  if (error.code === '42883' || error.code === 'PGRST202') return true;
+  return /settle_mandatory_weeks/i.test(error.message || '') && /does not exist|could not find/i.test(error.message || '');
+}
+
+/**
+ * POST /api/dues
+ *
+ * Registers a member's arrears payment against the specific weeks it clears.
+ *
+ * The GET above derives what is owed and, since the week ledger, WHICH weeks are short.
+ * This is the other half: the admin has the cash in hand and says which of those weeks it
+ * settles. settle_mandatory_weeks (migration 0038) writes one completed transaction per
+ * week, each stamped with `week_number`, which is what lets the dues ledger and the
+ * contribution heatmap agree afterwards on what the money was for.
+ *
+ * Built from the anon key plus the caller's JWT, never the service role -- the RPC is
+ * SECURITY DEFINER and does its own staff check against the MEMBER's SACCO, so authority
+ * is decided in one place rather than trusted from here.
+ */
+export async function POST(request) {
+  try {
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    if (!token) {
+      return Response.json({ error: 'No authorization token provided.' }, { status: 401 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      return Response.json({ error: authErr?.message || 'Authentication failed.' }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { memberId, category, weeks, note } = body;
+
+    if (!memberId) {
+      return Response.json({ error: 'Say which member this payment is for.' }, { status: 400 });
+    }
+    if (!MANDATORY_FUNDS.includes(category)) {
+      return Response.json(
+        { error: 'Only the development and social funds are owed weekly.' },
+        { status: 400 }
+      );
+    }
+
+    // Coerced and bounded here as well as in the function. This route is not the only way
+    // to reach the RPC, but it is the only one a mistyped client can reach.
+    const weekList = Array.from(new Set(
+      (Array.isArray(weeks) ? weeks : [])
+        .map((w) => Number(w))
+        .filter((w) => Number.isInteger(w) && w >= 1 && w <= 52)
+    )).sort((a, b) => a - b);
+
+    if (weekList.length === 0) {
+      return Response.json({ error: 'Choose at least one week to register.' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase.rpc('settle_mandatory_weeks', {
+      p_member_id: memberId,
+      p_category: category,
+      p_weeks: weekList,
+      p_note: typeof note === 'string' && note.trim() ? note.trim() : null
+    });
+
+    if (error) {
+      // 501, not 500: the request was well formed and the database simply has not had
+      // 0038 applied. Three features in this repository have looked broken for days over
+      // exactly this, so it says which file to run rather than reporting a server error.
+      if (isMissingFunction(error)) {
+        return Response.json({
+          error: 'This database has not had migration 0038 applied, so payments cannot be '
+            + 'registered against a week yet. Run supabase/migrations/'
+            + '0038_20260807_settle-mandatory-weeks.sql.',
+          code: 'MIGRATION_0038_MISSING'
+        }, { status: 501 });
+      }
+      // The RPC raises for a caller who is not staff of this member's SACCO.
+      const denied = /only an admin|authentication required/i.test(error.message || '');
+      return Response.json({ error: error.message }, { status: denied ? 403 : 400 });
+    }
+
+    const settled = Number(data?.settled_weeks) || 0;
+
+    return Response.json({
+      ...data,
+      // Weeks asked for that were already settled. Reported so the admin is told plainly
+      // rather than shown a success message for money that was never banked.
+      skipped: Math.max(0, weekList.length - settled)
+    });
+  } catch (err) {
+    return Response.json({ error: err.message || 'Server error registering payment.' }, { status: 500 });
   }
 }

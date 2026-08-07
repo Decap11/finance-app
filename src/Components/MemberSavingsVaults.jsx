@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
+
+const VAULT_CATEGORY_OPTIONS = [
+  { value: "education", label: "Education / School Fees" },
+  { value: "agriculture", label: "Agriculture & Land" },
+  { value: "business", label: "Business Investment" },
+  { value: "emergency", label: "Emergency Fund" },
+  { value: "general", label: "General Savings" }
+];
 
 export default function MemberSavingsVaults() {
   const [profileId, setProfileId] = useState("");
@@ -337,17 +346,11 @@ export default function MemberSavingsVaults() {
 
               <div style={{ marginBottom: "1.4rem" }}>
                 <label style={{ display: "block", fontSize: "1.2rem", fontWeight: 700, color: "#334155", marginBottom: "0.6rem" }}>Category</label>
-                <select
+                <CustomSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  style={{ width: "100%", padding: "1rem 1.2rem", borderRadius: "0.8rem", border: "1px solid #cbd5e1", fontSize: "1.3rem", backgroundColor: "#ffffff" }}
-                >
-                  <option value="education">Education / School Fees</option>
-                  <option value="agriculture">Agriculture & Land</option>
-                  <option value="business">Business Investment</option>
-                  <option value="emergency">Emergency Fund</option>
-                  <option value="general">General Savings</option>
-                </select>
+                  options={VAULT_CATEGORY_OPTIONS}
+                  onChange={(val) => setCategory(val)}
+                />
               </div>
 
               <div style={{ marginBottom: "2rem" }}>

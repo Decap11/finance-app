@@ -23,10 +23,39 @@
 
 // Extension included deliberately. Next resolves it either way, but Node's own ESM loader
 // does not -- and without it `node --test` cannot import this file at all.
-import { getMeetingDayOnOrAfter } from './meetingDateUtils.js';
+import { getMeetingDayOnOrAfter, getSaccoWeekOf } from './meetingDateUtils.js';
 
 /** The funds a member owes every week whether or not they contribute anything else. */
 export const MANDATORY_FUNDS = ['development_fund', 'social_fund'];
+
+/**
+ * What happened to one week's obligation.
+ *
+ * The four are deliberately distinct. A running total can only ever say "square" or "short",
+ * and that is what let a missed week vanish the moment somebody paid a lump sum -- or, worse,
+ * the moment somebody paid AHEAD, because credit from week 5 silently answered for week 10
+ * and no screen in the app ever mentioned it.
+ *
+ *   PAID         money for this week arrived in this week. The ordinary case.
+ *   PREPAID      covered by money that arrived BEFORE this meeting. The member is not in
+ *                debt, but they did not contribute at this meeting -- which is a different
+ *                fact, and the one the habit tracker is drawing.
+ *   SETTLED_LATE covered, by money that arrived after this meeting had passed. This is the
+ *                arrears payment, and naming it is the whole point: the week stops being a
+ *                permanent black mark without the payment being disguised as punctual.
+ *   PARTIAL      some money landed against this week, but less than the rate.
+ *   UNPAID       nothing.
+ */
+export const WEEK_PAID = 'paid';
+export const WEEK_PREPAID = 'prepaid';
+export const WEEK_SETTLED_LATE = 'settled_late';
+export const WEEK_PARTIAL = 'partial';
+export const WEEK_UNPAID = 'unpaid';
+
+/** A week still short of its rate -- what an admin chases and what a settlement clears. */
+export function isOutstanding(status) {
+  return status === WEEK_UNPAID || status === WEEK_PARTIAL;
+}
 
 /** Money that has actually landed. Anything else is not yet a payment. */
 const PAID_STATUSES = new Set(['completed', 'approved']);
@@ -64,6 +93,98 @@ export function meetingWeeksBetween(from, to, meetingDay = 'Wednesday') {
   const end = getMeetingDayOnOrAfter(to, meetingDay);
   if (!start || !end) return 0;
   return Math.max(0, Math.round((end - start) / MS_PER_WEEK));
+}
+
+/**
+ * Lays one fund's payments against the weeks they answer for.
+ *
+ * Three passes, in this order, and the order is the whole design:
+ *
+ *  1. ATTRIBUTED. A row carrying `week_number` was filed against a specific week on purpose
+ *     -- that is what settle_mandatory_weeks (migration 0038) writes when an admin registers
+ *     an arrears payment. An explicit statement of intent outranks any inference, so those
+ *     land on their stated week before anything else is decided.
+ *  2. SAME WEEK. Money that arrived in week N's own meeting week answers for week N. This
+ *     pass is what keeps this ledger and the contribution heatmap telling the same story:
+ *     the heatmap draws a payment on the meeting it was received at, and without this pass
+ *     the two would disagree on every member who has ever been behind.
+ *  3. FIFO. Whatever is left -- surplus, lump sums, catch-up money -- fills the earliest
+ *     short week first, the way a treasurer clears the oldest debt from a paper ledger.
+ *
+ * Pass 2 before pass 3 is the part that matters. Pure FIFO is defensible accounting but it
+ * makes "which week is outstanding" meaningless: money would always clear the oldest debt,
+ * so the gap would slide to the most recent weeks and a member who paid punctually every
+ * week except one would be reported as behind on the LATEST week rather than the one they
+ * actually missed. That is precisely the question this ledger exists to answer.
+ *
+ * FIFO for the remainder is what keeps the answer stable. Allocating newest-first would let
+ * a member's whole history re-shuffle every time they paid, so a week could flip from
+ * settled back to unpaid with nobody having touched it.
+ *
+ * `budget` is the NET of the fund (credits less debits), not the sum of the credit rows, so
+ * a reversal cannot leave weeks looking covered by money that was taken back. Only credits
+ * go in the queue; the debits are already priced into the budget.
+ */
+function allocateFund({ weeks, payments, budget, fund, rate }) {
+  if (rate <= 0) return;
+
+  let remaining = Math.max(0, budget);
+
+  const spend = (week, wanted, date, attributed) => {
+    const slot = week.funds[fund];
+    const take = Math.min(wanted, remaining, slot.expected - slot.applied);
+    if (take <= 0) return 0;
+    slot.applied += take;
+    remaining -= take;
+    // The LAST money to land on a week decides how it reads: a week half-covered on time
+    // and finished three weeks later was, in the end, settled late.
+    if (!slot.coveredOn || date > slot.coveredOn) slot.coveredOn = date;
+    if (attributed) slot.attributed = true;
+    return take;
+  };
+
+  const isShort = (w) => w.funds[fund].applied < w.funds[fund].expected;
+  // Payment dates are already snapped to their meeting day, so this is an exact lookup.
+  const byMeeting = new Map(weeks.map((w) => [w.meetingDate.getTime(), w]));
+  const queue = payments.map((p) => ({ ...p }));
+
+  // Pass 1 -- rows that name their week.
+  queue.forEach((p) => {
+    if (p.amount <= 0 || !p.weekNumber) return;
+    const target = weeks.find((w) => w.weekNumber === p.weekNumber && isShort(w));
+    if (target) p.amount -= spend(target, p.amount, p.date, true);
+  });
+
+  // Pass 2 -- money that landed on the meeting it was owed at.
+  queue.forEach((p) => {
+    if (p.amount <= 0) return;
+    const target = byMeeting.get(p.date.getTime());
+    if (target) p.amount -= spend(target, p.amount, p.date, false);
+  });
+
+  // Pass 3 -- everything left over, oldest short week first.
+  const spill = queue.filter((p) => p.amount > 0).sort((a, b) => a.date - b.date);
+  let cursor = 0;
+  for (const week of weeks) {
+    if (remaining <= 0) break;
+    while (isShort(week) && cursor < spill.length) {
+      const p = spill[cursor];
+      const used = spend(week, p.amount, p.date, false);
+      p.amount -= used;
+      if (used === 0) break;
+      if (p.amount <= 0) cursor += 1;
+    }
+  }
+}
+
+/** How a week reads once every shilling has been laid against it. */
+function classifyWeek(slot, meetingDate) {
+  if (slot.applied <= 0) return WEEK_UNPAID;
+  if (slot.applied < slot.expected) return WEEK_PARTIAL;
+  if (!slot.coveredOn) return WEEK_PAID;
+  if (slot.coveredOn > meetingDate) return WEEK_SETTLED_LATE;
+  if (slot.coveredOn < meetingDate) return WEEK_PREPAID;
+  return WEEK_PAID;
 }
 
 /**
@@ -111,6 +232,10 @@ export function computeMemberDues({
   meetingDay = 'Wednesday',
   joinedOn = null,
   fallbackStart = null,
+  // The SACCO's Week 1. Only needed to put a 1-52 cycle number on each ledger week; the
+  // arithmetic itself still runs entirely on dates, so a SACCO with no anchor gets the full
+  // ledger with `weekNumber: null` rather than no ledger at all.
+  weekAnchor = null,
   today = new Date()
 } = {}) {
   const rows = transactions.map((tx) => ({
@@ -120,7 +245,10 @@ export function computeMemberDues({
     // Contributions are always credits. Honoured anyway so an adjustment or a reversal
     // reduces what a member is credited with instead of increasing it.
     direction: String(tx.direction || 'credit').trim().toLowerCase(),
-    date: tx.created_at || tx.completed_at || tx.approved_at || null
+    date: tx.created_at || tx.completed_at || tx.approved_at || null,
+    // Set only by an admin registering a payment against a named week. Null everywhere
+    // else, including on every contribution a member files for themselves.
+    weekNumber: Number(tx.week_number) || null
   }));
 
   // The member's earliest record of ANY kind that actually landed. A shares payment in week 5
@@ -154,6 +282,29 @@ export function computeMemberDues({
 
   const weeksElapsed = startDate ? meetingWeeksBetween(startDate, today, meetingDay) : 0;
 
+  // One entry per meeting week that has PASSED, oldest first. The in-progress week is
+  // excluded for the same reason it is excluded from `expected` -- a week has to be over
+  // before missing it means anything.
+  const weeks = [];
+  for (let i = 0; i < weeksElapsed; i += 1) {
+    const meetingDate = new Date(startDate.getTime() + i * MS_PER_WEEK);
+    const entry = {
+      ordinal: i + 1,
+      meetingDate,
+      weekNumber: weekAnchor ? getSaccoWeekOf(meetingDate, weekAnchor, meetingDay) : null,
+      funds: {}
+    };
+    MANDATORY_FUNDS.forEach((fund) => {
+      entry.funds[fund] = {
+        expected: Number(rates[fund]) || 0,
+        applied: 0,
+        coveredOn: null,
+        attributed: false
+      };
+    });
+    weeks.push(entry);
+  }
+
   const funds = {};
   let totalOwed = 0;
   let totalPending = 0;
@@ -167,13 +318,26 @@ export function computeMemberDues({
 
     let paid = 0;
     let pending = 0;
+    const payments = [];
 
     rows.forEach((r) => {
       if (r.category !== fund) return;
       const signed = r.direction === 'debit' ? -r.amount : r.amount;
-      if (PAID_STATUSES.has(r.status)) paid += signed;
-      else if (PENDING_STATUSES.has(r.status)) pending += signed;
+      if (PAID_STATUSES.has(r.status)) {
+        paid += signed;
+        // Only credits go in the queue -- debits are already netted out of `paid`, which
+        // is what caps the allocation below.
+        if (signed > 0 && r.date) {
+          payments.push({
+            amount: signed,
+            date: getMeetingDayOnOrAfter(r.date, meetingDay),
+            weekNumber: r.weekNumber
+          });
+        }
+      } else if (PENDING_STATUSES.has(r.status)) pending += signed;
     });
+
+    allocateFund({ weeks, payments, budget: paid, fund, rate });
 
     const owed = Math.max(0, expected - paid);
     // With a fixed weekly rate this is exactly the number of weeks' worth outstanding, which
@@ -190,7 +354,51 @@ export function computeMemberDues({
     weeksBehind = Math.max(weeksBehind, behind);
   });
 
+  // Classified only once every fund has been allocated, then flattened into the list the
+  // admin card, the member banner and the settlement endpoint all read. `outstandingWeeks`
+  // is the answer to "who owes what, for which week" -- the question a running total could
+  // never be asked.
+  const outstandingWeeks = [];
+  const ledger = weeks.map((week) => {
+    const iso = week.meetingDate.toISOString().slice(0, 10);
+    const out = { ordinal: week.ordinal, weekNumber: week.weekNumber, meetingDate: iso, funds: {} };
+
+    MANDATORY_FUNDS.forEach((fund) => {
+      const slot = week.funds[fund];
+      const status = classifyWeek(slot, week.meetingDate);
+      const shortfall = Math.max(0, slot.expected - slot.applied);
+
+      out.funds[fund] = {
+        expected: slot.expected,
+        applied: slot.applied,
+        shortfall,
+        status,
+        // True when an admin filed this money against this week by name rather than the
+        // engine inferring it. Shown so a settled week can be told from a deduced one.
+        attributed: slot.attributed,
+        coveredOn: slot.coveredOn ? slot.coveredOn.toISOString().slice(0, 10) : null
+      };
+
+      if (slot.expected > 0 && isOutstanding(status)) {
+        outstandingWeeks.push({
+          ordinal: week.ordinal,
+          weekNumber: week.weekNumber,
+          meetingDate: iso,
+          fund,
+          expected: slot.expected,
+          applied: slot.applied,
+          shortfall,
+          status
+        });
+      }
+    });
+
+    return out;
+  });
+
   return {
+    weeks: ledger,
+    outstandingWeeks,
     startDate: startDate ? startDate.toISOString().slice(0, 10) : null,
     // 'stated' | 'first_record' | 'assumed' | 'none'. Only 'stated' is a fact; the other two
     // are labelled as inference wherever they are shown.

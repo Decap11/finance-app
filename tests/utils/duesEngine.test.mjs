@@ -424,3 +424,168 @@ test('summariseDues agrees with computeMemberDues end to end', () => {
   assert.equal(s.developmentOwed, 4000);
   assert.equal(s.socialOwed, 8000);
 });
+
+// ------------------------------------------------------------- the week ledger
+//
+// The running total above can only say "square" or "short". These cover the question it
+// could never be asked: WHICH week, and what happened to it.
+
+const ANCHOR = '2026-01-07';
+const ledger = (over = {}) => dues({ joinedOn: ANCHOR, weekAnchor: ANCHOR, ...over });
+/** One fund's entry for the Nth elapsed week. */
+const wk = (d, n, fund = 'development_fund') => d.weeks[n - 1].funds[fund];
+
+test('the ledger has one entry per PASSED meeting week, dated and numbered', () => {
+  const d = ledger({ transactions: [] });
+
+  assert.equal(d.weeks.length, 4);
+  assert.deepEqual(d.weeks.map((w) => w.meetingDate),
+    ['2026-01-07', '2026-01-14', '2026-01-21', '2026-01-28']);
+  // The week of 2026-02-04 is in progress and must not appear -- a week has to be over
+  // before missing it is arrears.
+  assert.deepEqual(d.weeks.map((w) => w.weekNumber), [1, 2, 3, 4]);
+});
+
+test('paying the rate every week leaves every week paid and nothing outstanding', () => {
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'), paid('development_fund', 1000, '2026-01-14'),
+      paid('development_fund', 1000, '2026-01-21'), paid('development_fund', 1000, '2026-01-28'),
+      paid('social_fund', 2000, '2026-01-07'), paid('social_fund', 2000, '2026-01-14'),
+      paid('social_fund', 2000, '2026-01-21'), paid('social_fund', 2000, '2026-01-28')
+    ]
+  });
+
+  assert.deepEqual(d.weeks.map((w) => w.funds.development_fund.status),
+    ['paid', 'paid', 'paid', 'paid']);
+  assert.deepEqual(d.outstandingWeeks, []);
+  assert.equal(d.totalOwed, 0);
+});
+
+test('a missed week is named, with its date and week number', () => {
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'),
+      // nothing for the 14th
+      paid('development_fund', 1000, '2026-01-21'),
+      paid('development_fund', 1000, '2026-01-28')
+    ]
+  });
+
+  const missed = d.outstandingWeeks.filter((w) => w.fund === 'development_fund');
+  assert.equal(missed.length, 1);
+  assert.equal(missed[0].weekNumber, 2);
+  assert.equal(missed[0].meetingDate, '2026-01-14');
+  assert.equal(missed[0].shortfall, 1000);
+  assert.equal(missed[0].status, 'unpaid');
+});
+
+test('FIFO: a lump sum clears the OLDEST short week, and it reads as settled late', () => {
+  // Missed the 14th; paid double on the 28th. The running total says square -- the ledger
+  // says which week the extra money answered for.
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'),
+      paid('development_fund', 1000, '2026-01-21'),
+      paid('development_fund', 2000, '2026-01-28')
+    ]
+  });
+
+  // The social fund is untouched in this case, so only the development side is square.
+  assert.equal(d.funds.development_fund.owed, 0);
+  assert.equal(wk(d, 2).status, 'settled_late');
+  assert.equal(wk(d, 2).coveredOn, '2026-01-28');
+  assert.equal(wk(d, 4).status, 'paid');
+});
+
+test('PREPAYMENT no longer hides a skipped week', () => {
+  // The hole this whole ledger exists to close. Two weeks' money on the 7th, then nothing
+  // on the 14th. `owed` is zero either way -- but the week is now reported as covered by
+  // earlier credit rather than passing in silence.
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 2000, '2026-01-07'),
+      paid('development_fund', 1000, '2026-01-21'),
+      paid('development_fund', 1000, '2026-01-28')
+    ]
+  });
+
+  assert.equal(d.funds.development_fund.owed, 0);
+  assert.equal(wk(d, 1).status, 'paid');
+  assert.equal(wk(d, 2).status, 'prepaid');
+  assert.equal(wk(d, 2).coveredOn, '2026-01-07');
+});
+
+test('a payment stamped with week_number lands on THAT week, not the oldest short one', () => {
+  // What settle_mandatory_weeks writes. Weeks 2 and 3 are both short; the admin registered
+  // this money against week 3, so FIFO must not drag it back to week 2.
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'),
+      paid('development_fund', 1000, '2026-02-04', { week_number: 3 })
+    ]
+  });
+
+  assert.equal(wk(d, 3).status, 'settled_late');
+  assert.equal(wk(d, 3).attributed, true);
+  assert.equal(wk(d, 2).status, 'unpaid');
+  assert.equal(wk(d, 2).attributed, false);
+
+  const short = d.outstandingWeeks.filter((w) => w.fund === 'development_fund');
+  assert.deepEqual(short.map((w) => w.weekNumber), [2, 4]);
+});
+
+test('money above the named week spills to FIFO instead of being lost', () => {
+  const d = ledger({
+    transactions: [paid('development_fund', 3000, '2026-02-04', { week_number: 3 })]
+  });
+
+  assert.equal(wk(d, 3).status, 'settled_late');
+  // 1,000 settled week 3; the other 2,000 fell to the earliest short weeks, 1 and 2.
+  assert.equal(wk(d, 1).status, 'settled_late');
+  assert.equal(wk(d, 2).status, 'settled_late');
+  assert.equal(wk(d, 4).status, 'unpaid');
+  assert.equal(d.funds.development_fund.owed, 1000);
+});
+
+test('a short payment is partial, not paid, and still shows the shortfall', () => {
+  const d = ledger({ transactions: [paid('development_fund', 400, '2026-01-07')] });
+
+  assert.equal(wk(d, 1).status, 'partial');
+  assert.equal(wk(d, 1).applied, 400);
+  assert.equal(wk(d, 1).shortfall, 600);
+  assert.equal(d.outstandingWeeks[0].shortfall, 600);
+});
+
+test('a reversal cannot leave a week looking covered', () => {
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'),
+      { category: 'development_fund', amount: 1000, status: 'completed',
+        direction: 'debit', created_at: '2026-01-14' }
+    ]
+  });
+
+  assert.equal(d.totalPaid, 0);
+  assert.equal(wk(d, 1).status, 'unpaid');
+});
+
+test('the ledger reconciles with the running total it sits beside', () => {
+  const d = ledger({
+    transactions: [
+      paid('development_fund', 1000, '2026-01-07'),
+      paid('social_fund', 2000, '2026-01-07')
+    ]
+  });
+
+  const shortfalls = d.outstandingWeeks.reduce((sum, w) => sum + w.shortfall, 0);
+  assert.equal(shortfalls, d.totalOwed);
+});
+
+test('no anchor still yields a full ledger, just without cycle numbers', () => {
+  const d = dues({ joinedOn: ANCHOR, transactions: [] });
+
+  assert.equal(d.weeks.length, 4);
+  assert.deepEqual(d.weeks.map((w) => w.weekNumber), [null, null, null, null]);
+  assert.equal(d.outstandingWeeks.length, 8); // 4 weeks x 2 funds
+});

@@ -26,6 +26,16 @@ const FUND_COLORS = {
   social_fund: "#ef4444"
 };
 
+/** "Wed 8 Jul" -- the meeting itself, so a member can place the week in their own memory. */
+function meetingLabel(iso) {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short", day: "numeric", month: "short", timeZone: "UTC"
+  });
+}
+
 export default function MemberDuesAlertBanner() {
   const [dues, setDues] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,9 +77,25 @@ export default function MemberDuesAlertBanner() {
     const handleUpdate = () => loadDues();
     window.addEventListener("sacco_transaction_updated", handleUpdate);
     window.addEventListener("sacco_settings_updated", handleUpdate);
+
+    // The window events above only ever fire in the tab that CAUSED the change, and every
+    // one of these changes is caused by an admin in a different browser. Without this
+    // subscription a member who has just paid their arrears at the meeting keeps being
+    // told they are behind until they reload the page -- which, on a phone left open, can
+    // be days. The admin's own card has always updated instantly; this is the other half.
+    const channel = supabase
+      .channel("member-dues-banner-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => loadDues()
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener("sacco_transaction_updated", handleUpdate);
       window.removeEventListener("sacco_settings_updated", handleUpdate);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -126,6 +152,41 @@ export default function MemberDuesAlertBanner() {
             ))}
             . These are mandatory every meeting week.
           </p>
+
+          {/* WHICH weeks, not just how many. A member told "4 weeks behind" cannot check the
+              claim against their own memory or their receipts; a member told which four
+              meetings can. It is also what they need in order to say "I paid on the 8th" to
+              an admin who can then look for it. */}
+          {(dues.outstandingWeeks || []).length > 0 && (
+            <div style={{ marginTop: "0.6rem", display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+              {dues.outstandingWeeks.map((w) => (
+                <span
+                  key={`${w.fund}-${w.meetingDate}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    padding: "0.3rem 0.7rem",
+                    borderRadius: "0.6rem",
+                    background: "#ffffff",
+                    border: `1px solid ${FUND_COLORS[w.fund] || "#fcd34d"}33`,
+                    fontSize: "1.1rem",
+                    color: "#78350f"
+                  }}
+                >
+                  <span style={{
+                    width: "0.6rem",
+                    height: "0.6rem",
+                    borderRadius: "50%",
+                    background: FUND_COLORS[w.fund] || "#92400e"
+                  }}></span>
+                  {Number.isInteger(w.weekNumber) ? `Week ${w.weekNumber}` : "Week"}
+                  <span style={{ opacity: 0.7 }}>{meetingLabel(w.meetingDate)}</span>
+                  <strong>UGX {w.shortfall.toLocaleString()}</strong>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* A member who has already paid should not be told to pay again. */}
           {dues.totalPending > 0 && (

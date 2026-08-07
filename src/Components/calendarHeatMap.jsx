@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import CustomSelect from "./CustomSelect";
 import { getForthcomingMeetingDate } from "../utils/meetingDateUtils";
 import { DEFAULT_SHARE_PRICE, shareCountOf } from "../utils/sharePricing";
 import "../styles/calendarHeatMap.css";
@@ -223,8 +224,23 @@ export default function CalendarHeatMap({ memberId }) {
 
           let meetingIndex = null;
 
-          // 1. Priority: Match using unified getForthcomingMeetingDate algorithm
-          if (tx.created_at) {
+          // 0. Priority: a row that NAMES its week.
+          //
+          // settle_mandatory_weeks (migration 0038) writes arrears payments stamped with
+          // week_number and dated the day the cash arrived. Matching on created_at first
+          // would draw that money on the meeting it was HANDED OVER at, leaving the week it
+          // actually settled blank forever -- which is exactly the disagreement between this
+          // tracker and the arrears card that the week ledger exists to end. An explicit
+          // week outranks any inference from a date.
+          //
+          // Only rows carrying a real week_number take this path; the description fallback
+          // below is a regex over prose and is not authoritative enough to outrank a date.
+          if (Number(tx.week_number) && onboardMeetingIdx) {
+            meetingIndex = onboardMeetingIdx + Number(tx.week_number) - 1;
+          }
+
+          // 1. Otherwise match using unified getForthcomingMeetingDate algorithm
+          if (!meetingIndex && tx.created_at) {
             const txDate = new Date(tx.created_at);
             const targetMeetingDate = getForthcomingMeetingDate(txDate, configuredDay);
 
@@ -482,25 +498,12 @@ export default function CalendarHeatMap({ memberId }) {
               </p>
             </div>
             {availableYears.length > 1 && (
-              <select
+              <CustomSelect
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                aria-label="Year"
-                style={{
-                  fontSize: "1.3rem",
-                  fontWeight: 600,
-                  padding: "0.5rem 0.8rem",
-                  borderRadius: "0.6rem",
-                  border: "0.1rem solid #cbd5e1",
-                  background: "var(--white, #fff)",
-                  color: "var(--text-dark, #1e293b)",
-                  cursor: "pointer"
-                }}
-              >
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+                options={availableYears.map((y) => ({ value: y, label: String(y) }))}
+                onChange={(val) => setSelectedYear(Number(val))}
+                minWidth="10rem"
+              />
             )}
             <span>
               {isHistoricalYear
