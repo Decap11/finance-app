@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient";
 import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
 import { shareCountOf, shareUnitPriceOf, formatShs } from "../utils/sharePricing";
 import { canFundLoan, loanShortfall, formatSignedShs } from "../utils/saccoCapital";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import "../styles/contributionApprovals.css";
 
 export interface TransactionApprovalItem {
@@ -186,20 +187,13 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
   useEffect(() => {
     fetchRequests();
 
-    const channel = supabase
-      .channel('admin-contribution-approvals-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          fetchRequests();
-        }
-      )
-      .subscribe();
+    // The approvals queue is this SACCO's, so it watches every member of this group and
+    // no member of any other.
+    const unsubscribe = subscribeToOwnSaccoRows(
+      ['transactions'],
+      () => fetchRequests(),
+      'admin-contribution-approvals'
+    );
 
     function handleSettingsUpdate(e: any) {
       if (e.detail?.meetingDay) {
@@ -215,7 +209,7 @@ export default function ContributionApprovals({ limit, showViewAll, mode = "veri
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
       }

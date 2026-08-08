@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import { lendingNetOf, capitalOnHandOf, outOnLoanOf, formatSignedShs } from "../utils/saccoCapital";
 
 export default function FundDistributionMix() {
@@ -62,11 +63,13 @@ export default function FundDistributionMix() {
       fetchBalances();
 
     // Subscribe to WebSockets and custom events for instant chart updates
-    const channel = supabase
-      .channel('fund-distribution-mix-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchBalances)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, fetchBalances)
-      .subscribe();
+    // This SACCO's rows only. The mix is a group total, so it legitimately watches every
+    // member -- but only of this group, not of every group in the database.
+    const unsubscribe = subscribeToOwnSaccoRows(
+      ['transactions', 'accounts'],
+      fetchBalances,
+      'fund-distribution-mix'
+    );
 
     function handleTransactionUpdate() {
       fetchBalances();
@@ -78,7 +81,7 @@ export default function FundDistributionMix() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);

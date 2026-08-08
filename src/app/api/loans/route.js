@@ -118,7 +118,7 @@ export async function GET(request) {
 
     const { data: transactions } = await supabase
       .from('transactions')
-      .select('*')
+      .select('id, amount, category, status, direction, created_at, description, loan_id')
       .eq('profile_id', user.id)
       .in('category', ['loan_disbursement', 'loan_repayment'])
       .order('created_at', { ascending: false })

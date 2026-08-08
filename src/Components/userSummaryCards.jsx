@@ -2,6 +2,7 @@ import "../styles/summary-cards-row.css";
 
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 
 export default function UserSummaryCards() {
   const [loading, setLoading] = useState(true);
@@ -63,32 +64,13 @@ export default function UserSummaryCards() {
     // initial load, both realtime handlers and the refresh listener are all in here.
       fetchBalances();
 
-    // Subscribe to real-time database changes on the transactions and accounts tables
-    const channel = supabase
-      .channel('user-summary-cards-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          fetchBalances();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts'
-        },
-        () => {
-          fetchBalances();
-        }
-      )
-      .subscribe();
+    // This member's own transactions and accounts. These cards show their balances and
+    // nobody else's, so every other member's writes were pure noise on the wire.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions', 'accounts'],
+      () => fetchBalances(),
+      'user-summary-cards'
+    );
 
     function handleTransactionUpdate() {
       fetchBalances();
@@ -100,7 +82,7 @@ export default function UserSummaryCards() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);

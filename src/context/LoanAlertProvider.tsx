@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, ReactNode } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import { summariseLoanReminders } from "../utils/loanSchedule";
 import { LoanAlertContext } from "./loanAlertContext";
 
@@ -77,10 +78,9 @@ export function LoanAlertProvider({ children }: LoanAlertProviderProps) {
     // Confirming a fee, disbursing, or a repayment landing all change whether a loan is
     // still owed -- and a repayment that clears the balance should take the dot away
     // without the admin reloading.
-    const channel = supabase
-      .channel("loan-alerts-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, loadAlerts)
-      .subscribe();
+    // Scoped to this admin's own SACCO. Loan checkpoints are a staff view of the whole
+    // group, so every member's loans matter -- but only this group's.
+    const unsubscribeLoans = subscribeToOwnSaccoRows(["loans"], loadAlerts, "loan-alerts");
 
     // A loan sitting exactly on its anniversary today is not on it tomorrow. A dashboard
     // left open overnight -- which is how these are actually used -- would otherwise keep
@@ -90,7 +90,7 @@ export function LoanAlertProvider({ children }: LoanAlertProviderProps) {
     return () => {
       cancelled = true;
       clearInterval(midnightCheck);
-      supabase.removeChannel(channel);
+      unsubscribeLoans();
     };
   }, []);
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import "../styles/savingsLatestMemberTransactions.css";
 
 export default function SavingsLatestMemberTransactions() {
@@ -39,19 +40,15 @@ export default function SavingsLatestMemberTransactions() {
 
     loadLatestTransactions();
 
-    const channel = supabase
-      .channel('latest-member-tx-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
-        () => {
-          loadLatestTransactions();
-        }
-      )
-      .subscribe();
+    // A staff list of this SACCO's latest member activity.
+    const unsubscribe = subscribeToOwnSaccoRows(
+      ['transactions'],
+      () => loadLatestTransactions(),
+      'latest-member-tx'
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

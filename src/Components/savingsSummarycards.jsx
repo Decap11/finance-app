@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import "../styles/summary-cards-row.css";
 
 export default function SavingsSummaryCards() {
@@ -62,11 +63,12 @@ export default function SavingsSummaryCards() {
       fetchBalances();
 
     // Subscribe to WebSockets and custom events
-    const channel = supabase
-      .channel('admin-sacco-summary-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchBalances)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, fetchBalances)
-      .subscribe();
+    // Group totals, so every member of THIS SACCO -- and nobody outside it.
+    const unsubscribe = subscribeToOwnSaccoRows(
+      ['transactions', 'accounts'],
+      fetchBalances,
+      'admin-sacco-summary'
+    );
 
     function handleTransactionUpdate() {
       fetchBalances();
@@ -78,7 +80,7 @@ export default function SavingsSummaryCards() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);

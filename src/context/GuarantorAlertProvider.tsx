@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState, ReactNode } from "react";
 import { supabase } from "../supabaseClient";
 import { GuarantorAlertContext } from "./guarantorAlertContext";
+import { subscribeToColumn } from "../utils/realtimeScope";
 
 /**
  * Dispatch this after a member accepts or declines a request and the dot clears at once,
@@ -64,16 +65,27 @@ export function GuarantorAlertProvider({ children }: GuarantorAlertProviderProps
     // Somebody else nominating this member happens in the BORROWER's browser, so no
     // window event will ever reach here. Realtime is the only way the dot appears without
     // a reload -- which matters, because the whole point is that this is urgent.
-    const channel = supabase
-      .channel("guarantor-alerts-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "loan_guarantors" },
-        () => setRefreshKey((k) => k + 1)
-      )
-      .subscribe();
+    // Only rows where THIS member is the one being asked. `loan_guarantors` names the two
+    // sides separately, so the filter is guarantor_profile_id -- not profile_id, which the
+    // table does not have. Unfiltered, every guarantee request in every SACCO woke this dot.
+    let unsubscribe = () => {};
+    let cancelled = false;
 
-    return () => { supabase.removeChannel(channel); };
+    supabase.auth.getUser().then(({ data: { user } = {} }) => {
+      if (cancelled || !user?.id) return;
+      unsubscribe = subscribeToColumn(
+        "loan_guarantors",
+        "guarantor_profile_id",
+        user.id,
+        () => setRefreshKey((k) => k + 1),
+        "guarantor-alerts"
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

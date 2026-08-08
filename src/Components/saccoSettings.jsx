@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoSettings } from "../utils/realtimeScope";
 import CustomSelect from "./CustomSelect";
 import { exportWeeklyReportPDF } from "../utils/pdfExportUtils";
 import { getActiveWeek, WEEKS_PER_CYCLE } from "../utils/meetingDateUtils";
@@ -270,35 +271,15 @@ export default function SaccoSettings() {
     const initial = setTimeout(loadDatabaseData, 0);
 
     // Realtime WebSocket listener for SACCO Settings updates
-    const channel = supabase
-      .channel('sacco-settings-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sacco_settings'
-        },
-        () => {
-          loadDatabaseData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'saccos'
-        },
-        () => {
-          loadDatabaseData();
-        }
-      )
-      .subscribe();
+    // This SACCO's own configuration row.
+    const unsubscribe = subscribeToOwnSaccoSettings(
+      () => loadDatabaseData(),
+      'sacco-settings'
+    );
 
     return () => {
       clearTimeout(initial);
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

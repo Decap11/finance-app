@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import CustomSelect from "./CustomSelect";
 import "../styles/loans.css";
 
@@ -45,14 +46,15 @@ export default function LoanRepaymentWidget() {
     }
     fetchData();
 
-    const channel = supabase
-      .channel('repayment-widget-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, fetchData)
-      .subscribe();
+    // This member's own loans and repayments.
+    const unsubscribe = subscribeToOwnRows(
+      ['loans', 'transactions'],
+      fetchData,
+      'repayment-widget'
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

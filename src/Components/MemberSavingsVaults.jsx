@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import CustomSelect from "./CustomSelect";
 
 const VAULT_CATEGORY_OPTIONS = [
@@ -101,11 +102,12 @@ export default function MemberSavingsVaults() {
 
     const refresh = () => fetchVaults(profileId, saccoId);
 
-    const channel = supabase
-      .channel("member-vaults-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "accounts" }, refresh)
-      .subscribe();
+    // A member's vaults are built from their own rows only.
+    const unsubscribe = subscribeToOwnRows(
+      ["transactions", "accounts"],
+      refresh,
+      "member-vaults"
+    );
 
     if (typeof window !== "undefined") {
       window.addEventListener("sacco_transaction_updated", refresh);
@@ -113,7 +115,7 @@ export default function MemberSavingsVaults() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", refresh);
         window.removeEventListener("manual_contribution_logged", refresh);

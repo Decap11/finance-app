@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import { useToast } from "../context/ToastContext";
 import { formatTransactionMeetingDate } from "../utils/meetingDateUtils";
 import "../styles/UserRecentTransactionsTable.css";
@@ -82,20 +83,13 @@ export default function UserRecentTransactions() {
 
     fetchTransactions();
 
-    const channel = supabase
-      .channel('member-transactions-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          fetchTransactions();
-        }
-      )
-      .subscribe();
+    // Only this member's own rows. This list draws nothing else, and unfiltered it woke on
+    // every transaction written anywhere in the database.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions'],
+      () => fetchTransactions(),
+      'member-transactions'
+    );
 
     function handleTransactionUpdate() {
       fetchTransactions();
@@ -117,7 +111,7 @@ export default function UserRecentTransactions() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import { summariseLoan } from "../utils/loanSchedule";
 import "../styles/loanAdmin.css";
 
@@ -75,14 +76,12 @@ export default function LoanApplicationsManager() {
     // moves the first setState out of the render that scheduled it.
     const initial = setTimeout(load, 0);
 
-    const channel = supabase
-      .channel("loan-admin-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, load)
-      .subscribe();
+    // Loan applications belonging to this SACCO.
+    const unsubscribe = subscribeToOwnSaccoRows(["loans"], load, "loan-admin");
 
     return () => {
       clearTimeout(initial);
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [load]);
 

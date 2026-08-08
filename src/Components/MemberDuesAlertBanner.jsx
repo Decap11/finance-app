@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 
 /**
  * "You are behind on the weekly mandatory funds."
@@ -83,19 +84,18 @@ export default function MemberDuesAlertBanner() {
     // subscription a member who has just paid their arrears at the meeting keeps being
     // told they are behind until they reload the page -- which, on a phone left open, can
     // be days. The admin's own card has always updated instantly; this is the other half.
-    const channel = supabase
-      .channel("member-dues-banner-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => loadDues()
-      )
-      .subscribe();
+    // Filtered to this member. Their arrears can only be changed by their own rows, and
+    // unfiltered this woke on every contribution written anywhere in the database.
+    const unsubscribe = subscribeToOwnRows(
+      ["transactions"],
+      () => loadDues(),
+      "member-dues-banner"
+    );
 
     return () => {
       window.removeEventListener("sacco_transaction_updated", handleUpdate);
       window.removeEventListener("sacco_settings_updated", handleUpdate);
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

@@ -8,6 +8,7 @@ import UserHeader from "../../Components/userHeader";
 import Link from "next/link";
 import "../../styles/UserRecentTransactionsTable.css";
 import { formatTransactionMeetingDate } from "@/utils/meetingDateUtils";
+import { subscribeToOwnRows } from "@/utils/realtimeScope";
 
 // A fine's label comes from its fine_type, never from the category alone -- 'fines'
 // covers absence and everything else, and calling a late-arrival penalty an absence is
@@ -129,20 +130,12 @@ function TransactionsList() {
   useEffect(() => {
     fetchTransactions();
 
-    const channel = supabase
-      .channel('member-transactions-page-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          fetchTransactions();
-        }
-      )
-      .subscribe();
+    // This page lists the member's own history and nothing else.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions'],
+      () => fetchTransactions(),
+      'member-transactions-page'
+    );
 
     function handleSettingsUpdate(e: any) {
       if (e.detail?.meetingDay) {
@@ -160,7 +153,7 @@ function TransactionsList() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
         window.removeEventListener("sacco_transaction_updated", fetchTransactions);

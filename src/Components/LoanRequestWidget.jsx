@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import CustomSelect from "./CustomSelect";
 import "../styles/loans.css";
 
@@ -89,11 +90,12 @@ export default function LoanRequestWidget() {
 
     loadSharesBalance();
 
-    const channel = supabase
-      .channel('loan-widget-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadSharesBalance)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, loadSharesBalance)
-      .subscribe();
+    // The borrowing limit is derived from this member's own shares.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions', 'accounts'],
+      loadSharesBalance,
+      'loan-widget'
+    );
 
     function handleTransactionUpdate() {
       loadSharesBalance();
@@ -105,7 +107,7 @@ export default function LoanRequestWidget() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);
         window.removeEventListener("manual_contribution_logged", handleTransactionUpdate);

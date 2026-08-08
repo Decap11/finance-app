@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import CustomSelect from "./CustomSelect";
+import { subscribeToOwnRows, subscribeToProfileRows } from "../utils/realtimeScope";
 import { getForthcomingMeetingDate } from "../utils/meetingDateUtils";
 import { DEFAULT_SHARE_PRICE, shareCountOf } from "../utils/sharePricing";
 import "../styles/calendarHeatMap.css";
@@ -336,21 +337,13 @@ export default function CalendarHeatMap({ memberId }) {
 
     loadContributionHabits();
 
-    // Subscribe to real-time transactions updates for instant green heatmap tier updates
-    const channel = supabase
-      .channel('realtime-habits-tracker')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          loadContributionHabits();
-        }
-      )
-      .subscribe();
+    // Follow whoever this tracker is pointed at. `memberId` is set when an admin is
+    // inspecting somebody else's history and absent on a member's own dashboard, so the
+    // subscription has to follow the prop rather than the signed-in user -- otherwise an
+    // admin would watch their own writes while drawing a different member's chart.
+    const unsubscribe = memberId
+      ? subscribeToProfileRows(memberId, ['transactions'], () => loadContributionHabits(), 'habits-tracker')
+      : subscribeToOwnRows(['transactions'], () => loadContributionHabits(), 'habits-tracker');
 
     function handleSettingsUpdate(e) {
       if (e.detail && e.detail.meetingDay) {
@@ -370,7 +363,7 @@ export default function CalendarHeatMap({ memberId }) {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
         window.removeEventListener("sacco_transaction_updated", handleTransactionUpdate);

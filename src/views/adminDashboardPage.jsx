@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoRows } from "../utils/realtimeScope";
 import Header from "../Components/Header";
 import ActionCards from "../Components/ActionCard";
 import ContributionApprovals from "../Components/ContributionApprovals";
@@ -282,30 +283,20 @@ export default function AdminDashboardPage() {
     fetchAdminData();
 
     // Subscribe to transactions, loans, and profiles changes to update metrics and member list in real-time
+    // The money tables, scoped to this SACCO.
+    const unsubscribeMoney = subscribeToOwnSaccoRows(
+      ['transactions', 'loans'],
+      () => loadMetrics(),
+      'admin-dashboard-metrics'
+    );
+
+    // profiles is left unfiltered on purpose: it carries `group_id` (a group CODE), not
+    // `sacco_id`, so it cannot use the same filter as the two above. It is also the least
+    // costly one to leave open -- members are added rarely, where contributions are written
+    // all meeting long. Scoping it properly belongs with the SaccoContext work that
+    // replaces group_id lookups generally.
     const channel = supabase
-      .channel('admin-dashboard-realtime-metrics')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          loadMetrics();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'loans'
-        },
-        () => {
-          loadMetrics();
-        }
-      )
+      .channel('admin-dashboard-realtime-profiles')
       .on(
         'postgres_changes',
         {
@@ -351,6 +342,7 @@ export default function AdminDashboardPage() {
     }
 
     return () => {
+      unsubscribeMoney();
       supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_avatar_updated", handleAvatarBroadcast);

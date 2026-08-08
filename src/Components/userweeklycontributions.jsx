@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoSettings } from "../utils/realtimeScope";
 import {
   DEFAULT_SHARE_PRICE,
   SHARE_QTY_MIN,
@@ -117,31 +118,12 @@ export default function WeeklyContributions() {
     loadGroupSettings();
 
     // Subscribe to real-time sacco_settings updates
-    const channel = supabase
-      .channel('weekly-contributions-sacco-settings-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sacco_settings'
-        },
-        () => {
-          loadGroupSettings();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'saccos'
-        },
-        () => {
-          loadGroupSettings();
-        }
-      )
-      .subscribe();
+    // This member's own SACCO settings -- the share price and fund amounts this form
+    // submits against.
+    const unsubscribe = subscribeToOwnSaccoSettings(
+      () => loadGroupSettings(),
+      'weekly-contributions-settings'
+    );
 
     const handleSettingsUpdated = (e) => {
       if (e.detail) {
@@ -153,7 +135,7 @@ export default function WeeklyContributions() {
 
     window.addEventListener("sacco_settings_updated", handleSettingsUpdated);
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       window.removeEventListener("sacco_settings_updated", handleSettingsUpdated);
     };
   }, []);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import "../styles/UserLoanEligibity.css";
 
 export default function UserLoanEligibity() {
@@ -34,24 +35,16 @@ export default function UserLoanEligibity() {
 
     fetchSharesBalance();
 
-    // Reload on transaction changes to keep it updated in real-time
-    const channel = supabase
-      .channel('loan-eligibility-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          fetchSharesBalance();
-        }
-      )
-      .subscribe();
+    // Eligibility is computed from this member's own shares, so their own rows are the
+    // only ones that can change the answer.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions'],
+      () => fetchSharesBalance(),
+      'loan-eligibility'
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

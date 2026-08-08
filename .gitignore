@@ -46,4 +46,12 @@ scratch/
 *.tsbuildinfo
 
 # logs
-*.log
+*.log
+
+# Vercel CLI. `vercel link` writes the project and org ids here; `vercel env pull` output
+# and the OIDC token land beside them. None of it belongs in the repo.
+#
+# The CLI also appends its own `.env*` next to this line. That rule is removed on purpose:
+# it repeats the env section above, and because gitignore is order-dependent it lands
+# AFTER the `!.env.example` negation and silently re-ignores the committed template.
+.vercel

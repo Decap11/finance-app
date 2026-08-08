@@ -97,16 +97,51 @@ export async function POST(request) {
       return Response.json({ error: 'A fine must say what it is for.' }, { status: 400 });
     }
 
+    const args = {
+      p_amount: Number(amount),
+      p_fine_type: String(fineType).trim(),
+      p_description: description || null,
+      p_week_number: weekNumber ? Number(weekNumber) : null
+    };
+
+    // One statement for the whole register (migration 0039). Closing a meeting with thirty
+    // absentees used to be thirty sequential round trips, and a failure partway through
+    // left half the register fined with nothing to roll back to.
+    const { data: bulk, error: bulkErr } = await supabase.rpc('levy_member_fines_bulk', {
+      p_profile_ids: targets,
+      ...args
+    });
+
+    if (!bulkErr) {
+      const ids = bulk?.transaction_ids || [];
+      return Response.json({
+        success: true,
+        issued: targets.map((profileId, i) => ({ profileId, transactionId: ids[i] || null })),
+        failed: []
+      });
+    }
+
+    // 42883 is undefined_function; PGRST202 is PostgREST not finding it in its schema
+    // cache. Anything else is the function refusing the request on its merits -- an
+    // unauthorised caller, a mixed-SACCO list -- and must be reported, not retried a
+    // slower way that would fail identically thirty times over.
+    const missingFn = bulkErr.code === '42883' || bulkErr.code === 'PGRST202';
+    if (!missingFn) {
+      return Response.json({ error: bulkErr.message, failed: [] }, { status: 400 });
+    }
+
+    console.warn(
+      'Fines: levy_member_fines_bulk missing — apply migration 0039. Falling back to the '
+      + `per-member loop for ${targets.length} member(s).`
+    );
+
     const issued = [];
     const failed = [];
 
     for (const target of targets) {
       const { data, error: rpcErr } = await supabase.rpc('levy_member_fine', {
         p_profile_id: target,
-        p_amount: Number(amount),
-        p_fine_type: String(fineType).trim(),
-        p_description: description || null,
-        p_week_number: weekNumber ? Number(weekNumber) : null
+        ...args
       });
 
       if (rpcErr) {

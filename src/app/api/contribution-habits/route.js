@@ -138,14 +138,32 @@ export async function GET(request) {
       ? requestedYear
       : thisYear;
 
-    const { data: rawTransactions, error: txErr } = await supabase
+    // Named columns rather than '*'. This is a whole year of a member's contributions and
+    // it is fetched on every dashboard load; the heatmap reads ten fields and the row has
+    // considerably more, all of which were crossing the wire to be discarded.
+    //
+    // share_count and unit_price arrive with migration 0033, and asking PostgREST for a
+    // column that does not exist fails the WHOLE query -- which on a database without 0033
+    // would blank the tracker entirely. Same fallback ContributionApprovals uses: ask for
+    // them, and on undefined_column ask again without. shareCountOf then recovers the
+    // count from the description instead.
+    const TX_COLUMNS = 'id, amount, category, status, direction, created_at, description, week_number';
+
+    const runTx = (columns) => supabase
       .from('transactions')
-      .select('*')
+      .select(columns)
       .eq('profile_id', targetMemberId)
       .in('category', CONTRIBUTION_CATEGORIES)
       .gte('created_at', `${year}-01-01`)
       .lt('created_at', `${year + 1}-01-01`)
       .order('created_at', { ascending: true });
+
+    let { data: rawTransactions, error: txErr } = await runTx(`${TX_COLUMNS}, share_count, unit_price`);
+
+    if (txErr && (txErr.code === '42703' || txErr.code === 'PGRST204' || /share_count|unit_price/i.test(txErr.message || ''))) {
+      console.warn('Habits: share_count/unit_price missing — apply migration 0033.', txErr.message);
+      ({ data: rawTransactions, error: txErr } = await runTx(TX_COLUMNS));
+    }
 
     if (txErr) {
       return Response.json({ error: txErr.message }, { status: 500 });

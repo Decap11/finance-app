@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnRows } from "../utils/realtimeScope";
 import { useToast } from "../context/ToastContext";
 import { DEFAULT_SHARE_PRICE } from "../utils/sharePricing";
 import "../styles/UserProgressTracker.css";
@@ -113,21 +114,12 @@ export default function UserProgressTracker() {
 
     loadData();
 
-    // Subscribe to transactions real-time channel to reload progress tracker on approvals
-    const channel = supabase
-      .channel('progress-tracker-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
-        },
-        () => {
-          loadData();
-        }
-      )
-      .subscribe();
+    // This member's own approvals only -- the tracker plots nobody else's progress.
+    const unsubscribe = subscribeToOwnRows(
+      ['transactions'],
+      () => loadData(),
+      'progress-tracker'
+    );
 
     function handleUpdate() {
       loadData();
@@ -139,7 +131,7 @@ export default function UserProgressTracker() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_transaction_updated", handleUpdate);
         window.removeEventListener("manual_contribution_logged", handleUpdate);

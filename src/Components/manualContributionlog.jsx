@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
+import { subscribeToOwnSaccoSettings } from "../utils/realtimeScope";
 import CustomSelect from "./CustomSelect";
 import { getSaccoWeekOf } from "../utils/meetingDateUtils";
 import "../styles/featureArea.css";
@@ -216,11 +217,9 @@ export default function ManualContributionLog({ allMembers }) {
 
     loadSettings();
 
-    const channel = supabase
-      .channel("manual-log-sacco-settings-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sacco_settings" }, loadSettings)
-      .on("postgres_changes", { event: "*", schema: "public", table: "saccos" }, loadSettings)
-      .subscribe();
+    // This SACCO's own settings. Unfiltered, any other group saving its configuration
+    // made this form re-read its own.
+    const unsubscribe = subscribeToOwnSaccoSettings(loadSettings, "manual-log-settings");
 
     function handleSettingsUpdate(e) {
       // Finishing historical onboarding moves the anchor, which changes every week number
@@ -242,7 +241,7 @@ export default function ManualContributionLog({ allMembers }) {
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      unsubscribe();
       if (typeof window !== "undefined") {
         window.removeEventListener("sacco_settings_updated", handleSettingsUpdate);
       }
