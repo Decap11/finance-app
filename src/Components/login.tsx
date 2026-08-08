@@ -11,6 +11,12 @@ export default function Login() {
   const [LogInpassword, setLogInPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  // Was a checkbox bound to nothing while the email was saved unconditionally below, so
+  // the box did nothing whichever way it was left and every device remembered the last
+  // address typed on it. Defaults to true only when there is already a saved address,
+  // which is the state the member last left it in.
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -23,7 +29,10 @@ export default function Login() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedEmail = localStorage.getItem("rememberedEmail");
-      if (savedEmail) setEmail(savedEmail);
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
     }
     if (registeredEmail) setEmail(decodeURIComponent(registeredEmail));
   }, [registeredEmail]);
@@ -68,8 +77,15 @@ export default function Login() {
 
     setIsLoading(false);
 
+    // Honour the checkbox. Unticking it now actually forgets the address, which is what
+    // it has always claimed to do -- on a shared phone, which is common here, leaving a
+    // member's email on the sign-in screen is a real thing to be able to refuse.
     if (typeof window !== "undefined") {
-      localStorage.setItem("rememberedEmail", email.trim());
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", email.trim());
+      } else {
+        localStorage.removeItem("rememberedEmail");
+      }
     }
 
     if (profile && profile.role === 'admin') {
@@ -83,13 +99,9 @@ export default function Login() {
     }
   };
 
-  const togglePassword = () => {
-    const passwordInput = document.getElementById("password") as HTMLInputElement | null;
-    if (passwordInput) {
-      passwordInput.type =
-        passwordInput.type === "password" ? "text" : "password";
-    }
-  };
+  // togglePassword removed: it reached into the DOM with getElementById and mutated
+  // input.type behind React's back, so the icon never changed and React had no idea the
+  // field had switched. `showPassword` state drives both the type and the glyph now.
 
   const handleImageError = (event: SyntheticEvent<HTMLImageElement, Event>) => {
     event.currentTarget.src =
@@ -147,18 +159,32 @@ export default function Login() {
         </div>
       )}
 
-      {errorMsg && <div className="error-message" style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{errorMsg}</div>}
+      {/* role="alert" so a failed sign-in is announced rather than silently repainted --
+          a member using a screen reader previously got no indication at all that the
+          form had rejected them. */}
+      {errorMsg && (
+        <div className="auth-alert auth-alert-error" role="alert">
+          <i className="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
-      <form id="loginForm" onSubmit={handleLogin}>
+      <form onSubmit={handleLogin} noValidate>
         <div className="form-group">
-          <label className="form-label">Email Address</label>
+          <label className="form-label" htmlFor="email">Email address</label>
           <div className="form-input-container">
-            <i className="fa-regular fa-envelope form-icon"></i>
+            <i className="fa-regular fa-envelope form-icon" aria-hidden="true"></i>
             <input
               type="email"
               id="email"
+              name="email"
               className="form-input"
-              placeholder="e.g. member@email.com"
+              // Lets a password manager fill this, which is most of how members with a
+              // long SACCO email actually sign in on a phone.
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -167,60 +193,63 @@ export default function Login() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">
-            Password
-            <button type="button" className="forgot-link">
+          <div className="form-label-row">
+            <label className="form-label" htmlFor="password">Password</label>
+            {/* Was a <button> with no handler, nested inside the <label>, pointing at a
+                route that did not exist. A member who forgot their password had no way
+                back into their own account. */}
+            <Link href="/forgot-password" className="forgot-link">
               Forgot password?
-            </button>
-          </label>
+            </Link>
+          </div>
           <div className="form-input-container">
-            <i className="fa-solid fa-lock form-icon"></i>
+            <i className="fa-solid fa-lock form-icon" aria-hidden="true"></i>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               id="password"
+              name="password"
               className="form-input"
-              placeholder="Enter your password"
+              autoComplete="current-password"
               value={LogInpassword}
               onChange={(e) => setLogInPassword(e.target.value)}
               required
             />
-            <i
-              className="fa-regular fa-eye pwd-toggle"
-              onClick={togglePassword}
-            ></i>
+            <button
+              type="button"
+              className="pwd-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              // The label states what pressing it will DO, and aria-pressed carries the
+              // current state. Announcing "show password" while the password is already
+              // visible is the usual way this control goes wrong.
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              aria-controls="password"
+            >
+              <i
+                className={showPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye"}
+                aria-hidden="true"
+              ></i>
+            </button>
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: "1.3rem",
-            marginBottom: "2rem",
-            color: "var(--text-light)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.8rem",
-          }}
-        >
+        <div className="form-check">
           <input
             type="checkbox"
             id="remember"
-            style={{
-              width: "1.4rem",
-              height: "1.4rem",
-              accentColor: "var(--primary-color)",
-              cursor: "pointer",
-            }}
+            name="remember"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
           />
-          <label htmlFor="remember" style={{ cursor: "pointer" }}>
-            Remember me on this device
-          </label>
+          <label htmlFor="remember">Remember me on this device</label>
         </div>
 
-        <button type="submit" className="btn-submit" id="submitBtn" disabled={isLoading}>
-          {isLoading ? "Logging in..." : "Secure Login"}
+        <button type="submit" className="btn-submit" disabled={isLoading}>
+          {isLoading ? "Signing in…" : "Sign in"}
           {!isLoading && <i
             className="fa-solid fa-arrow-right-to-bracket"
             style={{ marginLeft: "0.8rem" }}
+            aria-hidden="true"
           ></i>}
         </button>
       </form>

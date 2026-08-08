@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import "../styles/registerSacco.css";
 import { supabase } from "../supabaseClient";
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_TEXT } from "../utils/passwordPolicy";
 
 export default function RegisterSacco() {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -17,6 +18,7 @@ export default function RegisterSacco() {
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -34,14 +36,9 @@ export default function RegisterSacco() {
     ? `MEM-${memberId.trim().toUpperCase()}`
     : "MEM-XXX";
 
-  function togglePassword(element: HTMLElement, fieldId: string) {
-    const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
-    if (!inputField) return;
-    const isPassword = inputField.type === "password";
-    inputField.type = isPassword ? "text" : "password";
-    element.classList.toggle("fa-eye");
-    element.classList.toggle("fa-eye-slash");
-  }
+  // togglePassword removed -- see the note in SignUp. It mutated input.type and the icon's
+  // classes directly through the DOM, so React never saw the change and the visible state
+  // lived outside the component. `showPassword` drives both.
 
   function formatError(err: any): string {
     if (!err) return "An unexpected error occurred.";
@@ -347,34 +344,47 @@ export default function RegisterSacco() {
             </h3>
 
             <div className="form-group">
-              <label className="form-label">SACCO Name</label>
+              <label className="form-label" htmlFor="regSaccoName">SACCO name</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-building-columns form-icon"></i>
+                <i className="fa-solid fa-building-columns form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
+                  id="regSaccoName"
+                  name="organization"
                   className="form-input"
-                  placeholder="e.g. Hope Development SACCO"
+                  autoComplete="organization"
                   value={saccoName}
                   onChange={(e) => setSaccoName(e.target.value)}
                   required
                   autoFocus
+                  aria-describedby="regSaccoName-hint"
                 />
               </div>
+              <span className="form-hint" id="regSaccoName-hint">
+                Your members will see this name when they join.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">SACCO Unique Number / Code</label>
+              <label className="form-label" htmlFor="regSaccoNumber">SACCO unique number</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-hashtag form-icon"></i>
+                <i className="fa-solid fa-hashtag form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
+                  id="regSaccoNumber"
+                  name="saccoUniqueNumber"
                   className="form-input"
-                  placeholder="e.g. 8134"
+                  inputMode="numeric"
                   value={saccoUniqueNumber}
                   onChange={(e) => setSaccoUniqueNumber(e.target.value)}
                   required
+                  aria-describedby="regSaccoNumber-hint"
                 />
               </div>
+              <span className="form-hint" id="regSaccoNumber-hint">
+                Choose a number your members will use to find this group. Give it to them
+                once you are registered.
+              </span>
             </div>
 
             <div className="sacco-button-group">
@@ -395,28 +405,37 @@ export default function RegisterSacco() {
             </h3>
 
             <div className="form-group">
-              <label className="form-label">Member ID Number</label>
+              <label className="form-label" htmlFor="regMemberId">Your member number</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-id-badge form-icon"></i>
+                <i className="fa-solid fa-id-badge form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
+                  id="regMemberId"
+                  name="memberId"
                   className="form-input"
-                  placeholder="e.g. 006"
+                  inputMode="numeric"
                   value={memberId}
                   onChange={(e) => setMemberId(e.target.value)}
                   required
+                  aria-describedby="regMemberId-hint"
                 />
               </div>
+              <span className="form-hint" id="regMemberId-hint">
+                Your own number in the group register.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Full Name</label>
+              <label className="form-label" htmlFor="regFullName">Full name</label>
               <div className="form-input-container">
-                <i className="fa-regular fa-user form-icon"></i>
+                <i className="fa-regular fa-user form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
+                  id="regFullName"
+                  name="name"
                   className="form-input"
-                  placeholder="e.g. Joseph Ssembatya"
+                  autoComplete="name"
+                  autoCapitalize="words"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -425,54 +444,82 @@ export default function RegisterSacco() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label className="form-label" htmlFor="regEmail">Email address</label>
               <div className="form-input-container">
-                <i className="fa-regular fa-envelope form-icon"></i>
+                <i className="fa-regular fa-envelope form-icon" aria-hidden="true"></i>
                 <input
                   type="email"
+                  id="regEmail"
+                  name="email"
                   className="form-input"
-                  placeholder="admin@sacco.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  aria-describedby="regEmail-hint"
                 />
               </div>
+              <span className="form-hint" id="regEmail-hint">
+                You will sign in with this, and it receives account recovery links.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Phone Number</label>
+              <label className="form-label" htmlFor="regPhone">Phone number</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-phone form-icon"></i>
+                <i className="fa-solid fa-phone form-icon" aria-hidden="true"></i>
                 <input
                   type="tel"
+                  id="regPhone"
+                  name="tel"
                   className="form-input"
-                  placeholder="+256 700 000000"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
+                  aria-describedby="regPhone-hint"
                 />
               </div>
+              <span className="form-hint" id="regPhone-hint">
+                Include the country code, for example +256.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <label className="form-label" htmlFor="regPassword">Password</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-lock form-icon"></i>
+                <i className="fa-solid fa-lock form-icon" aria-hidden="true"></i>
                 <input
-                  type="password"
-                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  id="regPassword"
+                  name="new-password"
                   className="form-input"
-                  placeholder="Create a strong password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={PASSWORD_MIN_LENGTH}
+                  aria-describedby="regPassword-hint"
                 />
-                <i
-                  className="fa-regular fa-eye pwd-toggle"
-                  onClick={(e) => togglePassword(e.currentTarget as HTMLElement, "password")}
-                ></i>
+                <button
+                  type="button"
+                  className="pwd-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  aria-controls="regPassword"
+                >
+                  <i
+                    className={showPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye"}
+                    aria-hidden="true"
+                  ></i>
+                </button>
               </div>
+              <span className="form-hint" id="regPassword-hint">{PASSWORD_RULE_TEXT}</span>
             </div>
 
             <div className="terms-checkbox">

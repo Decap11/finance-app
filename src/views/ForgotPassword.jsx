@@ -91,25 +91,34 @@ export default function ForgotPassword() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label className="form-label">Email Address</label>
+          <label className="form-label" htmlFor="recoveryEmail">Email address</label>
           <div className="form-input-container">
-            <i className="fa-regular fa-envelope form-icon"></i>
+            <i className="fa-regular fa-envelope form-icon" aria-hidden="true"></i>
             <input
               type="email"
-              placeholder="e.g. member@email.com"
+              id="recoveryEmail"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="form-input"
               disabled={isLoading}
+              aria-describedby="recoveryEmail-hint"
             />
           </div>
+          <span className="form-hint" id="recoveryEmail-hint">
+            The address you sign in with. We will email you a link to set a new password.
+          </span>
         </div>
 
         <button type="submit" className="btn-submit" disabled={isLoading}>
-          {isLoading ? "Sending link..." : "Send Recovery Link"}
+          {isLoading ? "Sending…" : "Email me a reset link"}
           {!isLoading && <i
             className="fa-solid fa-paper-plane"
             style={{ marginLeft: "0.8rem" }}

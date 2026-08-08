@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../supabaseClient";
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_TEXT, checkNewPassword } from "../utils/passwordPolicy";
 import "../styles/login.css";
 
 export default function ResetPassword() {
@@ -19,13 +20,12 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!password || password.length < 6) {
-      setErrorMsg("Password must be at least 6 characters long.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMsg("Passwords do not match.");
+    // One shared rule. This form used to accept six characters while both registration
+    // paths required eight, which made it the weakest way into any account: sign up under
+    // the strict rule, then reset your way under the loose one.
+    const problem = checkNewPassword(password, confirmPassword);
+    if (problem) {
+      setErrorMsg(problem);
       return;
     }
 
@@ -111,53 +111,75 @@ export default function ResetPassword() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label className="form-label">New Password</label>
+          <label className="form-label" htmlFor="newPassword">New password</label>
           <div className="form-input-container">
-            <i className="fa-solid fa-lock form-icon"></i>
+            <i className="fa-solid fa-lock form-icon" aria-hidden="true"></i>
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="At least 6 characters"
+              id="newPassword"
+              name="new-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               className="form-input"
               disabled={isLoading}
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
+              aria-describedby="newPassword-hint"
             />
-            <i
-              className={showPassword ? "fa-regular fa-eye-slash pwd-toggle" : "fa-regular fa-eye pwd-toggle"}
+            <button
+              type="button"
+              className="pwd-toggle"
               onClick={() => setShowPassword(!showPassword)}
-              style={{ cursor: "pointer" }}
-            ></i>
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              aria-controls="newPassword"
+            >
+              <i
+                className={showPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye"}
+                aria-hidden="true"
+              ></i>
+            </button>
           </div>
+          <span className="form-hint" id="newPassword-hint">{PASSWORD_RULE_TEXT}</span>
         </div>
 
         <div className="form-group">
-          <label className="form-label">Confirm New Password</label>
+          <label className="form-label" htmlFor="confirmPassword">Confirm new password</label>
           <div className="form-input-container">
-            <i className="fa-solid fa-lock form-icon"></i>
+            <i className="fa-solid fa-lock form-icon" aria-hidden="true"></i>
             <input
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="Confirm your password"
+              id="confirmPassword"
+              name="confirm-password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               className="form-input"
               disabled={isLoading}
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
             />
-            <i
-              className={showConfirmPassword ? "fa-regular fa-eye-slash pwd-toggle" : "fa-regular fa-eye pwd-toggle"}
+            <button
+              type="button"
+              className="pwd-toggle"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              style={{ cursor: "pointer" }}
-            ></i>
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              aria-pressed={showConfirmPassword}
+              aria-controls="confirmPassword"
+            >
+              <i
+                className={showConfirmPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye"}
+                aria-hidden="true"
+              ></i>
+            </button>
           </div>
         </div>
 
         <button type="submit" className="btn-submit" disabled={isLoading}>
-          {isLoading ? "Saving changes..." : "Save Password & Login"}
+          {isLoading ? "Saving…" : "Save password and sign in"}
           {!isLoading && <i
             className="fa-solid fa-circle-check"
             style={{ marginLeft: "0.8rem" }}

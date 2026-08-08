@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import "../styles/signUp.css";
 import { supabase } from "../supabaseClient";
+import { PASSWORD_MIN_LENGTH, checkNewPassword } from "../utils/passwordPolicy";
 
 export default function SignupForm() {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -17,6 +18,7 @@ export default function SignupForm() {
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -32,14 +34,10 @@ export default function SignupForm() {
     }
   }, []);
 
-  function togglePassword(element: HTMLElement, fieldId: string) {
-    const inputField = document.getElementById(fieldId) as HTMLInputElement | null;
-    if (!inputField) return;
-    const isPassword = inputField.type === "password";
-    inputField.type = isPassword ? "text" : "password";
-    element.classList.toggle("fa-eye");
-    element.classList.toggle("fa-eye-slash");
-  }
+  // togglePassword removed: it read the field with getElementById, mutated input.type
+  // behind React's back and hand-toggled Font Awesome classes on the icon element. React
+  // never knew the field had changed, and the icon state lived in the DOM rather than in
+  // the component. `showPassword` drives both now.
 
   function handleNextStep(e?: React.MouseEvent) {
     if (e) e.preventDefault();
@@ -304,36 +302,48 @@ export default function SignupForm() {
         {currentStep === 1 ? (
           <div>
             <div className="form-group">
-              <label className="form-label">SACCO Name</label>
+              <label className="form-label" htmlFor="saccoName">SACCO name</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-building-columns form-icon"></i>
+                <i className="fa-solid fa-building-columns form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
                   id="saccoName"
+                  name="organization"
                   className="form-input"
-                  placeholder="e.g. Hope Development SACCO"
+                  autoComplete="organization"
                   value={saccoName}
                   onChange={(e) => setSaccoName(e.target.value)}
                   required
                   autoFocus
+                  aria-describedby="saccoName-hint"
                 />
               </div>
+              <span className="form-hint" id="saccoName-hint">
+                The name your group is registered under.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">SACCO Unique Number / Code</label>
+              <label className="form-label" htmlFor="saccoUniqueNumber">
+                SACCO unique number
+              </label>
               <div className="form-input-container">
-                <i className="fa-solid fa-hashtag form-icon"></i>
+                <i className="fa-solid fa-hashtag form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
                   id="saccoUniqueNumber"
+                  name="saccoUniqueNumber"
                   className="form-input"
-                  placeholder="e.g. 8134"
+                  inputMode="numeric"
                   value={saccoUniqueNumber}
                   onChange={(e) => setSaccoUniqueNumber(e.target.value)}
                   required
+                  aria-describedby="saccoUniqueNumber-hint"
                 />
               </div>
+              <span className="form-hint" id="saccoUniqueNumber-hint">
+                The code your administrator gave you. Ask them if you are not sure.
+              </span>
             </div>
 
             <button
@@ -348,30 +358,37 @@ export default function SignupForm() {
         ) : (
           <div>
             <div className="form-group">
-              <label className="form-label">Member ID Number</label>
+              <label className="form-label" htmlFor="memberId">Member number</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-id-badge form-icon"></i>
+                <i className="fa-solid fa-id-badge form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
                   id="memberId"
+                  name="memberId"
                   className="form-input"
-                  placeholder="e.g. 0042"
+                  inputMode="numeric"
                   value={memberId}
                   onChange={(e) => setMemberId(e.target.value)}
                   required
+                  aria-describedby="memberId-hint"
                 />
               </div>
+              <span className="form-hint" id="memberId-hint">
+                Your number in the group register, as your administrator recorded it.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Full Name</label>
+              <label className="form-label" htmlFor="fullName">Full name</label>
               <div className="form-input-container">
-                <i className="fa-regular fa-user form-icon"></i>
+                <i className="fa-regular fa-user form-icon" aria-hidden="true"></i>
                 <input
                   type="text"
                   id="fullName"
+                  name="name"
                   className="form-input"
-                  placeholder="e.g. Joseph Ssembatya"
+                  autoComplete="name"
+                  autoCapitalize="words"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -380,56 +397,86 @@ export default function SignupForm() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label className="form-label" htmlFor="email">Email address</label>
               <div className="form-input-container">
-                <i className="fa-regular fa-envelope form-icon"></i>
+                <i className="fa-regular fa-envelope form-icon" aria-hidden="true"></i>
                 <input
                   type="email"
                   id="email"
+                  name="email"
                   className="form-input"
-                  placeholder="e.g. member@email.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  aria-describedby="email-hint"
                 />
               </div>
+              <span className="form-hint" id="email-hint">
+                Used to sign in and to recover your account.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Phone Number</label>
+              <label className="form-label" htmlFor="phone">Phone number</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-phone form-icon"></i>
+                <i className="fa-solid fa-phone form-icon" aria-hidden="true"></i>
                 <input
                   type="tel"
                   id="phone"
+                  name="tel"
                   className="form-input"
-                  placeholder="+256 700 000000"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
+                  aria-describedby="phone-hint"
                 />
               </div>
+              <span className="form-hint" id="phone-hint">
+                Include the country code, for example +256.
+              </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <label className="form-label" htmlFor="password">Password</label>
               <div className="form-input-container">
-                <i className="fa-solid fa-lock form-icon"></i>
+                <i className="fa-solid fa-lock form-icon" aria-hidden="true"></i>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
+                  name="new-password"
                   className="form-input"
-                  placeholder="Create a strong password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={PASSWORD_MIN_LENGTH}
+                  aria-describedby="password-hint"
                 />
-                <i
-                  className="fa-regular fa-eye pwd-toggle"
-                  onClick={(e) => togglePassword(e.currentTarget, "password")}
-                ></i>
+                <button
+                  type="button"
+                  className="pwd-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  aria-controls="password"
+                >
+                  <i
+                    className={showPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye"}
+                    aria-hidden="true"
+                  ></i>
+                </button>
               </div>
+              {/* The requirement, stated up front rather than sprung as an error after
+                  they submit. It was previously only discoverable by failing. */}
+              <span className="form-hint" id="password-hint">
+                At least {PASSWORD_MIN_LENGTH} characters.
+              </span>
             </div>
 
             <div className="terms-checkbox">

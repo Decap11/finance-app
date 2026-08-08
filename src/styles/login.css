@@ -105,14 +105,44 @@ html {
   position: relative;
 }
 
+/* A plain block label again. It used to be a flex row because "Forgot password?" was
+   nested INSIDE the <label> -- which is invalid (a label may not contain a second
+   interactive control) and meant clicking the link also focused the password field.
+   The link is now a sibling in .form-label-row, and the label is just a label. */
 .form-label {
   display: block;
   font-size: 1.3rem;
   font-weight: 600;
   color: var(--text-dark);
   margin-bottom: 0.8rem;
+}
+
+/* Label on the left, its optional action on the right. */
+.form-label-row {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 1rem;
+}
+
+.form-label-row .form-label {
+  margin-bottom: 0;
+}
+
+.form-label-row + .form-input-container {
+  margin-top: 0.8rem;
+}
+
+/* The format hint that used to live in a placeholder. Placeholders disappear the moment
+   someone types, which is exactly when a format reminder is still wanted, and they are
+   read as a filled value by some assistive tech. As real text it stays put, and it is
+   tied to the input by aria-describedby. */
+.form-hint {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 1.15rem;
+  line-height: 1.45;
+  color: var(--text-light);
 }
 
 .forgot-link {
@@ -121,6 +151,11 @@ html {
   text-decoration: none;
   font-size: 1.25rem;
   transition: color 0.2s;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .forgot-link:hover {
@@ -200,6 +235,10 @@ html {
   -webkit-box-shadow: 0 0 0 100rem var(--white) inset;
 }
 
+/* A real <button> now, not an <i>. As an icon element it could not be reached by keyboard,
+   announced nothing to a screen reader, and never changed its glyph -- so it always showed
+   the "show" eye even while the password was visible. 44px is the minimum comfortable
+   touch target. */
 .pwd-toggle {
   flex: 0 0 auto;
   width: max(4.5rem, 44px);
@@ -212,9 +251,95 @@ html {
   cursor: pointer;
   font-size: 1.4rem;
   transition: color 0.2s;
+  background: none;
+  border: none;
+  border-radius: inherit;
+  padding: 0;
 }
 .pwd-toggle:hover {
   color: var(--text-dark);
+}
+
+/* The container owns the focus ring via :focus-within, so a second ring here would draw a
+   box inside a box. Visible focus still has to land somewhere, so it goes on the glyph. */
+.pwd-toggle:focus-visible {
+  outline: none;
+  color: var(--primary-color);
+}
+
+/* Errors and confirmations. These were inline `style={{ color: 'red' }}`, which is not a
+   great deal of signal for "your account could not be accessed" and read as body text to
+   anyone not distinguishing colour. */
+.auth-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 0.8rem;
+  margin-bottom: 1.6rem;
+  font-size: 1.3rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.auth-alert i {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  font-size: 1.4rem;
+}
+
+.auth-alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.auth-alert-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+/* Marks a field the browser or our own validation has rejected. Paired with aria-invalid
+   on the input, so it is never colour alone that carries the message. */
+.form-input-container.is-invalid {
+  border-color: #ef4444;
+}
+
+.form-input-container.is-invalid:focus-within {
+  box-shadow: 0 0 0 0.4rem rgba(239, 68, 68, 0.12);
+}
+
+.form-error {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+/* The remember-me row. Was a bare flex div with inline styles and a checkbox wired to
+   nothing at all. */
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
+  font-size: 1.3rem;
+  color: var(--text-light);
+}
+
+.form-check input[type="checkbox"] {
+  width: 1.6rem;
+  height: 1.6rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.form-check label {
+  cursor: pointer;
+  user-select: none;
 }
 
 .btn-submit {
